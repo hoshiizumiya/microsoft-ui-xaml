@@ -1,0 +1,169 @@
+name: XamlC C++ modules migration
+
+on:
+  push:
+    branches:
+      - feature/xamlc-cpp-modules-runner
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update XamlC C++ templates
+        shell: pwsh
+        run: |
+          @'
+          from pathlib import Path
+          import re
+
+          ROOT = Path('src/XamlCompiler/BuildTasks/Microsoft/Xaml/XamlCompiler/CodeGenerators')
+
+          def read(path):
+              raw = path.read_bytes()
+              bom = raw.startswith(b'\xef\xbb\xbf')
+              text = raw.decode('utf-8-sig')
+              newline = '\r\n' if '\r\n' in text else '\n'
+              return text.replace('\r\n', '\n'), bom, newline
+
+          def write(path, text, bom, newline):
+              text = text.replace('\n', newline)
+              raw = text.encode('utf-8')
+              if bom:
+                  raw = b'\xef\xbb\xbf' + raw
+              path.write_bytes(raw)
+
+          def add_header_includes(rel, includes):
+              path = ROOT / rel
+              text, bom, newline = read(path)
+              marker = '#pragma once\n\n'
+              assert marker in text, f'missing pragma marker: {rel}'
+              block = ''.join(f'#include <{header}>\n' for header in includes) + '\n'
+              assert block not in text, f'include block already present: {rel}'
+              text = text.replace(marker, marker + block, 1)
+              write(path, text, bom, newline)
+
+          def add_after_pch(rel, includes):
+              path = ROOT / rel
+              text, bom, newline = read(path)
+              marker = '<#  if(!String.IsNullOrEmpty(ProjectInfo.PrecompiledHeaderFile)) { #>\n#include "<#=ProjectInfo.PrecompiledHeaderFile#>"\n<#  }#>\n'
+              assert marker in text, f'missing PCH marker: {rel}'
+              block = ''.join(f'#include <{header}>\n' for header in includes) + '\n'
+              assert block not in text, f'include block already present: {rel}'
+              text = text.replace(marker, marker + block, 1)
+              write(path, text, bom, newline)
+
+          def replace_tokens(rel, replacements):
+              path = ROOT / rel
+              text, bom, newline = read(path)
+              for old, new in replacements:
+                  count = text.count(old)
+                  assert count > 0, f'{old!r} not found in {rel}'
+                  text = text.replace(old, new)
+              write(path, text, bom, newline)
+
+          add_header_includes('CppWinRT/CppWinRT_BindingInfoPass1.tt', ['memory'])
+          add_header_includes('CppWinRT/CppWinRT_TypeInfoPass1.tt', ['memory', 'string'])
+          add_header_includes('CppWinRT/CppWinRT_XamlMetaDataProviderPass1.tt', ['memory'])
+
+          add_after_pch('CppWinRT/CppWinRT_PagePass2.tt', ['algorithm', 'functional', 'list', 'map', 'memory', 'optional', 'string', 'type_traits', 'utility'])
+          add_after_pch('CppWinRT/CppWinRT_BindingInfoPass2.tt', ['memory', 'utility'])
+          add_after_pch('CppWinRT/CppWinRT_TypeInfoPass1Impl.tt', ['cwchar'])
+          add_after_pch('CppWinRT/CppWinRT_TypeInfoPass2.tt', ['algorithm', 'cwchar', 'iterator', 'mutex', 'type_traits', 'vector'])
+          add_after_pch('MoComCppTypeInfoPass1Impl.tt', ['cwchar'])
+          add_after_pch('MoComCppTypeInfoPass2.tt', ['cwchar', 'iterator'])
+
+          replace_tokens('CppWinRT/CppWinRT_TypeInfoPass1Impl.tt', [('wcsrchr(', 'std::wcsrchr(')])
+          replace_tokens('CppWinRT/CppWinRT_TypeInfoPass2.tt', [
+              ('wcsrchr(', 'std::wcsrchr('),
+              ('wcscmp(', 'std::wcscmp('),
+              ('_countof(TypeInfoLookup)', 'std::size(TypeInfoLookup)'),
+              ('size_t typeNameLength = typeName.size();', 'auto typeNameLength = typeName.size();'),
+          ])
+          replace_tokens('MoComCppTypeInfoPass1Impl.tt', [('wcsrchr(', 'std::wcsrchr(')])
+          replace_tokens('MoComCppTypeInfoPass2.tt', [
+              ('wcsrchr(', 'std::wcsrchr('),
+              ('wcscmp(', 'std::wcscmp('),
+              ('_countof(TypeInfoLookup)', 'std::size(TypeInfoLookup)'),
+          ])
+          '@ | Set-Content -Encoding utf8 "$env:RUNNER_TEMP\update_xamlc_templates.py"
+          python "$env:RUNNER_TEMP\update_xamlc_templates.py"
+
+      - name: Locate MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Regenerate preprocessed T4 classes
+        shell: pwsh
+        run: |
+          msbuild src\XamlCompiler\Microsoft.UI.Xaml.Markup.Compiler.csproj /t:TransformAll /p:TransformOnBuild=true /p:TransformOutOfDateOnly=true /p:BuildingInsideVisualStudio=true /m:1 /v:minimal
+
+      - name: Validate generated template changes
+        shell: pwsh
+        run: |
+          @'
+          from pathlib import Path
+          import re
+          import subprocess
+
+          root = Path('src/XamlCompiler/BuildTasks/Microsoft/Xaml/XamlCompiler/CodeGenerators')
+          pairs = [
+              'CppWinRT/CppWinRT_PagePass2',
+              'CppWinRT/CppWinRT_BindingInfoPass1',
+              'CppWinRT/CppWinRT_BindingInfoPass2',
+              'CppWinRT/CppWinRT_TypeInfoPass1',
+              'CppWinRT/CppWinRT_TypeInfoPass1Impl',
+              'CppWinRT/CppWinRT_TypeInfoPass2',
+              'CppWinRT/CppWinRT_XamlMetaDataProviderPass1',
+              'MoComCppTypeInfoPass1Impl',
+              'MoComCppTypeInfoPass2',
+          ]
+
+          expected = {str(root / f'{p}.tt').replace('\\', '/') for p in pairs}
+          expected |= {str(root / f'{p}.cs').replace('\\', '/') for p in pairs}
+          expected.add('.github/workflows/xamlc-cpp-modules-migrate.yml')
+
+          changed = set(subprocess.check_output(['git', 'diff', '--name-only'], text=True).splitlines())
+          unexpected = changed - expected
+          assert not unexpected, f'unexpected generated changes: {sorted(unexpected)}'
+
+          for p in pairs:
+              tt = (root / f'{p}.tt').read_text(encoding='utf-8-sig')
+              cs = (root / f'{p}.cs').read_text(encoding='utf-8-sig')
+              assert tt != '' and cs != ''
+
+          for rel in ['CppWinRT/CppWinRT_TypeInfoPass1Impl', 'CppWinRT/CppWinRT_TypeInfoPass2', 'MoComCppTypeInfoPass1Impl', 'MoComCppTypeInfoPass2']:
+              for ext in ['.tt', '.cs']:
+                  text = (root / f'{rel}{ext}').read_text(encoding='utf-8-sig')
+                  assert re.search(r'(?<!std::)\bwcsrchr\s*\(', text) is None, f'bare wcsrchr remains in {rel}{ext}'
+
+          for rel in ['CppWinRT/CppWinRT_TypeInfoPass2', 'MoComCppTypeInfoPass2']:
+              for ext in ['.tt', '.cs']:
+                  text = (root / f'{rel}{ext}').read_text(encoding='utf-8-sig')
+                  assert re.search(r'(?<!std::)\bwcscmp\s*\(', text) is None, f'bare wcscmp remains in {rel}{ext}'
+                  assert '_countof(TypeInfoLookup)' not in text, f'_countof remains in {rel}{ext}'
+                  assert 'std::size(TypeInfoLookup)' in text, f'std::size missing in {rel}{ext}'
+
+          subprocess.run(['git', 'diff', '--check'], check=True)
+          print('\nChanged files:')
+          print('\n'.join(sorted(changed)))
+          '@ | Set-Content -Encoding utf8 "$env:RUNNER_TEMP\validate_xamlc_templates.py"
+          python "$env:RUNNER_TEMP\validate_xamlc_templates.py"
+
+      - name: Commit generated changes
+        shell: pwsh
+        run: |
+          Remove-Item .github\workflows\xamlc-cpp-modules-migrate.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git diff --cached --stat
+          git commit -m "Make XamlC C++ templates self-contained"
+          git push
