@@ -36,7 +36,9 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             this.Write(this.ToStringHelper.ToStringWithCulture(ProjectInfo.PrecompiledHeaderFile));
             this.Write("\"\r\n");
   }
-            this.Write("\r\n#include <cstdint>\r\n\r\n#include \"XamlBindingInfo.xaml.g.h\"\r\n\r\nnamespace winrt::");
+            this.Write("\r\n#include <cstdint>\r\n\r\n");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTModuleCompatibilityDefinition()));
+            this.Write("\r\n#include \"XamlBindingInfo.xaml.g.h\"\r\n\r\nnamespace winrt::");
             this.Write(this.ToStringHelper.ToStringWithCulture(Colonize(ProjectInfo.RootNamespace)));
             this.Write("::implementation\r\n{\r\n\r\nusing DataContextChangedEventArgs = ");
             this.Write(this.ToStringHelper.ToStringWithCulture(Projection(KnownNamespaces.Xaml)));

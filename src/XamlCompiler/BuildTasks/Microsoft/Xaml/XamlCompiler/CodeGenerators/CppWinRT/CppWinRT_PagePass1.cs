@@ -40,14 +40,12 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 #include <cstdint>
 
 ");
-  foreach (var includeFile in Model.NeededCppWinRTProjectionHeaderFiles) { 
-            this.Write("#if __has_include(<");
-            this.Write(this.ToStringHelper.ToStringWithCulture(includeFile));
-            this.Write(">)\r\n#include <");
-            this.Write(this.ToStringHelper.ToStringWithCulture(includeFile));
-            this.Write(">\r\n#endif\r\n");
-  }
+  foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { 
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)));
             this.Write("\r\n");
+  }
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTModuleCompatibilityDefinition()));
+            this.Write("\r\n\r\n");
   if (Model.CodeInfo.BindStatus != BindStatus.None) { 
             this.Write("#include \"XamlBindingInfo.xaml.g.h\"\r\n");
   } 

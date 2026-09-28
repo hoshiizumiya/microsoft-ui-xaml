@@ -36,16 +36,20 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 // conflict with Storyboard::GetCurrentTime
 #undef GetCurrentTime
 
-#include ""winrt/");
-            this.Write(this.ToStringHelper.ToStringWithCulture(KnownNamespaces.Xaml));
-            this.Write(".h\"\r\n#include \"winrt/");
-            this.Write(this.ToStringHelper.ToStringWithCulture(KnownNamespaces.XamlMarkup));
-            this.Write(".h\"\r\n#include \"winrt/");
-            this.Write(this.ToStringHelper.ToStringWithCulture(KnownNamespaces.XamlInterop));
-            this.Write(".h\"\r\n#include \"winrt/");
-            this.Write(this.ToStringHelper.ToStringWithCulture(KnownNamespaces.WindowsXamlInterop));
-            this.Write(".h\"\r\n\r\n#include \"XamlTypeInfo.xaml.g.h\"\r\n#include \"XamlMetaDataProvider.h\"\r\n\r\nnam" +
-                    "espace winrt::");
+");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsFoundation)));
+            this.Write("\r\n");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.Xaml)));
+            this.Write("\r\n");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlMarkup)));
+            this.Write("\r\n");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlInterop)));
+            this.Write("\r\n");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsXamlInterop)));
+            this.Write("\r\n");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTModuleCompatibilityDefinition()));
+            this.Write("\r\n\r\n#include \"XamlTypeInfo.xaml.g.h\"\r\n#include \"XamlMetaDataProvider.h\"\r\n\r\nnamesp" +
+                    "ace winrt::");
             this.Write(this.ToStringHelper.ToStringWithCulture(Colonize(Model.CodeInfo.ClassName.Namespace)));
             this.Write("::implementation\r\n{\r\n    template <typename D, typename ... Interfaces>\r\n    stru" +
                     "ct AppT: public ");

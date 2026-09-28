@@ -36,16 +36,23 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             this.Write("\"\r\n");
   }
             this.Write("#include <windows.h>\r\n#include <type_traits>\r\n");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.Xaml)));
+            this.Write("\r\n");
+  if (ProjectInfo.EnabledXamlOptionalChanges.Count > 0 || ProjectInfo.DisabledXamlOptionalChanges.Count > 0) { 
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlSettings)));
+            this.Write("\r\n");
+  } 
+  if (ProjectInfo.UseCppWinRTNamedModules) { 
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTNamedModuleImportDirective(Model.CodeInfo.ClassName.Namespace)));
+            this.Write("\r\n");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTModuleCompatibilityDefinition()));
+            this.Write("\r\n");
+  } 
   foreach (var includeFile in Model.NeededLocalXamlHeaderFiles) { 
             this.Write("#include \"");
             this.Write(this.ToStringHelper.ToStringWithCulture(includeFile));
             this.Write("\"\r\n");
   }
-  if (ProjectInfo.EnabledXamlOptionalChanges.Count > 0 || ProjectInfo.DisabledXamlOptionalChanges.Count > 0) { 
-            this.Write("#include \"winrt/");
-            this.Write(this.ToStringHelper.ToStringWithCulture(KnownNamespaces.XamlSettings));
-            this.Write(".h\"\r\n");
-  } 
             this.Write("\r\n#if defined _DEBUG && !defined DISABLE_XAML_GENERATED_BREAK_ON_UNHANDLED_EXCEPT" +
                     "ION\r\nextern \"C\" __declspec(dllimport) int __stdcall IsDebuggerPresent();\r\n#endif" +
                     "\r\n\r\n");

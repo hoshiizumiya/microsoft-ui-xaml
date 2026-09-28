@@ -39,14 +39,25 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 #undef GetCurrentTime
 
 #include <cstdint>
+#include <memory>
 
-#include ""winrt/windows.foundation.h""
-#include ""winrt/windows.ui.xaml.interop.h""
-#include ""winrt/microsoft.ui.xaml.controls.h""
-#include ""winrt/microsoft.ui.xaml.data.h""
-#include ""winrt/microsoft.ui.xaml.markup.h""
-
-namespace winrt::");
+");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsFoundation)));
+            this.Write("\r\n");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsFoundationCollections)));
+            this.Write("\r\n");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.Xaml)));
+            this.Write("\r\n");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlControls)));
+            this.Write("\r\n");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlData)));
+            this.Write("\r\n");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlMarkup)));
+            this.Write("\r\n");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlInterop)));
+            this.Write("\r\n");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTModuleCompatibilityDefinition()));
+            this.Write("\r\n\r\nnamespace winrt::");
             this.Write(this.ToStringHelper.ToStringWithCulture(Colonize(ProjectInfo.RootNamespace)));
             this.Write("::implementation\r\n{\r\n    using DataContextChangedEventArgs = ");
             this.Write(this.ToStringHelper.ToStringWithCulture(Projection(KnownNamespaces.Xaml)));

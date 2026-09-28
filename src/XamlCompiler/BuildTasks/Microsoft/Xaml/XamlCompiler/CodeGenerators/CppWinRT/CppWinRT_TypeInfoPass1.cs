@@ -36,6 +36,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 
 #include <functional>
 #include <map>
+#include <memory>
 #include <vector>
 #include <mutex>
 #include <cstdint>
@@ -44,21 +45,25 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 // conflict with Storyboard::GetCurrentTime
 #undef GetCurrentTime
 
-#include <winrt/Windows.Foundation.h>
-#include <winrt/Windows.Foundation.Collections.h>
-#include ""winrt/");
-            this.Write(this.ToStringHelper.ToStringWithCulture(KnownNamespaces.Xaml));
-            this.Write(".h\"\r\n#include \"winrt/");
-            this.Write(this.ToStringHelper.ToStringWithCulture(KnownNamespaces.XamlData));
-            this.Write(".h\"\r\n#include \"winrt/");
-            this.Write(this.ToStringHelper.ToStringWithCulture(KnownNamespaces.XamlMarkup));
-            this.Write(".h\"\r\n#include \"winrt/");
-            this.Write(this.ToStringHelper.ToStringWithCulture(KnownNamespaces.XamlInterop));
-            this.Write(".h\"\r\n#include \"winrt/");
-            this.Write(this.ToStringHelper.ToStringWithCulture(KnownNamespaces.WindowsXamlInterop));
-            this.Write(".h\"\r\n#include \"winrt/");
-            this.Write(this.ToStringHelper.ToStringWithCulture(KnownNamespaces.XamlXamlTypeInfo));
-            this.Write(".h\"\r\n\r\nnamespace winrt::");
+");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsFoundation)));
+            this.Write("\r\n");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsFoundationCollections)));
+            this.Write("\r\n");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.Xaml)));
+            this.Write("\r\n");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlData)));
+            this.Write("\r\n");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlMarkup)));
+            this.Write("\r\n");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlInterop)));
+            this.Write("\r\n");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsXamlInterop)));
+            this.Write("\r\n");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlXamlTypeInfo)));
+            this.Write("\r\n");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTModuleCompatibilityDefinition()));
+            this.Write("\r\n\r\nnamespace winrt::");
             this.Write(this.ToStringHelper.ToStringWithCulture(Colonize(ProjectInfo.RootNamespace)));
             this.Write("::implementation\r\n{\r\n    using IInspectable = ");
             this.Write(this.ToStringHelper.ToStringWithCulture(Projection(KnownNamespaces.WindowsFoundation)));

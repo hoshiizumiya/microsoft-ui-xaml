@@ -36,25 +36,18 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             this.Write(this.ToStringHelper.ToStringWithCulture(ProjectInfo.PrecompiledHeaderFile));
             this.Write("\"\r\n");
   }
-            this.Write(@"
-#include <unknwn.h>
-#include <memory>
-#include <string>
-#include <regex>
-#include <mutex>
-#include <cstdint>
-
-// Undefine GetCurrentTime macro to prevent
-// conflict with Storyboard::GetCurrentTime
-#undef GetCurrentTime
-
-#include ""winrt/windows.foundation.h""
-#include ""winrt/windows.ui.xaml.interop.h""
-#include ""winrt/microsoft.ui.xaml.markup.h""
-#include ""XamlTypeInfo.xaml.g.h""
-#include ""XamlMetaDataProvider.h""
-
-namespace winrt::");
+            this.Write("\r\n#include <unknwn.h>\r\n#include <memory>\r\n#include <string>\r\n#include <regex>\r\n#i" +
+                    "nclude <mutex>\r\n#include <cstdint>\r\n\r\n// Undefine GetCurrentTime macro to preven" +
+                    "t\r\n// conflict with Storyboard::GetCurrentTime\r\n#undef GetCurrentTime\r\n\r\n");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsFoundation)));
+            this.Write("\r\n");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsXamlInterop)));
+            this.Write("\r\n");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlMarkup)));
+            this.Write("\r\n");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTModuleCompatibilityDefinition()));
+            this.Write("\r\n#include \"XamlTypeInfo.xaml.g.h\"\r\n#include \"XamlMetaDataProvider.h\"\r\n\r\nnamespac" +
+                    "e winrt::");
             this.Write(this.ToStringHelper.ToStringWithCulture(Colonize(ProjectInfo.RootNamespace)));
             this.Write("::implementation\r\n{\r\n    using namespace ");
             this.Write(this.ToStringHelper.ToStringWithCulture(Projection(KnownNamespaces.XamlMarkup)));

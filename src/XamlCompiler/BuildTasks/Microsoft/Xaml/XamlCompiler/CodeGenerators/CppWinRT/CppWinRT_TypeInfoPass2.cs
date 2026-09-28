@@ -43,14 +43,12 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             this.Write("#include <unknwn.h>\r\n#include <memory>\r\n#include <cstdint>\r\n\r\n// Undefine GetCurr" +
                     "entTime macro to prevent\r\n// conflict with Storyboard::GetCurrentTime\r\n#undef Ge" +
                     "tCurrentTime\r\n\r\n");
-  foreach (var includeFile in Model.NeededCppWinRTProjectionHeaderFiles) { 
-            this.Write("#if __has_include(<");
-            this.Write(this.ToStringHelper.ToStringWithCulture(includeFile));
-            this.Write(">)\r\n#include <");
-            this.Write(this.ToStringHelper.ToStringWithCulture(includeFile));
-            this.Write(">\r\n#endif\r\n");
-  }
+  foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { 
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)));
             this.Write("\r\n");
+  }
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTModuleCompatibilityDefinition()));
+            this.Write("\r\n\r\n");
   if (ProjectInfo.GenerateIncrementalTypeInfo) { 
             this.Write("#ifdef XAML_TYPE_INFO_INC\r\n#include XAML_TYPE_INFO_INC\r\n#endif\r\n");
   } 
