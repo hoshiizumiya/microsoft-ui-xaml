@@ -90,6 +90,7 @@ namespace UnitTests
             XamlCompileError xamlCompileError = new XamlCompileError(null);
             XamlProjectInfo xamlProjectInfo = new XamlProjectInfo();
             XamlNodeStreamHelper xamlNodStreamHelper = new XamlNodeStreamHelper();
+            PageDefinition pageDefinition = new PageDefinition(xamlProjectInfo, xamlSchemaCodeInfo);
             ClassName xamlAppInfo = new ClassName("App1.MainPage");
             DirectUIAssembly duiAssembly = new DirectUIAssembly(null);
             DirectUISystem duiSystem = new DirectUISystem(null);

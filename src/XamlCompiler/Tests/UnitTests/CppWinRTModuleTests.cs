@@ -71,5 +71,39 @@ namespace UnitTests
                 new[] { "OpenNet.App", "OpenNet.UI.Pages.MainPage" },
                 new System.Collections.Generic.List<string>(context.ProjectInfo.XamlClassNames));
         }
+
+
+        [TestMethod]
+        public void EmptyPage_StillRequiresGeneratedScaffoldingProjections()
+        {
+            const string xaml = @"
+<Page
+    xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'
+    xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml'
+    x:Class='TestApp.EmptyPage' />";
+
+            var helper = new TestHelper();
+            var schema = helper.LoadSchema(SchemaMode.ManagedRuntime);
+            var domRoot = helper.LoadXamlDom(xaml, schema);
+            var codeInfo = helper.HarvestClassCodeInfo(".", domRoot, true, false);
+            var projectInfo = new XamlProjectInfo
+            {
+                ClassToHeaderFileMap = new System.Collections.Generic.Dictionary<string, string>(),
+            };
+            var definition = new PageDefinition(projectInfo, new XamlSchemaCodeInfo())
+            {
+                CodeInfo = codeInfo,
+            };
+
+            CollectionAssert.AreEquivalent(
+                new[]
+                {
+                    "Windows.Foundation",
+                    "Microsoft.UI.Xaml",
+                    "Microsoft.UI.Xaml.Controls.Primitives",
+                    "Microsoft.UI.Xaml.Markup",
+                },
+                definition.NeededCppWinRTProjectionNamespaces);
+        }
     }
 }

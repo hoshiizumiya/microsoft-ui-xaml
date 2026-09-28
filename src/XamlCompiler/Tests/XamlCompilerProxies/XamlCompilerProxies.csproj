@@ -63,6 +63,7 @@
     <Compile Include="InternalXamlUserMemberInfo_P.cs" />
     <Compile Include="Language_P.cs" />
     <Compile Include="LineNumberInfo_P.cs" />
+    <Compile Include="PageDefinition_P.cs" />
     <Compile Include="ProxyHelper.cs" />
     <Compile Include="Roots_P.cs" />
     <Compile Include="TypeForCodeGen_P.cs" />
