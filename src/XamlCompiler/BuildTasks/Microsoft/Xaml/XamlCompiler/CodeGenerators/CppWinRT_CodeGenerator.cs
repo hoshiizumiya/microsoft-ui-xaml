@@ -45,16 +45,6 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             return type.CppWinRTName();
         }
 
-        public string GetCppWinRTProjectionDependencyDirective(string projectionNamespace)
-        {
-            if (ProjectInfo.UseCppWinRTNamedModules)
-            {
-                return $"import {CppWinRTProjectionDependency.GetModuleName(projectionNamespace)};";
-            }
-
-            return $"#include <{CppWinRTProjectionDependency.GetHeaderFile(projectionNamespace)}>";
-        }
-
         public static String Projection(string typeName)
         {
             string newName = Globalize(typeName);

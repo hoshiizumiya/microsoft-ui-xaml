@@ -341,7 +341,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 
             // OtherProviders() constructs each provider in the generated type-info source. A managed
             // component can place its provider in a nested <Ns>.<Ns>_XamlTypeInfo namespace whose
-            // C++/WinRT header is not implied by any registered XAML type, so include it explicitly.
+            // projection namespace is not implied by any registered XAML type, so track it explicitly.
             foreach (var provider in SchemaInfo.OtherMetadataProviders)
             {
                 addCppWinRTProjectionForTypeIfNecessary(provider.UnderlyingType);

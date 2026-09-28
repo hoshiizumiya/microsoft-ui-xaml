@@ -254,7 +254,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                         }
                         else
                         {
-                            // Not a local type so header is produced by C++/WinRT
+                            // Not a local type, so its public projection is supplied by C++/WinRT.
                             addCppWinRTProjectionForTypeIfNecessary(fieldData.FieldXamlType?.UnderlyingType);
                         }
                     }
