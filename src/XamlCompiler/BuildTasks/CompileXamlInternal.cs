@@ -777,6 +777,11 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
         {
             foreach (ClassCodeGenFile codeGenFile in SourceFileManager.CodeGenFiles)
             {
+                if (ShouldSuppressPageCodeGen() && !codeGenFile.XamlTaskItems.Any(item => item.IsApplication))
+                {
+                    continue;
+                }
+
                 ReportExistingGeneratedCodeFile(codeGenFile.TargetFolderFullPath, codeGenFile.BaseFileName);
             }
 
@@ -2401,9 +2406,20 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
             // Create the Generated code strings
             IEnumerable<FileNameAndChecksumPair> xamlFilesChecksumPairs;
             generatedCodeFiles = _codeGenerator.GenerateCodeBehind(classCodeInfo, out xamlFilesChecksumPairs);
-            if (!classCodeInfo.IsApplication && ShouldSuppressPageCodeGen())
+            bool suppressPageCodeGen = !classCodeInfo.IsApplication && ShouldSuppressPageCodeGen();
+            if (suppressPageCodeGen)
             {
                 generatedCodeFiles = null;
+
+                // A real NoPageCodeGen build must not leave code from an earlier normal
+                // build discoverable through _GeneratedCodeFiles or cppwinrt's
+                // __has_include("<Type>.xaml.g.h") bridge. Design-time builds keep the
+                // existing on-disk outputs, matching the established Pass2 protection.
+                if (!IsDesignTimeBuild)
+                {
+                    DeleteGeneratedCodeFileAndBackup(Path.Combine(classCodeInfo.TargetFolder, classCodeInfo.BaseFileName + Language.Pass1Extension));
+                    DeleteGeneratedCodeFileAndBackup(Path.Combine(classCodeInfo.TargetFolder, classCodeInfo.BaseFileName + Language.Pass2Extension));
+                }
             }
             PerformanceUtility.FireCodeMarker(CodeMarkerEvent.perfXC_PageCodeGenEnd, classCodeInfo.BaseFileName);
 
@@ -2411,7 +2427,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
             // of the local assembly.   But we don't need to do this if Pass1 is just a Design Time Build from VS.
             // There was an issue with C++ where if the VS buffer was dirty, Design Type Build would run immediatly after
             // normal build and can delete the pass2 (.hpp) file, if we don't check what *kind* of Pass1 we are running.
-            if (IsPass1 && !IsDesignTimeBuild)
+            if (IsPass1 && !IsDesignTimeBuild && !suppressPageCodeGen)
             {
                 Debug.Assert(!String.IsNullOrEmpty(classCodeInfo.BaseFileName));
                 string srcOutputFileName2 = Path.Combine(classCodeInfo.TargetFolder, classCodeInfo.BaseFileName + Language.Pass2Extension);
@@ -2442,7 +2458,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
 
             //During Pass2, if there was a Pass2 code file from a previous build, restore it before writing to disk.  That way if this build's Pass2 file
             //is the same as the one previously on disk, we won't write to disk and cause a recompile due to the newer timestamp.
-            if (!IsPass1)
+            if (!IsPass1 && !suppressPageCodeGen)
             {
                 string srcOutputFileName2 = Path.Combine(classCodeInfo.TargetFolder, classCodeInfo.BaseFileName + Language.Pass2Extension);
 
