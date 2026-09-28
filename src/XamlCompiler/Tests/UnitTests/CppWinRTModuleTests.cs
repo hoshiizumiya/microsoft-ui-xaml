@@ -27,11 +27,22 @@ namespace UnitTests
         public void XamlModuleNames_AreQualifiedAndCollisionResistant()
         {
             Assert.AreEqual(
-                "OpenNet.UI.Pages.MainPage_Xaml",
-                CppWinRTProjectionDependency.GetXamlModuleName("OpenNet.UI.Pages.MainPage"));
+                "OpenNet.Application_Xaml",
+                CppWinRTProjectionDependency.GetXamlPrimaryModuleName("OpenNet"));
+            Assert.AreEqual(
+                "Application_Xaml",
+                CppWinRTProjectionDependency.GetXamlPrimaryModuleName(String.Empty));
+            Assert.AreEqual(
+                "OpenNet.UI.Pages.MainPage",
+                CppWinRTProjectionDependency.GetXamlPartitionName("OpenNet::UI::Pages::MainPage"));
+            Assert.AreEqual(
+                "OpenNet.Application_Xaml:OpenNet.UI.Pages.MainPage",
+                CppWinRTProjectionDependency.GetXamlPartitionModuleName("OpenNet", "OpenNet::UI::Pages::MainPage"));
+
+            // Legacy helper contracts remain stable until checked-in T4-generated C# is regenerated.
             Assert.AreEqual(
                 "OpenNet.UI.Pages.MainPage_Xaml",
-                CppWinRTProjectionDependency.GetXamlModuleName("OpenNet::UI::Pages::MainPage"));
+                CppWinRTProjectionDependency.GetXamlModuleName("OpenNet.UI.Pages.MainPage"));
             Assert.AreEqual(
                 "OpenNet.XamlTypeInfo_Xaml",
                 CppWinRTProjectionDependency.GetProjectXamlModuleName("OpenNet", "XamlTypeInfo"));
@@ -44,6 +55,21 @@ namespace UnitTests
             context.UseCppWinRTNamedModules = true;
 
             Assert.IsTrue(context.ProjectInfo.UseCppWinRTNamedModules);
+        }
+
+        [TestMethod]
+        public void ProjectContext_StoresCompleteXamlPartitionSet()
+        {
+            var context = new CodeGeneratorProjectContext(new Version(KnownVersions.Latest));
+            context.ProjectInfo.XamlClassNames = new[]
+            {
+                "OpenNet.App",
+                "OpenNet.UI.Pages.MainPage",
+            };
+
+            CollectionAssert.AreEqual(
+                new[] { "OpenNet.App", "OpenNet.UI.Pages.MainPage" },
+                new System.Collections.Generic.List<string>(context.ProjectInfo.XamlClassNames));
         }
     }
 }

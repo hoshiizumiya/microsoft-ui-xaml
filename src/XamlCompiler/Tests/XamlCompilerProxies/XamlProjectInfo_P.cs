@@ -22,6 +22,7 @@ namespace Win8Xaml.CompilerProxies
         static PropertyInfo _genXbfArm64Path;
         static PropertyInfo _targetPlatformMinVersion;
         static PropertyInfo _useCppWinRTNamedModules;
+        static PropertyInfo _xamlClassNames;
 
         object _instance;
 
@@ -37,6 +38,7 @@ namespace Win8Xaml.CompilerProxies
             _genXbfArm64Path = _xamlProjectInfoType.GetProperty("GenXbfArm64Path");
             _targetPlatformMinVersion = _xamlProjectInfoType.GetProperty("TargetPlatformMinVersion");
             _useCppWinRTNamedModules = _xamlProjectInfoType.GetProperty("UseCppWinRTNamedModules");
+            _xamlClassNames = _xamlProjectInfoType.GetProperty("XamlClassNames");
         }
 
         public XamlProjectInfo()
@@ -100,6 +102,12 @@ namespace Win8Xaml.CompilerProxies
         {
             get { return (bool)_useCppWinRTNamedModules.GetValue(_instance, null); }
             set { _useCppWinRTNamedModules.SetValue(_instance, value); }
+        }
+
+        public IReadOnlyList<string> XamlClassNames
+        {
+            get { return (IReadOnlyList<string>)_xamlClassNames.GetValue(_instance, null); }
+            set { _xamlClassNames.SetValue(_instance, value); }
         }
 
         public Dictionary<String, String> ClassToHeaderFileMap
