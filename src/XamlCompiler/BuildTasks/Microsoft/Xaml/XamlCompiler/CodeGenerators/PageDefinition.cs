@@ -234,6 +234,13 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 
                 foreach (XamlFileCodeInfo fileCodeInfo in CodeInfo.PerXamlFileInfo)
                 {
+                    // Connection-id targets are cast to their concrete XAML type in Pass2 even
+                    // when the element has no x:Name and therefore no generated field.
+                    foreach (ConnectionIdElement connectionIdElement in fileCodeInfo.ConnectionIdElements)
+                    {
+                        addCppWinRTProjectionForTypeIfNecessary(connectionIdElement.Type?.UnderlyingType);
+                    }
+
                     // iterate over all the fields
                     foreach (FieldDefinition fieldData in from c in fileCodeInfo.ConnectionIdElements
                                                           where c.FieldDefinition != null
@@ -279,6 +286,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                         {
                             addCppWinRTProjectionForTypeIfNecessary(bindAssignment.MemberType?.UnderlyingType);
                             addCppWinRTProjectionForTypeIfNecessary(bindAssignment.MemberDeclaringType?.UnderlyingType);
+                            addCppWinRTProjectionForTypeIfNecessary(bindAssignment.MemberTargetType?.UnderlyingType);
                         }
                     }
                 }
@@ -296,6 +304,11 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                         if (bindPathStep.ImplementsIObservableVector || bindPathStep.ImplementsIObservableMap)
                         {
                             addCppWinRTProjectionForTypeIfNecessary(bindPathStep.ValueType?.ItemType?.UnderlyingType);
+                        }
+
+                        if (bindPathStep is DependencyPropertyStep dependencyPropertyStep)
+                        {
+                            addCppWinRTProjectionForTypeIfNecessary(dependencyPropertyStep.OwnerType?.UnderlyingType);
                         }
 
                         if (bindPathStep is FunctionStep functionStep)
