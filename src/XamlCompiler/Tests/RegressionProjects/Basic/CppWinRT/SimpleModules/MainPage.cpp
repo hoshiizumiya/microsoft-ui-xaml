@@ -11,6 +11,7 @@ namespace winrt::Simple::implementation
     MainPage::MainPage()
         : MainPageT<MainPage>(hstring(L"This is MainPage"))
     {
+        m_model = ::winrt::Simple::Models::BindModel();
         InitializeComponent();
     }
 

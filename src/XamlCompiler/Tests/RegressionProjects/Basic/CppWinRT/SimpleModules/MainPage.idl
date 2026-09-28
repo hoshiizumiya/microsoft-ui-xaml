@@ -8,5 +8,6 @@ namespace Simple
     {
         MainPage();
         String StringProperty{ get; };
+        Simple.Models.BindModel Model { get; };
     };
 }

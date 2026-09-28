@@ -22,10 +22,14 @@ namespace winrt::Simple::implementation
         friend struct MainPageT<MainPage>;
 
         hstring StringProperty() { return L""; }
+        ::winrt::Simple::Models::BindModel Model() const noexcept { return m_model; }
 
     protected:
         void ClickHandler(IInspectable const& sender, ::winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
         void TappedHandler(IInspectable const& sender, ::winrt::Microsoft::UI::Xaml::Input::TappedRoutedEventArgs const&e);
+
+    private:
+        ::winrt::Simple::Models::BindModel m_model{ nullptr };
     };
 }
 
