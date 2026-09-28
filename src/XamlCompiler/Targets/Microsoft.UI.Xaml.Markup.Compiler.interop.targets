@@ -640,14 +640,15 @@ Licensed under the MIT License. See LICENSE in the project root for license info
 
     <!--
       Add the existing Pass1 *.xaml.g.h outputs as C++ module interface units.
-      This target is intentionally ordered before C++/WinRT's own module-interface
-      discovery and FixupCLCompileOptions so the MSVC module dependency scanner sees
-      the XAML modules as ordinary ClCompile module items.
+      Resolve referenced module providers first, then run XamlC Pass1 and add its
+      generated interfaces before C++/WinRT's own module-interface discovery and
+      FixupCLCompileOptions. This keeps Pass1 behind reference resolution while still
+      making every XAML partition visible to the MSVC module dependency scanner.
     -->
     <Target Name="XamlCppWinRTAddModuleInterfaces"
             Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'"
-            DependsOnTargets="MarkupCompilePass1"
-            BeforeTargets="CppWinRTResolveModuleReferences;CppWinRTAddModuleInterfaces;FixupCLCompileOptions">
+            DependsOnTargets="CppWinRTResolveModuleReferences;MarkupCompilePass1"
+            BeforeTargets="CppWinRTAddModuleInterfaces;FixupCLCompileOptions">
         <ItemGroup>
             <_XamlGeneratedModuleInterfaces Include="@(_GeneratedCodeFiles)"
                 Condition="$([System.String]::Copy('%(_GeneratedCodeFiles.Identity)').EndsWith('.xaml.g.h'))" />
@@ -670,6 +671,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                 <ModulesSupported>true</ModulesSupported>
                 <PrecompiledHeader>NotUsing</PrecompiledHeader>
                 <PreprocessorDefinitions>WINRT_XAML_MODULE_INTERFACE;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+                <AdditionalBMIDirectories Condition="'$(_CppWinRTModuleIfcSearchDirs)' != ''">$(_CppWinRTModuleIfcSearchDirs);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
                 <CompilerIteration>XamlGeneratedModule</CompilerIteration>
             </ClCompile>
             <_XamlPrimaryModuleInterface Remove="@(_XamlPrimaryModuleInterface)" />
