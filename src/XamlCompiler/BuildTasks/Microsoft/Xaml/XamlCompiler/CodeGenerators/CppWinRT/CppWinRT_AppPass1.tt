@@ -14,10 +14,12 @@
 // conflict with Storyboard::GetCurrentTime
 #undef GetCurrentTime
 
-#include "winrt/<#=KnownNamespaces.Xaml#>.h"
-#include "winrt/<#=KnownNamespaces.XamlMarkup#>.h"
-#include "winrt/<#=KnownNamespaces.XamlInterop#>.h"
-#include "winrt/<#=KnownNamespaces.WindowsXamlInterop#>.h"
+<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsFoundation)#>
+<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.Xaml)#>
+<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlMarkup)#>
+<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlInterop)#>
+<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsXamlInterop)#>
+<#=GetCppWinRTModuleCompatibilityDefinition()#>
 
 #include "XamlTypeInfo.xaml.g.h"
 #include "XamlMetaDataProvider.h"

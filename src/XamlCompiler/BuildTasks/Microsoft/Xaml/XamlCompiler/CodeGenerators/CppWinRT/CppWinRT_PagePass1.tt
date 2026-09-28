@@ -17,11 +17,10 @@
 
 #include <cstdint>
 
-<#  foreach (var includeFile in Model.NeededCppWinRTProjectionHeaderFiles) { #>
-#if __has_include(<<#=includeFile#>>)
-#include <<#=includeFile#>>
-#endif
+<#  foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { #>
+<#=GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)#>
 <#  }#>
+<#=GetCppWinRTModuleCompatibilityDefinition()#>
 
 <#  if (Model.CodeInfo.BindStatus != BindStatus.None) { #>
 #include "XamlBindingInfo.xaml.g.h"

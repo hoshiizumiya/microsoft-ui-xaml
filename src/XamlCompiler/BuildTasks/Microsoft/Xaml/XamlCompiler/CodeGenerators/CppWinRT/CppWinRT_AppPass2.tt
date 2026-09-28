@@ -12,12 +12,17 @@
 <#  }#>
 #include <windows.h>
 #include <type_traits>
+<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.Xaml)#>
+<#  if (ProjectInfo.EnabledXamlOptionalChanges.Count > 0 || ProjectInfo.DisabledXamlOptionalChanges.Count > 0) { #>
+<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlSettings)#>
+<#  } #>
+<#  if (ProjectInfo.UseCppWinRTNamedModules) { #>
+<#=GetCppWinRTNamedModuleImportDirective(Model.CodeInfo.ClassName.Namespace)#>
+<#=GetCppWinRTModuleCompatibilityDefinition()#>
+<#  } #>
 <#  foreach (var includeFile in Model.NeededLocalXamlHeaderFiles) { #>
 #include "<#=includeFile#>"
 <#  }#>
-<#  if (ProjectInfo.EnabledXamlOptionalChanges.Count > 0 || ProjectInfo.DisabledXamlOptionalChanges.Count > 0) { #>
-#include "winrt/<#=KnownNamespaces.XamlSettings#>.h"
-<#  } #>
 
 #if defined _DEBUG && !defined DISABLE_XAML_GENERATED_BREAK_ON_UNHANDLED_EXCEPTION
 extern "C" __declspec(dllimport) int __stdcall IsDebuggerPresent();
