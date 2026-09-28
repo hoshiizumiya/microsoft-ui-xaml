@@ -131,7 +131,15 @@ foreach ($header in $providerPrimaryHeaders) {
     }
 }
 
-Invoke-XamlModuleBuild $staticConsumer 'StaticControlsModuleConsumer.CrossProject'
+$inactiveConsumerXamlModuleDir = Join-Path $repoRoot 'BuildOutput\obj\XamlModuleValidation\InactiveConsumerXamlModules'
+New-Item -ItemType Directory -Force -Path $inactiveConsumerXamlModuleDir | Out-Null
+Set-Content -Path (Join-Path $inactiveConsumerXamlModuleDir 'stale.ifc') -Value 'stale'
+$inactiveConsumerXamlModuleProperty = "/p:XamlCppWinRTModuleIfcDir=$inactiveConsumerXamlModuleDir\"
+
+Invoke-XamlModuleBuild $staticConsumer 'StaticControlsModuleConsumer.CrossProject' @($inactiveConsumerXamlModuleProperty)
+if (Test-Path $inactiveConsumerXamlModuleDir) {
+    throw 'A module-mode C++/WinRT project with no XAML left stale XamlModules output behind.'
+}
 
 $unitTestProject = Join-Path $repoRoot 'src\XamlCompiler\Tests\UnitTests\XamlCompilerUnitTests.csproj'
 & msbuild.exe $unitTestProject /t:Build /restore /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 '/p:RuntimeIdentifiers=win;win10-x64;win10-x86;win10-arm64' /p:DisableWarnForInvalidRestoreProjects=true /m:2 /ds:false "/binaryLogger:$binlogDir\XamlCompilerUnitTests.ModuleValidation.binlog"
