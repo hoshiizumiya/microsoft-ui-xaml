@@ -20,23 +20,59 @@ if (-not (Test-Path $cppWinRTPackageDir)) {
     }
 }
 
-$moduleProjects = @(
-    'src\XamlCompiler\Tests\RegressionProjects\Basic\CppWinRT\SimpleModules\SimpleCppWinRTModules.vcxproj',
-    'src\XamlCompiler\Tests\RegressionProjects\Features\StaticLibs\StaticControlsModuleLib\StaticControlsModuleLib.vcxproj',
-    'src\XamlCompiler\Tests\RegressionProjects\Features\StaticLibs\StaticControlsModuleConsumer\StaticControlsModuleConsumer.vcxproj'
-)
+function Invoke-XamlModuleBuild {
+    param(
+        [Parameter(Mandatory)] [string]$RelativeProject,
+        [Parameter(Mandatory)] [string]$LogName,
+        [string[]]$ExtraProperties = @()
+    )
 
-foreach ($relativeProject in $moduleProjects) {
-    $project = Join-Path $repoRoot $relativeProject
-    $name = [System.IO.Path]::GetFileNameWithoutExtension($project)
-    & msbuild.exe $project /t:Build /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 /p:UseXamlCompiler=true /p:SkipXamlCompilerProjectReferences=true /m:2 /ds:false "/binaryLogger:$binlogDir\$name.ModuleValidation.binlog"
+    $project = Join-Path $repoRoot $RelativeProject
+    $arguments = @(
+        $project,
+        '/t:Build',
+        '/p:Configuration=Debug',
+        '/p:Platform=x64',
+        '/p:VisualStudioVersion=17.0',
+        '/p:UseXamlCompiler=true',
+        '/p:SkipXamlCompilerProjectReferences=true',
+        '/m:2',
+        '/ds:false',
+        "/binaryLogger:$binlogDir\$LogName.binlog"
+    ) + $ExtraProperties
+
+    & msbuild.exe @arguments
     if ($LASTEXITCODE -ne 0) {
-        throw "$name named-module regression build failed with exit code $LASTEXITCODE."
+        throw "$LogName failed with exit code $LASTEXITCODE."
     }
 }
 
+$simpleModules = 'src\XamlCompiler\Tests\RegressionProjects\Basic\CppWinRT\SimpleModules\SimpleCppWinRTModules.vcxproj'
+$staticProvider = 'src\XamlCompiler\Tests\RegressionProjects\Features\StaticLibs\StaticControlsModuleLib\StaticControlsModuleLib.vcxproj'
+$staticConsumer = 'src\XamlCompiler\Tests\RegressionProjects\Features\StaticLibs\StaticControlsModuleConsumer\StaticControlsModuleConsumer.vcxproj'
+
+# Exercise the same project across incremental state transitions. CppWinRTBuildModule is
+# passed as a global property for the mode-switch builds so it overrides the project's
+# module-mode default and forces XamlC's FeatureControlFlags/saved state to invalidate.
+Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.CleanModule'
+Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.NoChangeModule'
+
+$mainPage = Join-Path (Split-Path (Join-Path $repoRoot $simpleModules)) 'MainPage.xaml'
+Start-Sleep -Seconds 1
+(Get-Item $mainPage).LastWriteTime = Get-Date
+Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.OnePageChanged'
+
+Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.HeaderSwitch' @('/p:CppWinRTBuildModule=false')
+Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.ModuleSwitchBack' @('/p:CppWinRTBuildModule=true')
+
+# The provider is also built once with type-info code generation disabled. This validates
+# that the primary Application_Xaml interface does not retain a stale :XamlTypeInfo export.
+Invoke-XamlModuleBuild $staticProvider 'StaticControlsModuleLib.Module'
+Invoke-XamlModuleBuild $staticProvider 'StaticControlsModuleLib.NoTypeInfo' @('/p:XamlCodeGenerationControlFlags=NoTypeInfoCodeGen')
+Invoke-XamlModuleBuild $staticConsumer 'StaticControlsModuleConsumer.CrossProject'
+
 $unitTestProject = Join-Path $repoRoot 'src\XamlCompiler\Tests\UnitTests\XamlCompilerUnitTests.csproj'
-& msbuild.exe $unitTestProject /t:Build /restore /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 '/p:RuntimeIdentifiers=win;win10-x64;win10-x86;win10-arm64' /p:DisableWarnForInvalidRestoreProjects=true /m:2 /ds:false "/binaryLogger:$binlogDir\XamlCompilerUnitTests.ModuleValidation.binlog"
+& msbuild.exe $unitTestProject /t:Build /restore /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 '/p:RuntimeIdentifiers=win;win10-x64;win10-arm64' /p:DisableWarnForInvalidRestoreProjects=true /m:2 /ds:false "/binaryLogger:$binlogDir\XamlCompilerUnitTests.ModuleValidation.binlog"
 if ($LASTEXITCODE -ne 0) {
     throw "XamlCompiler unit-test build failed with exit code $LASTEXITCODE."
 }
