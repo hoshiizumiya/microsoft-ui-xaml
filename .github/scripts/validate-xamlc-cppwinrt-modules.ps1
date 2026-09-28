@@ -55,6 +55,23 @@ $staticConsumer = 'src\XamlCompiler\Tests\RegressionProjects\Features\StaticLibs
 # passed as a global property for the mode-switch builds so it overrides the project's
 # module-mode default and forces XamlC's FeatureControlFlags/saved state to invalidate.
 Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.CleanModule'
+
+$simpleObjRoot = Join-Path $repoRoot 'BuildOutput\obj\amd64chk\src\XamlCompiler\Tests\RegressionProjects\Basic\CppWinRT\SimpleModules'
+$mainPageModuleHeaders = @(Get-ChildItem -Path $simpleObjRoot -Filter 'MainPage.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
+if ($mainPageModuleHeaders.Count -eq 0) {
+    throw 'SimpleModules did not generate MainPage.xaml.g.h.'
+}
+$hasModelsProjectionImport = $false
+foreach ($header in $mainPageModuleHeaders) {
+    if (Select-String -Path $header.FullName -SimpleMatch 'export import winrt.Simple.Models;' -Quiet) {
+        $hasModelsProjectionImport = $true
+        break
+    }
+}
+if (-not $hasModelsProjectionImport) {
+    throw 'MainPage XAML partition did not export the intermediate x:Bind projection namespace winrt.Simple.Models.'
+}
+
 Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.NoChangeModule'
 
 $mainPage = Join-Path (Split-Path (Join-Path $repoRoot $simpleModules)) 'MainPage.xaml'
@@ -67,7 +84,6 @@ Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.OnePageChanged'
 # an Application_Xaml umbrella that no longer exports the EmptyPage partition.
 Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.PageRemoved' @('/p:IncludeIncrementalEmptyPage=false')
 
-$simpleObjRoot = Join-Path $repoRoot 'BuildOutput\obj\amd64chk\src\XamlCompiler\Tests\RegressionProjects\Basic\CppWinRT\SimpleModules'
 $staleEmptyPageHeaders = @(Get-ChildItem -Path $simpleObjRoot -Filter 'EmptyPage.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
 if ($staleEmptyPageHeaders.Count -ne 0) {
     throw "Removed XAML Page left a stale EmptyPage.xaml.g.h: $($staleEmptyPageHeaders.FullName -join '; ')"
