@@ -12,6 +12,7 @@
 
 #include <functional>
 #include <map>
+#include <memory>
 #include <vector>
 #include <unknwn.h>
 
@@ -19,6 +20,12 @@
 // conflict with Storyboard::GetCurrentTime
 #undef GetCurrentTime
 
+<#  if (ProjectInfo.UseCppWinRTNamedModules) { #>
+<#=GetCppWinRTNamedModuleImportDirective(ProjectInfo.RootNamespace)#>
+<#=GetCppWinRTNamedModuleImportDirective(KnownNamespaces.XamlMarkup)#>
+<#=GetCppWinRTNamedModuleImportDirective(KnownNamespaces.WindowsXamlInterop)#>
+<#=GetCppWinRTModuleCompatibilityDefinition()#>
+<#  } #>
 #include "XamlTypeInfo.xaml.g.h"
 #include "XamlMetaDataProvider.g.h"
 
