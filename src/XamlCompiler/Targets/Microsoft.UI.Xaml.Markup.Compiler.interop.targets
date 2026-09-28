@@ -903,6 +903,36 @@ Licensed under the MIT License. See LICENSE in the project root for license info
         </ItemGroup>
     </Target>
 
+    <!--
+      XamlGFiles such as XamlTypeInfo.g.cpp are materialized into ClCompile by the
+      VC XAML build after MarkupCompilePass2, in ComputeXamlGeneratedCompileInputs.
+      Apply named-module metadata again at that point so DLL/EXE and static-library
+      CompileXamlGeneratedFiles paths can resolve Application_Xaml and referenced
+      C++/WinRT BMIs without an application-owned /FI preamble.
+    -->
+    <Target Name="XamlCppWinRTApplyGeneratedModuleReferences"
+            Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'"
+            AfterTargets="ComputeXamlGeneratedCompileInputs"
+            BeforeTargets="CompileXamlGeneratedFiles">
+        <ItemGroup>
+            <ClCompile Update="@(XamlGFiles);@(GeneratedXamlPagesFiles)">
+                <AdditionalBMIDirectories>$(IntDir);$(_XamlGeneratedAdditionalBMIDirectories);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
+                <PreprocessorDefinitions Condition="'$(_XamlGeneratedPreprocessorDefinitions)' != ''">$(_XamlGeneratedPreprocessorDefinitions)</PreprocessorDefinitions>
+            </ClCompile>
+
+            <!--
+              Some generated component sources (for example XamlMetaDataProvider.cpp)
+              can already be in ClCompile rather than XamlGFiles. Keep the compiler
+              iteration path covered as well.
+            -->
+            <ClCompile Update="@(ClCompile)"
+                       Condition="'%(ClCompile.CompilerIteration)' == 'XamlGenerated'">
+                <AdditionalBMIDirectories>$(IntDir);$(_XamlGeneratedAdditionalBMIDirectories);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
+                <PreprocessorDefinitions Condition="'$(_XamlGeneratedPreprocessorDefinitions)' != ''">$(_XamlGeneratedPreprocessorDefinitions)</PreprocessorDefinitions>
+            </ClCompile>
+        </ItemGroup>
+    </Target>
+
     <Target Name="_OnXamlPreCompileError"
             DependsOnTargets="$(_OnXamlPrecompileErrorDependsOn)" >
 
