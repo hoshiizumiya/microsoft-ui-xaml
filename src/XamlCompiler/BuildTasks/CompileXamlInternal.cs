@@ -425,18 +425,20 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
         }
         #endregion
 
-        void CleanUpSavedState()
+        bool CleanUpSavedState()
         {
             // The SaveState contains a list of files that were compiled last time.
-            // It is possible that the project has changes and files have gone away.
-            // We need to check and cull for the removed files.
+            // It is possible that the project has changed and files have gone away.
+            // Removing only the saved-state entry is not sufficient: an old generated
+            // C++ header can still be found by cppwinrt's __has_include bridge, and a
+            // removed XAML file must invalidate shared BindingInfo/TypeInfo generation.
             List<string> removeFiles = new List<string>();
             foreach (String oldXamlFile in SaveState.XamlPerFileInfo.Keys)
             {
                 bool foundIt = false;
                 foreach (TaskItemFilename taskItem in SourceFileManager.ProjectXamlTaskItems)
                 {
-                    if (oldXamlFile == taskItem.XamlGivenPath)
+                    if (String.Equals(oldXamlFile, taskItem.XamlGivenPath, StringComparison.InvariantCultureIgnoreCase))
                     {
                         foundIt = true;
                         break;
@@ -447,9 +449,49 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
                     removeFiles.Add(oldXamlFile);
                 }
             }
+
+            if (removeFiles.Count == 0)
+            {
+                return false;
+            }
+
+            HashSet<string> currentGeneratedCodePrefixes = new HashSet<string>(StringComparer.InvariantCultureIgnoreCase);
+            foreach (ClassCodeGenFile codeGenFile in SourceFileManager.CodeGenFiles)
+            {
+                currentGeneratedCodePrefixes.Add(Path.Combine(codeGenFile.TargetFolderFullPath, codeGenFile.BaseFileName));
+            }
+
             foreach (string badFile in removeFiles)
             {
+                SaveStatePerXamlFile removedState = SaveState.XamlPerFileInfo[badFile];
+                string generatedCodePrefix = removedState.GeneratedCodeFilePathPrefix;
+
+                // Multiple XAML files can contribute to the same generated class file.
+                // Keep that file when the current project still owns the same prefix;
+                // the item-set invalidation below will force it to be regenerated.
+                if (!String.IsNullOrEmpty(generatedCodePrefix) && !currentGeneratedCodePrefixes.Contains(generatedCodePrefix))
+                {
+                    DeleteGeneratedCodeFileAndBackup(generatedCodePrefix + Language.Pass1Extension);
+                    DeleteGeneratedCodeFileAndBackup(generatedCodePrefix + Language.Pass2Extension);
+                }
+
                 SaveState.XamlPerFileInfo.Remove(badFile);
+            }
+
+            return true;
+        }
+
+        private static void DeleteGeneratedCodeFileAndBackup(string fileName)
+        {
+            if (File.Exists(fileName))
+            {
+                File.Delete(fileName);
+            }
+
+            string backupFileName = fileName + KnownStrings.BackupSuffix;
+            if (File.Exists(backupFileName))
+            {
+                File.Delete(backupFileName);
             }
         }
 
@@ -846,6 +888,10 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
                 return false;
             }
 
+            // Clean removed items before the no-XAML early exit. Otherwise removing the final
+            // XAML item leaves both its saved state and generated C++ headers behind.
+            bool didProjectXamlItemsChange = CleanUpSavedState();
+
             // if there are no XAML files then issue a warning and exit (successfully), because we have nothing to do.
             if ((XamlApplications == null || !XamlApplications.Any()) && (XamlPages == null || XamlPages.Count == 0))
             {
@@ -869,8 +915,6 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
                 LogWarning(new XamlValidationWarningPreview(ErrorCode.WMC1502, Language.Name));
             }
 
-            CleanUpSavedState();
-
             bool areGeneratedFilesListsUpdated = false;
 
             // Checking this always keeps us up-to-date, e.g. the first build after a solution load
@@ -889,7 +933,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
             // During Pass 2, we can skip most type info collection if type info reflection is enabled since we don't need our type tables.
             bool skipPass2TypeInfo = EnableTypeInfoReflection;
 
-            if ((xamlTypeInfoNeeded == false) && (didAssembliesChange == false) && (didFeatureCtrlFlagsChange == false) && (didXamlOptionalChangesChange == false))
+            if ((xamlTypeInfoNeeded == false) && (didAssembliesChange == false) && (didFeatureCtrlFlagsChange == false) && (didXamlOptionalChangesChange == false) && (didProjectXamlItemsChange == false))
             {
                 bool haveGeneratedPass2CodeFiles = ShortcutBackupRestoreGeneratedPass2Files_WhenNothingExternalHasChanged();
                 bool xamlFilesChanged = DidXAMLFilesChange();
@@ -951,7 +995,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
                     // the file itself is different. Some of the feature ctrl flags will cause different code to be generated
                     // on a per page basis (i.e. EnableXBindDiagnostics), while others will only affect app.xaml (i.e. EnableWin32CodeGen).
                     // But we'll be conservative and just assume that all files need to regenerate if the flags have changed
-                    bool forceRegenerate = didAssembliesChange || didFeatureCtrlFlagsChange;
+                    bool forceRegenerate = didAssembliesChange || didFeatureCtrlFlagsChange || didProjectXamlItemsChange;
                     if (IsPass1 && !tif.OutOfDate() && !forceRegenerate)
                     {
                         // If the file is up to date then report the existing "on disk" generated
