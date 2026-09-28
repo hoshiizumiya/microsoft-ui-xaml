@@ -648,6 +648,25 @@ Licensed under the MIT License. See LICENSE in the project root for license info
     </PropertyGroup>
 
     <!--
+      Switching a project back to header mode must also remove the previous named-module
+      outputs. Leaving Application_Xaml IFCs in the intermediate tree makes the build state
+      lie about the active code-generation mode and can let external/manual /ifcSearchDir
+      consumers resolve a module that the current project no longer produces.
+    -->
+    <Target Name="XamlCppWinRTRemoveDisabledModuleOutputs"
+            Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' != 'true' and Exists('$(XamlCppWinRTModuleIfcDir)')"
+            BeforeTargets="MarkupCompilePass1;FixupCLCompileOptions">
+        <ItemGroup>
+            <_XamlCppWinRTDisabledModuleOutputs Include="$(XamlCppWinRTModuleIfcDir)**\*" />
+        </ItemGroup>
+        <Delete Files="@(_XamlCppWinRTDisabledModuleOutputs)" />
+        <RemoveDir Directories="$(XamlCppWinRTModuleIfcDir)" />
+        <ItemGroup>
+            <_XamlCppWinRTDisabledModuleOutputs Remove="@(_XamlCppWinRTDisabledModuleOutputs)" />
+        </ItemGroup>
+    </Target>
+
+    <!--
       Add the existing Pass1 *.xaml.g.h outputs as C++ module interface units.
       Resolve referenced module providers first, then run XamlC Pass1 and add its
       generated interfaces before C++/WinRT's own module-interface discovery and

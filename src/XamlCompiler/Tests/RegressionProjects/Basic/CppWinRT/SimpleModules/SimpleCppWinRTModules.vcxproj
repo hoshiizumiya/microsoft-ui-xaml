@@ -135,7 +135,7 @@
       <DependentUpon>App.xaml</DependentUpon>
     </ClCompile>
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
-    <ClCompile Include="XamlModuleSmoke.cpp" />
+    <ClCompile Include="XamlModuleSmoke.cpp" Condition="'$(CppWinRTBuildModule)' == 'true'" />
     <ClCompile Include="EmptyPage.cpp">
       <DependentUpon>EmptyPage.xaml</DependentUpon>
     </ClCompile>

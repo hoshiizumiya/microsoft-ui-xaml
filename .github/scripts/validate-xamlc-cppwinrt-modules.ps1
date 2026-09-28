@@ -79,8 +79,25 @@ if ($restoredEmptyPageHeaders.Count -eq 0) {
     throw 'Restoring EmptyPage.xaml did not regenerate EmptyPage.xaml.g.h.'
 }
 
+$moduleIfcsBeforeHeaderSwitch = @(Get-ChildItem -Path $simpleObjRoot -Filter '*.ifc' -File -Recurse -ErrorAction SilentlyContinue |
+    Where-Object { $_.DirectoryName -like '*\XamlModules*' })
+if ($moduleIfcsBeforeHeaderSwitch.Count -eq 0) {
+    throw 'Module-mode build did not produce any XAML IFCs before the header-mode transition.'
+}
+
 Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.HeaderSwitch' @('/p:CppWinRTBuildModule=false')
+$moduleIfcsInHeaderMode = @(Get-ChildItem -Path $simpleObjRoot -Filter '*.ifc' -File -Recurse -ErrorAction SilentlyContinue |
+    Where-Object { $_.DirectoryName -like '*\XamlModules*' })
+if ($moduleIfcsInHeaderMode.Count -ne 0) {
+    throw "Header-mode build left stale XAML IFCs: $($moduleIfcsInHeaderMode.FullName -join '; ')"
+}
+
 Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.ModuleSwitchBack' @('/p:CppWinRTBuildModule=true')
+$moduleIfcsAfterSwitchBack = @(Get-ChildItem -Path $simpleObjRoot -Filter '*.ifc' -File -Recurse -ErrorAction SilentlyContinue |
+    Where-Object { $_.DirectoryName -like '*\XamlModules*' })
+if ($moduleIfcsAfterSwitchBack.Count -eq 0) {
+    throw 'Switching back to module mode did not regenerate XAML IFCs.'
+}
 
 # The provider is also built once with type-info code generation disabled. This validates
 # that the primary Application_Xaml interface does not retain a stale :XamlTypeInfo export.
