@@ -36,7 +36,7 @@ env:
 jobs:
   sync-xamlc-t4:
     name: Sync XamlC T4 outputs
-    runs-on: windows-2022
+    runs-on: windows-2025
     permissions:
       contents: write
     outputs:
@@ -50,19 +50,15 @@ jobs:
           fetch-depth: 0
           show-progress: false
 
+      - name: Locate MSBuild for T4 generation
+        uses: microsoft/setup-msbuild@v2
+
       - name: Regenerate checked-in T4 classes
         id: sync
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-          $vsInstall = & $vswhere -latest -version '[17.0,18.0)' -requires Microsoft.Component.MSBuild -property installationPath
-          if (-not $vsInstall) {
-              throw 'Visual Studio 2022 / MSBuild 17.x is required for XamlC T4 generation.'
-          }
-
-          $msbuild = Join-Path $vsInstall 'MSBuild\Current\Bin\amd64\MSBuild.exe'
-          & $msbuild src\XamlCompiler\Microsoft.UI.Xaml.Markup.Compiler.csproj /t:TransformAll /p:TransformOnBuild=true /p:TransformOutOfDateOnly=false /p:BuildingInsideVisualStudio=true /m:1 /v:minimal
+          msbuild src\XamlCompiler\Microsoft.UI.Xaml.Markup.Compiler.csproj /t:TransformAll /p:TransformOnBuild=true /p:TransformOutOfDateOnly=false /p:BuildingInsideVisualStudio=true /m:1 /v:minimal
           if ($LASTEXITCODE -ne 0) {
               exit $LASTEXITCODE
           }
