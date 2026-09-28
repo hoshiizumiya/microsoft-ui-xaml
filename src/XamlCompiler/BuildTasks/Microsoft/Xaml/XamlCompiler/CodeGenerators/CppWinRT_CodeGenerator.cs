@@ -56,14 +56,33 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             return $"winrt.{projectionNamespace}";
         }
 
+        public static string GetXamlPrimaryModuleName(string rootNamespace)
+        {
+            return string.IsNullOrWhiteSpace(rootNamespace)
+                ? "Application_Xaml"
+                : $"{rootNamespace}.Application_Xaml";
+        }
+
+        public static string GetXamlPartitionName(string runtimeClassName)
+        {
+            return runtimeClassName.Replace("::", ".");
+        }
+
+        public static string GetXamlPartitionModuleName(string rootNamespace, string partitionName)
+        {
+            return $"{GetXamlPrimaryModuleName(rootNamespace)}:{GetXamlPartitionName(partitionName)}";
+        }
+
+        // Compatibility helpers retained until the checked-in T4-generated C# sources
+        // are regenerated from the updated templates.
         public static string GetXamlModuleName(string runtimeClassName)
         {
-            return runtimeClassName.Replace("::", ".") + "_Xaml";
+            return GetXamlPartitionModuleName(String.Empty, runtimeClassName);
         }
 
         public static string GetProjectXamlModuleName(string rootNamespace, string moduleName)
         {
-            return $"{rootNamespace}.{moduleName}_Xaml";
+            return GetXamlPartitionModuleName(rootNamespace, moduleName);
         }
     }
 

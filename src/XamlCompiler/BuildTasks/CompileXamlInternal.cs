@@ -1011,6 +1011,21 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
                     }
                 }
 
+                // The C++/WinRT XAML umbrella module needs the complete project x:Class set,
+                // including files skipped by incremental Pass1. ProjectXamlTaskItems restores
+                // ClassFullName from SaveState and refreshes it when a XAML file changes.
+                if (Language.Name == ProgrammingLanguage.CppWinRT && _projectInfo.UseCppWinRTNamedModules)
+                {
+                    _projectInfo.XamlClassNames = ShouldSuppressPageCodeGen()
+                        ? Array.Empty<string>()
+                        : SourceFileManager.ProjectXamlTaskItems
+                            .Select(item => item.ClassFullName)
+                            .Where(className => !String.IsNullOrWhiteSpace(className))
+                            .Distinct(StringComparer.Ordinal)
+                            .OrderBy(className => className, StringComparer.Ordinal)
+                            .ToList();
+                }
+
                 // Create Code Generator
                 _codeGenerator = new XamlCodeGenerator(Language, IsPass1, _projectInfo, _typeInfoCollector.SchemaInfo);
                 if (IsPass1 && Language.Name == ProgrammingLanguage.CSharp)

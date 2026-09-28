@@ -120,6 +120,11 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
 
         public bool UsingCSWinRT { get; set; }
         public bool UseCppWinRTNamedModules { get; set; }
+
+        // Complete set of x:Class names participating in native Pass1 code generation.
+        // This is populated from ProjectXamlTaskItems rather than the current harvest workset,
+        // so incremental Pass1 builds keep module partitions for unchanged XAML files.
+        public IReadOnlyList<string> XamlClassNames { get; set; } = Array.Empty<string>();
         
         public string PrecompiledHeaderFile { get; set; }
 
