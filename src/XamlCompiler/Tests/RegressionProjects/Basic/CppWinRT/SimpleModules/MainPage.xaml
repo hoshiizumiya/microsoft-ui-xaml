@@ -45,9 +45,10 @@
             <TextBlock>
                     <Run>Page name: </Run>
                     <Run Text="{x:Bind PageName}"/>
-                    <!-- The observable-vector item type lives in another WinRT namespace.
-                         Named-module codegen must discover it from the complete bind path. -->
-                    <Run Text="{x:Bind Model.Items.Size, Mode=OneWay}"/>
+                    <!-- The source path crosses into a different WinRT namespace before
+                         returning to a String leaf. Named-module codegen must discover the
+                         intermediate Simple.Models projection from the full bind path. -->
+                    <Run Text="{x:Bind Model.CurrentItem.Name, Mode=OneWay}"/>
             </TextBlock>
         </StackPanel>
     </StackPanel>

@@ -12,6 +12,6 @@ namespace Simple.Models
     runtimeclass BindModel
     {
         BindModel();
-        Windows.Foundation.Collections.IObservableVector<BindItem> Items { get; };
+        BindItem CurrentItem { get; };
     };
 }

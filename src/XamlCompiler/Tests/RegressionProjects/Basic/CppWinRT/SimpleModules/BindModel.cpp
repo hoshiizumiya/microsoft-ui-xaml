@@ -9,7 +9,7 @@
 namespace winrt::Simple::Models::implementation
 {
     BindModel::BindModel()
-        : m_items(single_threaded_observable_vector<Simple::Models::BindItem>())
+        : m_currentItem(Simple::Models::BindItem())
     {
     }
 }

@@ -10,13 +10,13 @@ namespace winrt::Simple::Models::implementation
     {
         BindModel();
 
-        Windows::Foundation::Collections::IObservableVector<Simple::Models::BindItem> Items() const noexcept
+        Simple::Models::BindItem CurrentItem() const noexcept
         {
-            return m_items;
+            return m_currentItem;
         }
 
     private:
-        Windows::Foundation::Collections::IObservableVector<Simple::Models::BindItem> m_items{ nullptr };
+        Simple::Models::BindItem m_currentItem{ nullptr };
     };
 }
 
