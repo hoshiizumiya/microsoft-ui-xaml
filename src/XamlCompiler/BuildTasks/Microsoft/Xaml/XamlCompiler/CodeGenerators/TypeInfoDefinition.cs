@@ -306,15 +306,6 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             }
         }
 
-        // Compatibility adapter for the existing generated templates. The semantic dependency
-        // is a WinRT namespace; header/module spelling is selected later by the C++/WinRT backend.
-        public IEnumerable<string> NeededCppWinRTProjectionHeaderFiles
-        {
-            get
-            {
-                return NeededCppWinRTProjectionNamespaces.Select(CppWinRTProjectionDependency.GetHeaderFile);
-            }
-        }
 
         private List<string> LookupNeededCppWinRTProjectionNamespaces()
         {
