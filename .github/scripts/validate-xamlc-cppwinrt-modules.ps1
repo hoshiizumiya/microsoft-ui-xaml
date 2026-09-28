@@ -119,6 +119,18 @@ if ($moduleIfcsAfterSwitchBack.Count -eq 0) {
 # that the primary Application_Xaml interface does not retain a stale :XamlTypeInfo export.
 Invoke-XamlModuleBuild $staticProvider 'StaticControlsModuleLib.Module'
 Invoke-XamlModuleBuild $staticProvider 'StaticControlsModuleLib.NoTypeInfo' @('/p:XamlCodeGenerationControlFlags=NoTypeInfoCodeGen')
+
+$staticProviderObjRoot = Join-Path $repoRoot 'BuildOutput\obj\amd64chk\src\XamlCompiler\Tests\RegressionProjects\Features\StaticLibs\StaticControlsModuleLib'
+$providerPrimaryHeaders = @(Get-ChildItem -Path $staticProviderObjRoot -Filter 'XamlBindingInfo.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
+if ($providerPrimaryHeaders.Count -eq 0) {
+    throw 'StaticControlsModuleLib did not generate XamlBindingInfo.xaml.g.h.'
+}
+foreach ($header in $providerPrimaryHeaders) {
+    if (Select-String -Path $header.FullName -SimpleMatch 'export import :XamlTypeInfo;' -Quiet) {
+        throw "NoTypeInfoCodeGen left a stale :XamlTypeInfo export in $($header.FullName)."
+    }
+}
+
 Invoke-XamlModuleBuild $staticConsumer 'StaticControlsModuleConsumer.CrossProject'
 
 $unitTestProject = Join-Path $repoRoot 'src\XamlCompiler\Tests\UnitTests\XamlCompilerUnitTests.csproj'
