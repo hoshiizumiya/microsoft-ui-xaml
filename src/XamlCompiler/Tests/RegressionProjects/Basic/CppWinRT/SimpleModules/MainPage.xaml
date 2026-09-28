@@ -40,7 +40,7 @@
             <Button Click="ClickHandler" Tapped="TappedHandler">Don't Click Me</Button>
             <Button Click="EventHandlerOnBase">Event Handler On Base</Button>
         </StackPanel>
-        <targets:BindTarget Content="{x:Bind PageName}" />
+        <targets:BindTarget Tag="{x:Bind PageName}" />
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
             <TextBlock>
                     <Run>Page name: </Run>
