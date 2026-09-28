@@ -73,17 +73,6 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             return $"{GetXamlPrimaryModuleName(rootNamespace)}:{GetXamlPartitionName(partitionName)}";
         }
 
-        // Compatibility helpers retained until the checked-in T4-generated C# sources
-        // are regenerated from the updated templates.
-        public static string GetXamlModuleName(string runtimeClassName)
-        {
-            return runtimeClassName.Replace("::", ".") + "_Xaml";
-        }
-
-        public static string GetProjectXamlModuleName(string rootNamespace, string moduleName)
-        {
-            return $"{rootNamespace}.{moduleName}_Xaml";
-        }
     }
 
     internal class CppWinRT_CodeGenerator<T> : NativeCodeGenerator<T>

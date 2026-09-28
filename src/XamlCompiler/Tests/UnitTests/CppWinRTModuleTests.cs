@@ -39,13 +39,6 @@ namespace UnitTests
                 "OpenNet.Application_Xaml:OpenNet.UI.Pages.MainPage",
                 CppWinRTProjectionDependency.GetXamlPartitionModuleName("OpenNet", "OpenNet::UI::Pages::MainPage"));
 
-            // Legacy helper contracts remain stable until checked-in T4-generated C# is regenerated.
-            Assert.AreEqual(
-                "OpenNet.UI.Pages.MainPage_Xaml",
-                CppWinRTProjectionDependency.GetXamlModuleName("OpenNet.UI.Pages.MainPage"));
-            Assert.AreEqual(
-                "OpenNet.XamlTypeInfo_Xaml",
-                CppWinRTProjectionDependency.GetProjectXamlModuleName("OpenNet", "XamlTypeInfo"));
         }
 
         [TestMethod]
