@@ -844,7 +844,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
               project's IFC directory and copy any BMI search directories resolved onto the normal
               compile items (for example from CppWinRTConsumeModule project references).
             -->
-            <_XamlGeneratedAdditionalBMIDirectories Condition="'$(CppWinRTBuildModule)' == 'true'">$(IntDir);@(_XamlPass1PreprocessorSource->'%(AdditionalBMIDirectories)'->Distinct())</_XamlGeneratedAdditionalBMIDirectories>
+            <_XamlGeneratedAdditionalBMIDirectories Condition="'$(CppWinRTBuildModule)' == 'true'">@(_XamlPass1PreprocessorSource->'%(AdditionalBMIDirectories)'->Distinct())</_XamlGeneratedAdditionalBMIDirectories>
         </PropertyGroup>
 
         <ItemGroup>
@@ -859,7 +859,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             -->
             <ClCompile Update="@(ClCompile)"
                        Condition="'$(CppWinRTBuildModule)' == 'true' and '%(ClCompile.CompilerIteration)' == 'XamlGenerated'">
-                <AdditionalBMIDirectories>$(IntDir);$(_CppWinRTModuleIfcSearchDirs);$(_XamlGeneratedAdditionalBMIDirectories);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
+                <AdditionalBMIDirectories>$(IntDir);$(_XamlGeneratedAdditionalBMIDirectories);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
             </ClCompile>
             <_XamlPass1PreprocessorSource Remove="@(_XamlPass1PreprocessorSource)" />
         </ItemGroup>
