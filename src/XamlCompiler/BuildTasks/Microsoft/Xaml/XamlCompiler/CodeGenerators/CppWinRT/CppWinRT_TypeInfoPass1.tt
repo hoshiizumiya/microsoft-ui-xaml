@@ -14,6 +14,7 @@
 
 #include <functional>
 #include <map>
+#include <memory>
 #include <vector>
 #include <mutex>
 #include <cstdint>
@@ -22,14 +23,15 @@
 // conflict with Storyboard::GetCurrentTime
 #undef GetCurrentTime
 
-#include <winrt/Windows.Foundation.h>
-#include <winrt/Windows.Foundation.Collections.h>
-#include "winrt/<#=KnownNamespaces.Xaml#>.h"
-#include "winrt/<#=KnownNamespaces.XamlData#>.h"
-#include "winrt/<#=KnownNamespaces.XamlMarkup#>.h"
-#include "winrt/<#=KnownNamespaces.XamlInterop#>.h"
-#include "winrt/<#=KnownNamespaces.WindowsXamlInterop#>.h"
-#include "winrt/<#=KnownNamespaces.XamlXamlTypeInfo#>.h"
+<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsFoundation)#>
+<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsFoundationCollections)#>
+<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.Xaml)#>
+<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlData)#>
+<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlMarkup)#>
+<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlInterop)#>
+<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsXamlInterop)#>
+<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlXamlTypeInfo)#>
+<#=GetCppWinRTModuleCompatibilityDefinition()#>
 
 namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation
 {

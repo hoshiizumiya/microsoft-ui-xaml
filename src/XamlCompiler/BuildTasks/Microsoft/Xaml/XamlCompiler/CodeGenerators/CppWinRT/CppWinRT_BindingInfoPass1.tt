@@ -17,12 +17,16 @@
 #undef GetCurrentTime
 
 #include <cstdint>
+#include <memory>
 
-#include "winrt/windows.foundation.h"
-#include "winrt/windows.ui.xaml.interop.h"
-#include "winrt/microsoft.ui.xaml.controls.h"
-#include "winrt/microsoft.ui.xaml.data.h"
-#include "winrt/microsoft.ui.xaml.markup.h"
+<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsFoundation)#>
+<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsFoundationCollections)#>
+<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.Xaml)#>
+<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlControls)#>
+<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlData)#>
+<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlMarkup)#>
+<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlInterop)#>
+<#=GetCppWinRTModuleCompatibilityDefinition()#>
 
 namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation
 {

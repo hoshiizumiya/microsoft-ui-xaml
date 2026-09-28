@@ -14,6 +14,7 @@
 
 #include <cstdint>
 
+<#=GetCppWinRTModuleCompatibilityDefinition()#>
 #include "XamlBindingInfo.xaml.g.h"
 
 namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation
