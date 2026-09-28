@@ -573,6 +573,18 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
             return false;
         }
 
+        private bool DidCodeGenerationControlFlagsChange()
+        {
+            string codeGenerationCtrlFlags = CodeGenerationControlFlags.ToString();
+            if (string.Compare(SaveState.XamlCodeGenerationControlFlags, codeGenerationCtrlFlags, StringComparison.OrdinalIgnoreCase) != 0)
+            {
+                SaveState.XamlCodeGenerationControlFlags = codeGenerationCtrlFlags;
+                return true;
+            }
+
+            return false;
+        }
+
         private bool DidXamlOptionalChangesChange()
         {
             bool changed = false;
@@ -927,6 +939,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
             // If the feature ctrl flags change, then skip checking every xaml file - we'll assume that since the user
             // edited the project file that something needs to be done.
             bool didFeatureCtrlFlagsChange = DidFeatureControlFlagsChange();
+            bool didCodeGenerationCtrlFlagsChange = DidCodeGenerationControlFlagsChange();
             bool didXamlOptionalChangesChange = DidXamlOptionalChangesChange();
             if (didXamlOptionalChangesChange)
             {
@@ -936,7 +949,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
             // During Pass 2, we can skip most type info collection if type info reflection is enabled since we don't need our type tables.
             bool skipPass2TypeInfo = EnableTypeInfoReflection;
 
-            if ((xamlTypeInfoNeeded == false) && (didAssembliesChange == false) && (didFeatureCtrlFlagsChange == false) && (didXamlOptionalChangesChange == false) && (didProjectXamlItemsChange == false))
+            if ((xamlTypeInfoNeeded == false) && (didAssembliesChange == false) && (didFeatureCtrlFlagsChange == false) && (didCodeGenerationCtrlFlagsChange == false) && (didXamlOptionalChangesChange == false) && (didProjectXamlItemsChange == false))
             {
                 bool haveGeneratedPass2CodeFiles = ShortcutBackupRestoreGeneratedPass2Files_WhenNothingExternalHasChanged();
                 bool xamlFilesChanged = DidXAMLFilesChange();
@@ -998,7 +1011,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
                     // the file itself is different. Some of the feature ctrl flags will cause different code to be generated
                     // on a per page basis (i.e. EnableXBindDiagnostics), while others will only affect app.xaml (i.e. EnableWin32CodeGen).
                     // But we'll be conservative and just assume that all files need to regenerate if the flags have changed
-                    bool forceRegenerate = didAssembliesChange || didFeatureCtrlFlagsChange || didProjectXamlItemsChange;
+                    bool forceRegenerate = didAssembliesChange || didFeatureCtrlFlagsChange || didCodeGenerationCtrlFlagsChange || didProjectXamlItemsChange;
                     if (IsPass1 && !tif.OutOfDate() && !forceRegenerate)
                     {
                         // If the file is up to date then report the existing "on disk" generated
