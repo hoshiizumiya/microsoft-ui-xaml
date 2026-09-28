@@ -665,10 +665,10 @@ Licensed under the MIT License. See LICENSE in the project root for license info
 
     <!--
       XamlCppWinRTConsumeModule is intentionally distinct from CppWinRTConsumeModule.
-      The latter shares all C++/WinRT projection IFCs from a referenced project and is
-      only valid for platform/reference projections. XAML consumers need only the
-      provider's isolated Application_Xaml/partition BMI directory; their own C++/WinRT
-      build continues to create a non-optimized reference projection from the provider WinMD.
+      The latter is the C++/WinRT platform-module-builder contract. This metadata only
+      resolves the provider's isolated Application_Xaml/partition BMI directory and does
+      not change C++/WinRT projection-module policy. In particular, static-library BMI
+      propagation and CppWinRTModuleInclude/Exclude remain owned by C++/WinRT/MSBuild.
     -->
     <Target Name="XamlCppWinRTResolveModuleReferences"
             Condition="'$(CppWinRTBuildModule)' == 'true'"

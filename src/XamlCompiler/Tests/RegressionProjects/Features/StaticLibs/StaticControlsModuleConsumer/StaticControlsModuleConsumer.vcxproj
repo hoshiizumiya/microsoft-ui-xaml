@@ -4,6 +4,9 @@
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <CppWinRTBuildModule>true</CppWinRTBuildModule>
+    <!-- Static-library BMIs propagate through MSBuild. Do not generate a second
+         reference-projection module for the provider namespace in this project. -->
+    <CppWinRTModuleExclude>StaticControlsModuleLib</CppWinRTModuleExclude>
   </PropertyGroup>
   <Import Project="..\..\..\..\..\..\..\packages\Microsoft.Windows.CppWinRT.3.0.260818.1\build\native\Microsoft.Windows.CppWinRT.props" Condition="Exists('..\..\..\..\..\..\..\packages\Microsoft.Windows.CppWinRT.3.0.260818.1\build\native\Microsoft.Windows.CppWinRT.props')" />
   <PropertyGroup Label="Globals">
