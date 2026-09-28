@@ -298,6 +298,8 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                 // the Page partition in named-module mode.
                 foreach (BindUniverse bindUniverse in CodeInfo.BindUniverses)
                 {
+                    addCppWinRTProjectionForTypeIfNecessary(bindUniverse.DataRootType?.UnderlyingType);
+
                     foreach (BindPathStep bindPathStep in bindUniverse.BindPathSteps.Values)
                     {
                         addCppWinRTProjectionForTypeIfNecessary(bindPathStep.ValueType?.UnderlyingType);
