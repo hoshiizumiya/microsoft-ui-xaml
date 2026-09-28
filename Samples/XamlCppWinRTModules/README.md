@@ -69,6 +69,32 @@ this feature supplies its own XamlC.
 `CppWinRTBuildModule` is the feature switch. The other settings make the sample's
 C++/WinRT and compiler environment unambiguous.
 
+## What gets generated
+
+Using `MainWindow` as the example:
+
+```text
+GreetingModel.idl / MainWindow.idl
+        |
+        +-- C++/WinRT -> GreetingModel.g.h, MainWindow.g.h, projection modules
+
+MainWindow.xaml
+        |
+        +-- XamlC Pass1 -> MainWindow.xaml.g.h
+        |                    partition of XamlCppWinRTModulesSample.Application_Xaml
+        |
+        +-- XamlC shared Pass1 -> XamlBindingInfo.xaml.g.h
+        |                         primary Application_Xaml interface
+        |
+        +-- MSVC -> $(IntDir)XamlModules\*.ifc
+        |
+        +-- XamlC Pass2 -> *.xaml.g.hpp / metadata-provider implementation
+```
+
+At compile time, `MainWindow.g.h` detects `MainWindow.xaml.g.h`; the XAML companion
+imports the project umbrella. This is the key hand-off between C++/WinRT component
+generation and XamlC module generation.
+
 ## Normal source consumption
 
 `MainWindow.xaml.cpp` uses platform projection modules and then includes the normal

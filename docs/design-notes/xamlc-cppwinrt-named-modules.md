@@ -154,6 +154,78 @@ import MyApplication.Application_Xaml;
 
 ---
 
+## End-to-end generation example
+
+For a sample class:
+
+```text
+x:Class = XamlCppWinRTModulesSample.MainWindow
+RootNamespace = XamlCppWinRTModulesSample
+```
+
+the build is conceptually:
+
+```text
+MainWindow.idl
+    |
+    +-- C++/WinRT metadata/component generation
+    |      |
+    |      +-- MainWindow.g.h
+    |      +-- MainWindow.g.cpp
+    |      +-- projection module/interface data
+    |
+MainWindow.xaml
+    |
+    +-- XamlC Pass1
+    |      |
+    |      +-- MainWindow.xaml.g.h
+    |      |      module partition:
+    |      |      XamlCppWinRTModulesSample.Application_Xaml
+    |      |          :XamlCppWinRTModulesSample.MainWindow
+    |      |
+    |      +-- XamlBindingInfo.xaml.g.h
+    |             primary module:
+    |             XamlCppWinRTModulesSample.Application_Xaml
+    |             export-imports MainWindow/App/TypeInfo partitions
+    |
+    +-- XamlCppWinRTAddModuleInterfaces
+    |      |
+    |      +-- registers the Pass1 *.xaml.g.h files as CompileAsCppModule
+    |
+    +-- MSVC module dependency scan / compile
+    |      |
+    |      +-- $(IntDir)XamlModules\*.ifc
+    |
+    +-- XamlC Pass2
+           |
+           +-- MainWindow.xaml.g.hpp and late generated C++ implementation
+           +-- XamlMetaDataProvider.cpp / TypeInfo implementation as needed
+                  |
+                  +-- compile using the already produced projection/XAML BMIs
+```
+
+Authored source then consumes the result through the existing component-header path:
+
+```text
+MainWindow.xaml.cpp
+    |
+    +-- #define WINRT_IMPORT_MODULE
+    +-- include MainWindow.xaml.h
+           |
+           +-- include MainWindow.g.h        (C++/WinRT)
+                  |
+                  +-- __has_include("MainWindow.xaml.g.h")
+                         |
+                         +-- include MainWindow.xaml.g.h   (XamlC)
+                                |
+                                +-- import
+                                    XamlCppWinRTModulesSample.Application_Xaml
+```
+
+There is one source of type metadata (IDL/WinMD), one XAML compiler pipeline, and one
+public XAML umbrella. The module path does not introduce a second set of handwritten
+XAML declarations or a parallel `.ixx` generator.
+
 ## The generated-header bridge
 
 C++/WinRT component headers already probe for XAML companion output:
