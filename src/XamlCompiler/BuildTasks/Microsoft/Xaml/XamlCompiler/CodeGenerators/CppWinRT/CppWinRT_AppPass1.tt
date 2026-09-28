@@ -22,11 +22,9 @@ export import <#=CppWinRTProjectionDependency.GetModuleName(KnownNamespaces.Xaml
 export import <#=CppWinRTProjectionDependency.GetModuleName(KnownNamespaces.XamlMarkup)#>;
 export import <#=CppWinRTProjectionDependency.GetModuleName(KnownNamespaces.XamlInterop)#>;
 export import <#=CppWinRTProjectionDependency.GetModuleName(KnownNamespaces.WindowsXamlInterop)#>;
-export import <#=CppWinRTProjectionDependency.GetModuleName(ProjectInfo.RootNamespace)#>;
 <#  if (ProjectInfo.EnabledXamlOptionalChanges.Count > 0 || ProjectInfo.DisabledXamlOptionalChanges.Count > 0) { #>
 export import <#=CppWinRTProjectionDependency.GetModuleName(KnownNamespaces.XamlSettings)#>;
 <#  } #>
-export import <#=CppWinRTProjectionDependency.GetProjectXamlModuleName(ProjectInfo.RootNamespace, "XamlTypeInfo")#>;
 
 #undef WINRT_XAML_MODULE_INTERFACE
 #define WINRT_XAML_EXPORT export extern "C++"
@@ -67,6 +65,9 @@ WINRT_XAML_EXPORT namespace winrt::<#=Colonize(Model.CodeInfo.ClassName.Namespac
     struct AppT: public <#=Projection(Model.CodeInfo.BaseTypeName)#>T<D, <#=Projection(KnownNamespaces.XamlMarkup)#>::IXamlMetadataProvider, Interfaces...>
     {
         using IXamlType = <#=Projection(KnownNamespaces.XamlMarkup)#>::IXamlType;
+<#  if (ProjectInfo.UseCppWinRTNamedModules) { #>
+        ~AppT();
+<#  } #>
 
         void InitializeComponent()
         {

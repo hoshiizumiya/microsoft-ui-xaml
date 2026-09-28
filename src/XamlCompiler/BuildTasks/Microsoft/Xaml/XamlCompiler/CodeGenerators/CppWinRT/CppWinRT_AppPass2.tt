@@ -30,6 +30,9 @@
 <#  if (ProjectInfo.UseCppWinRTNamedModules) { #>
 namespace winrt::<#=Colonize(Model.CodeInfo.ClassName.Namespace)#>::implementation
 {
+    template <typename D, typename ... Interfaces>
+    AppT<D, Interfaces...>::~AppT() = default;
+
 <#      if(!ProjectInfo.GenerateProviderCode) { #>
     template <typename D, typename ... Interfaces>
     void AppT<D, Interfaces...>::AddOtherProvider(<#=Projection(KnownNamespaces.XamlMarkup)#>::IXamlMetadataProvider const& otherProvider)
