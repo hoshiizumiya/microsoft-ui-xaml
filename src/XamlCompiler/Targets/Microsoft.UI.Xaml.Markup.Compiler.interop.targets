@@ -837,12 +837,21 @@ Licensed under the MIT License. See LICENSE in the project root for license info
         </ItemGroup>
         <PropertyGroup>
             <_XamlGeneratedPreprocessorDefinitions>@(_XamlPass1PreprocessorSource->'%(PreprocessorDefinitions)'->Distinct())</_XamlGeneratedPreprocessorDefinitions>
+            <!--
+              Pass 2 C++ files are added after the project's primary ClCompile pass. In named-module
+              mode the namespace IFCs are therefore already available, but these late items do not
+              participate in the earlier module-reference resolution. Seed them with the current
+              project's IFC directory and copy any BMI search directories resolved onto the normal
+              compile items (for example from CppWinRTConsumeModule project references).
+            -->
+            <_XamlGeneratedAdditionalBMIDirectories Condition="'$(CppWinRTBuildModule)' == 'true'">$(IntDir);@(_XamlPass1PreprocessorSource->'%(AdditionalBMIDirectories)'->Distinct())</_XamlGeneratedAdditionalBMIDirectories>
         </PropertyGroup>
 
         <ItemGroup>
             <ClCompile Include="@(GeneratedXamlPagesFiles)" >
                 <CompilerIteration>XamlGenerated</CompilerIteration>
                 <PreprocessorDefinitions Condition="'$(_XamlGeneratedPreprocessorDefinitions)' != ''">$(_XamlGeneratedPreprocessorDefinitions)</PreprocessorDefinitions>
+                <AdditionalBMIDirectories Condition="'$(CppWinRTBuildModule)' == 'true'">$(_XamlGeneratedAdditionalBMIDirectories)</AdditionalBMIDirectories>
             </ClCompile>
             <_XamlPass1PreprocessorSource Remove="@(_XamlPass1PreprocessorSource)" />
         </ItemGroup>
