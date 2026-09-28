@@ -47,9 +47,18 @@ $prereqSteps = @(
 
 $sequence = $prereqSteps + @(
     "msbuild Microsoft.UI.Xaml-Product.sln                       /p:Platform=$Platform /p:Configuration=$Configuration $commonArgs /binaryLogger:$binlogDir\Microsoft.UI.Xaml-Product.$Platform.$Configuration.binlog",
-    "msbuild controls\dev\dll\Microsoft.UI.Xaml.Controls.vcxproj /p:Platform=$Platform /p:Configuration=$Configuration $commonArgs /binaryLogger:$binlogDir\Microsoft.UI.Xaml.Controls.$Platform.$Configuration.binlog",
-    "pack.component.cmd"
+    "msbuild controls\dev\dll\Microsoft.UI.Xaml.Controls.vcxproj /p:Platform=$Platform /p:Configuration=$Configuration $commonArgs /binaryLogger:$binlogDir\Microsoft.UI.Xaml.Controls.$Platform.$Configuration.binlog"
 )
+
+# Named-module regressions are intentionally a focused x64 Debug gate. They consume
+# the compiler/product artifacts built above, so running them in this initialized
+# process validates the in-repo XamlC without multiplying the full regression suite
+# across the six product matrix legs.
+if ($Platform -eq 'x64' -and $Configuration -eq 'Debug') {
+    $sequence += "powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-cppwinrt-modules.ps1"
+}
+
+$sequence += "pack.component.cmd"
 
 $quote = [char]34
 $chain = "call $quote$vsDevCmd$quote -no_logo -arch=$devArch -host_arch=amd64" +
