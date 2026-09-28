@@ -647,58 +647,6 @@ Licensed under the MIT License. See LICENSE in the project root for license info
         <XamlCppWinRTModuleIfcDir Condition="'$(XamlCppWinRTModuleIfcDir)' == ''">$(IntDir)XamlModules\</XamlCppWinRTModuleIfcDir>
     </PropertyGroup>
 
-    <Target Name="XamlCppWinRTGetModuleOutputs"
-            Returns="@(XamlCppWinRTModuleOutputs)">
-        <Error Condition="'$(XamlLanguage)' != 'CppWinRT'"
-               Text="XamlCppWinRTConsumeModule=true requires a C++/WinRT XAML provider." />
-        <Error Condition="'$(CppWinRTBuildModule)' != 'true'"
-               Text="XamlCppWinRTConsumeModule=true requires the referenced XAML provider to enable CppWinRTBuildModule." />
-        <Error Condition="'@(Page)' == '' and '@(ApplicationDefinition)' == ''"
-               Text="XamlCppWinRTConsumeModule=true requires the referenced project to contain XAML." />
-        <ItemGroup>
-            <XamlCppWinRTModuleOutputs Include="$(MSBuildProjectFullPath)">
-                <XamlCppWinRTModuleIfcDir>$(XamlCppWinRTModuleIfcDir)</XamlCppWinRTModuleIfcDir>
-                <XamlCppWinRTModuleName>$(RootNamespace).Application_Xaml</XamlCppWinRTModuleName>
-            </XamlCppWinRTModuleOutputs>
-        </ItemGroup>
-    </Target>
-
-    <!--
-      XamlCppWinRTConsumeModule is intentionally distinct from CppWinRTConsumeModule.
-      The latter is the C++/WinRT platform-module-builder contract. This metadata only
-      resolves the provider's isolated Application_Xaml/partition BMI directory and does
-      not change C++/WinRT projection-module policy. In particular, static-library BMI
-      propagation and CppWinRTModuleInclude/Exclude remain owned by C++/WinRT/MSBuild.
-    -->
-    <Target Name="XamlCppWinRTResolveModuleReferences"
-            Condition="'$(CppWinRTBuildModule)' == 'true'"
-            DependsOnTargets="ResolveProjectReferences"
-            BeforeTargets="XamlCppWinRTAddModuleInterfaces;FixupCLCompileOptions;ClCompile">
-        <ItemGroup>
-            <_XamlCppWinRTModuleProviders Remove="@(_XamlCppWinRTModuleProviders)" />
-            <_XamlCppWinRTResolvedModuleRefs Remove="@(_XamlCppWinRTResolvedModuleRefs)" />
-            <_XamlCppWinRTModuleProviders Include="@(ProjectReference)"
-                Condition="'%(ProjectReference.XamlCppWinRTConsumeModule)' == 'true'" />
-        </ItemGroup>
-
-        <MSBuild Projects="@(_XamlCppWinRTModuleProviders)"
-                 Targets="XamlCppWinRTGetModuleOutputs"
-                 BuildInParallel="false"
-                 Condition="'@(_XamlCppWinRTModuleProviders)' != ''">
-            <Output TaskParameter="TargetOutputs" ItemName="_XamlCppWinRTResolvedModuleRefs" />
-        </MSBuild>
-
-        <PropertyGroup Condition="'@(_XamlCppWinRTResolvedModuleRefs)' != ''">
-            <_XamlCppWinRTModuleIfcSearchDirs>@(_XamlCppWinRTResolvedModuleRefs->'%(XamlCppWinRTModuleIfcDir)'->Distinct())</_XamlCppWinRTModuleIfcSearchDirs>
-        </PropertyGroup>
-
-        <ItemGroup Condition="'$(_XamlCppWinRTModuleIfcSearchDirs)' != ''">
-            <ClCompile Update="@(ClCompile)">
-                <AdditionalBMIDirectories>$(_XamlCppWinRTModuleIfcSearchDirs);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
-            </ClCompile>
-        </ItemGroup>
-    </Target>
-
     <!--
       Add the existing Pass1 *.xaml.g.h outputs as C++ module interface units.
       Resolve referenced module providers first, then run XamlC Pass1 and add its
@@ -708,7 +656,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
     -->
     <Target Name="XamlCppWinRTAddModuleInterfaces"
             Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true' and ('@(Page)' != '' or '@(ApplicationDefinition)' != '')"
-            DependsOnTargets="CppWinRTResolveModuleReferences;XamlCppWinRTResolveModuleReferences;MarkupCompilePass1"
+            DependsOnTargets="CppWinRTResolveModuleReferences;MarkupCompilePass1"
             BeforeTargets="CppWinRTAddModuleInterfaces;FixupCLCompileOptions">
         <MakeDir Directories="$(XamlCppWinRTModuleIfcDir)" />
         <ItemGroup>
@@ -734,7 +682,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                 <PrecompiledHeader>NotUsing</PrecompiledHeader>
                 <PreprocessorDefinitions>WINRT_XAML_MODULE_INTERFACE;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
                 <ModuleOutputFile>$(XamlCppWinRTModuleIfcDir)</ModuleOutputFile>
-                <AdditionalBMIDirectories>$(_CppWinRTModuleIfcSearchDirs);$(_XamlCppWinRTModuleIfcSearchDirs);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
+                <AdditionalBMIDirectories Condition="'$(_CppWinRTModuleIfcSearchDirs)' != ''">$(_CppWinRTModuleIfcSearchDirs);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
                 <CompilerIteration>XamlGeneratedModule</CompilerIteration>
             </ClCompile>
             <_XamlPrimaryModuleInterface Remove="@(_XamlPrimaryModuleInterface)" />
