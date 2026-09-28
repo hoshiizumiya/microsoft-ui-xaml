@@ -64,7 +64,9 @@ jobs:
           }
 
           git diff --check
-          $changed = @(git diff --name-only)
+          $trackedChanges = @(git diff --name-only)
+          $untrackedChanges = @(git ls-files --others --exclude-standard)
+          $changed = @($trackedChanges + $untrackedChanges | Sort-Object -Unique)
           $unexpected = @()
           foreach ($file in $changed) {
               if ($file -notmatch '^src/XamlCompiler/BuildTasks/Microsoft/Xaml/XamlCompiler/CodeGenerators/.+\.cs
