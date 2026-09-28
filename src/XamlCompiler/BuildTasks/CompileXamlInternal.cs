@@ -888,6 +888,14 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
                 return false;
             }
 
+            // Validate the current item set before mutating saved state or deleting generated
+            // outputs. An invalid project (for example multiple App.xaml items) should fail
+            // without first performing destructive incremental cleanup.
+            if (!CheckTaskArgumentsValid())
+            {
+                return false;
+            }
+
             // Clean removed items before the no-XAML early exit. Otherwise removing the final
             // XAML item leaves both its saved state and generated C++ headers behind.
             bool didProjectXamlItemsChange = CleanUpSavedState();
@@ -897,11 +905,6 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
             {
                 LogWarning(new XamlValidationWarningNoXaml());
                 return true;        // exit the compiler but not as a failure, just "done"
-            }
-
-            if (!CheckTaskArgumentsValid())
-            {
-                return false;
             }
 
             if (this.CodeGenerationControlFlags != CodeGenCtrlFlags.Nothing)
