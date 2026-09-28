@@ -639,6 +639,66 @@ Licensed under the MIT License. See LICENSE in the project root for license info
     </Target>
 
     <!--
+      Keep XAML BMIs separate from C++/WinRT projection BMIs. Component projection
+      modules generated with -opt are project-private, so a consumer must not add a
+      provider's entire IntDir to /ifcSearchDir just to import Application_Xaml.
+    -->
+    <PropertyGroup>
+        <XamlCppWinRTModuleIfcDir Condition="'$(XamlCppWinRTModuleIfcDir)' == ''">$(IntDir)XamlModules\</XamlCppWinRTModuleIfcDir>
+    </PropertyGroup>
+
+    <Target Name="XamlCppWinRTGetModuleOutputs"
+            Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true' and ('@(Page)' != '' or '@(ApplicationDefinition)' != '')"
+            Returns="@(XamlCppWinRTModuleOutputs)">
+        <ItemGroup>
+            <XamlCppWinRTModuleOutputs Include="$(MSBuildProjectFullPath)">
+                <XamlCppWinRTModuleIfcDir>$(XamlCppWinRTModuleIfcDir)</XamlCppWinRTModuleIfcDir>
+                <XamlCppWinRTModuleName>$(RootNamespace).Application_Xaml</XamlCppWinRTModuleName>
+            </XamlCppWinRTModuleOutputs>
+        </ItemGroup>
+    </Target>
+
+    <!--
+      XamlCppWinRTConsumeModule is intentionally distinct from CppWinRTConsumeModule.
+      The latter shares all C++/WinRT projection IFCs from a referenced project and is
+      only valid for platform/reference projections. XAML consumers need only the
+      provider's isolated Application_Xaml/partition BMI directory; their own C++/WinRT
+      build continues to create a non-optimized reference projection from the provider WinMD.
+    -->
+    <Target Name="XamlCppWinRTResolveModuleReferences"
+            Condition="'$(CppWinRTBuildModule)' == 'true'"
+            DependsOnTargets="ResolveProjectReferences"
+            BeforeTargets="XamlCppWinRTAddModuleInterfaces;FixupCLCompileOptions;ClCompile">
+        <ItemGroup>
+            <_XamlCppWinRTModuleProviders Remove="@(_XamlCppWinRTModuleProviders)" />
+            <_XamlCppWinRTResolvedModuleRefs Remove="@(_XamlCppWinRTResolvedModuleRefs)" />
+            <_XamlCppWinRTModuleProviders Include="@(ProjectReference)"
+                Condition="'%(ProjectReference.XamlCppWinRTConsumeModule)' == 'true'" />
+        </ItemGroup>
+
+        <MSBuild Projects="@(_XamlCppWinRTModuleProviders)"
+                 Targets="XamlCppWinRTGetModuleOutputs"
+                 SkipNonexistentTargets="true"
+                 BuildInParallel="false"
+                 Condition="'@(_XamlCppWinRTModuleProviders)' != ''">
+            <Output TaskParameter="TargetOutputs" ItemName="_XamlCppWinRTResolvedModuleRefs" />
+        </MSBuild>
+
+        <Error Condition="'@(_XamlCppWinRTModuleProviders)' != '' and '@(_XamlCppWinRTResolvedModuleRefs)' == ''"
+               Text="A ProjectReference marked XamlCppWinRTConsumeModule=true did not provide a C++/WinRT XAML module output. Ensure the referenced project enables CppWinRTBuildModule and contains XAML." />
+
+        <PropertyGroup Condition="'@(_XamlCppWinRTResolvedModuleRefs)' != ''">
+            <_XamlCppWinRTModuleIfcSearchDirs>@(_XamlCppWinRTResolvedModuleRefs->'%(XamlCppWinRTModuleIfcDir)'->Distinct())</_XamlCppWinRTModuleIfcSearchDirs>
+        </PropertyGroup>
+
+        <ItemGroup Condition="'$(_XamlCppWinRTModuleIfcSearchDirs)' != ''">
+            <ClCompile Update="@(ClCompile)">
+                <AdditionalBMIDirectories>$(_XamlCppWinRTModuleIfcSearchDirs);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
+            </ClCompile>
+        </ItemGroup>
+    </Target>
+
+    <!--
       Add the existing Pass1 *.xaml.g.h outputs as C++ module interface units.
       Resolve referenced module providers first, then run XamlC Pass1 and add its
       generated interfaces before C++/WinRT's own module-interface discovery and
@@ -647,8 +707,9 @@ Licensed under the MIT License. See LICENSE in the project root for license info
     -->
     <Target Name="XamlCppWinRTAddModuleInterfaces"
             Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true' and ('@(Page)' != '' or '@(ApplicationDefinition)' != '')"
-            DependsOnTargets="CppWinRTResolveModuleReferences;MarkupCompilePass1"
+            DependsOnTargets="CppWinRTResolveModuleReferences;XamlCppWinRTResolveModuleReferences;MarkupCompilePass1"
             BeforeTargets="CppWinRTAddModuleInterfaces;FixupCLCompileOptions">
+        <MakeDir Directories="$(XamlCppWinRTModuleIfcDir)" />
         <ItemGroup>
             <_XamlGeneratedModuleInterfaces Include="@(_GeneratedCodeFiles)"
                 Condition="$([System.String]::Copy('%(_GeneratedCodeFiles.Identity)').EndsWith('.xaml.g.h'))" />
@@ -671,7 +732,8 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                 <ModulesSupported>true</ModulesSupported>
                 <PrecompiledHeader>NotUsing</PrecompiledHeader>
                 <PreprocessorDefinitions>WINRT_XAML_MODULE_INTERFACE;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
-                <AdditionalBMIDirectories Condition="'$(_CppWinRTModuleIfcSearchDirs)' != ''">$(_CppWinRTModuleIfcSearchDirs);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
+                <ModuleOutputFile>$(XamlCppWinRTModuleIfcDir)</ModuleOutputFile>
+                <AdditionalBMIDirectories>$(_CppWinRTModuleIfcSearchDirs);$(_XamlCppWinRTModuleIfcSearchDirs);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
                 <CompilerIteration>XamlGeneratedModule</CompilerIteration>
             </ClCompile>
             <_XamlPrimaryModuleInterface Remove="@(_XamlPrimaryModuleInterface)" />
@@ -899,7 +961,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             -->
             <ClCompile Update="@(ClCompile)"
                        Condition="'$(CppWinRTBuildModule)' == 'true' and '%(ClCompile.CompilerIteration)' == 'XamlGenerated'">
-                <AdditionalBMIDirectories>$(IntDir);$(_XamlGeneratedAdditionalBMIDirectories);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
+                <AdditionalBMIDirectories>$(IntDir);$(XamlCppWinRTModuleIfcDir);$(_XamlGeneratedAdditionalBMIDirectories);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
             </ClCompile>
             <_XamlPass1PreprocessorSource Remove="@(_XamlPass1PreprocessorSource)" />
         </ItemGroup>
@@ -918,7 +980,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             BeforeTargets="CompileXamlGeneratedFiles">
         <ItemGroup>
             <ClCompile Update="@(XamlGFiles);@(GeneratedXamlPagesFiles)">
-                <AdditionalBMIDirectories>$(IntDir);$(_XamlGeneratedAdditionalBMIDirectories);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
+                <AdditionalBMIDirectories>$(IntDir);$(XamlCppWinRTModuleIfcDir);$(_XamlGeneratedAdditionalBMIDirectories);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
                 <PreprocessorDefinitions Condition="'$(_XamlGeneratedPreprocessorDefinitions)' != ''">$(_XamlGeneratedPreprocessorDefinitions);%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
             </ClCompile>
 
@@ -929,7 +991,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             -->
             <ClCompile Update="@(ClCompile)"
                        Condition="'%(ClCompile.CompilerIteration)' == 'XamlGenerated'">
-                <AdditionalBMIDirectories>$(IntDir);$(_XamlGeneratedAdditionalBMIDirectories);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
+                <AdditionalBMIDirectories>$(IntDir);$(XamlCppWinRTModuleIfcDir);$(_XamlGeneratedAdditionalBMIDirectories);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
                 <PreprocessorDefinitions Condition="'$(_XamlGeneratedPreprocessorDefinitions)' != ''">$(_XamlGeneratedPreprocessorDefinitions);%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
             </ClCompile>
         </ItemGroup>

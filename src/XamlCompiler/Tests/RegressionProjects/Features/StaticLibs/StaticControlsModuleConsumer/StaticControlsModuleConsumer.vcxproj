@@ -49,7 +49,7 @@
   <ItemGroup>
     <ProjectReference Include="..\StaticControlsModuleLib\StaticControlsModuleLib.vcxproj">
       <Project>{A3F7D9E4-5D1C-4F5E-9C82-57A95EA5C1B3}</Project>
-      <CppWinRTConsumeModule>true</CppWinRTConsumeModule>
+      <XamlCppWinRTConsumeModule>true</XamlCppWinRTConsumeModule>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
