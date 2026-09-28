@@ -26,9 +26,7 @@ export import <#=CppWinRTProjectionDependency.GetProjectXamlModuleName(ProjectIn
 <#  } #>
 
 #undef WINRT_XAML_MODULE_INTERFACE
-#define WINRT_XAML_EXPORT export
-
-#include "<#=Model.CodeInfo.ClassName.ShortName#>.g.h"
+#define WINRT_XAML_EXPORT export extern "C++"
 #else
 #ifndef WINRT_IMPORT_MODULE
 #define WINRT_IMPORT_MODULE
@@ -57,8 +55,23 @@ import <#=CppWinRTProjectionDependency.GetXamlModuleName(Model.CodeInfo.ClassNam
 <#  } #>
 
 #ifndef WINRT_XAML_SKIP_BODY
+<#  if (Model.CodeInfo.HasInComponentBase) { #>
+WINRT_XAML_EXPORT namespace winrt::<#=Colonize(Model.CodeInfo.BaseType.UnderlyingType.Namespace)#>::implementation
+{
+    struct <#=Model.CodeInfo.BaseType.UnderlyingType.Name#>;
+}
+<#  } #>
+
 WINRT_XAML_EXPORT namespace winrt::<#=Colonize(Model.CodeInfo.ClassName.Namespace)#>::implementation
 {
+<#  if (Model.CodeInfo.HasInComponentBase) { #>
+    template <typename D, typename B, typename... I>
+    struct <#=Model.CodeInfo.ClassName.ShortName#>_base;
+<#  } else { #>
+    template <typename D, typename... I>
+    struct <#=Model.CodeInfo.ClassName.ShortName#>_base;
+<#  } #>
+
     using IInspectable = <#=Projection(KnownNamespaces.WindowsFoundation)#>::IInspectable;
 
     template <typename D, typename ... I>

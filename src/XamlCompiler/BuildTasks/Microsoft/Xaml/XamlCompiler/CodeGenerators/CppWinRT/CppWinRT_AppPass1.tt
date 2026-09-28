@@ -29,7 +29,7 @@ export import <#=CppWinRTProjectionDependency.GetModuleName(KnownNamespaces.Xaml
 export import <#=CppWinRTProjectionDependency.GetProjectXamlModuleName(ProjectInfo.RootNamespace, "XamlTypeInfo")#>;
 
 #undef WINRT_XAML_MODULE_INTERFACE
-#define WINRT_XAML_EXPORT export
+#define WINRT_XAML_EXPORT export extern "C++"
 
 #include "XamlMetaDataProvider.h"
 #else
