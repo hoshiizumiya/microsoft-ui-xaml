@@ -101,7 +101,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
         <EnableBindingDiagnostics Condition="'$(EnableBindingDiagnostics)' == '' and ('$(IsAotCompatible)' == 'true' or '$(PublishAot)' == 'true')">true</EnableBindingDiagnostics>
 	</PropertyGroup>
 
-    <!-- Construct the FeatureControlFlags property based off of the values of EnableTypeInfoReflection, EnableXBindDiagnostics, EnableDefaultValidationContextGeneration, EnableWin32Codegen, EnableBindingDiagnostics, and UsingCSWinRT -->
+    <!-- Construct the FeatureControlFlags property based off of XAML/compiler capabilities that affect generated output. -->
     <ItemGroup>
       <XamlFeatureControlFlags Include="EnableTypeInfoReflection" Condition="'$(EnableTypeInfoReflection)' == 'true'" />
       <XamlFeatureControlFlags Include="EnableXBindDiagnostics" Condition="'$(EnableXBindDiagnostics)' == 'true'" />
@@ -109,6 +109,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
       <XamlFeatureControlFlags Include="EnableWin32Codegen" Condition="'$(EnableWin32Codegen)' == 'true'" />
       <XamlFeatureControlFlags Include="UsingCSWinRT" Condition="'$(_UsingCSWinRT)' == 'true'" />
       <XamlFeatureControlFlags Include="EnableBindingDiagnostics" Condition="'$(EnableBindingDiagnostics)' == 'true'" />
+      <XamlFeatureControlFlags Include="CppWinRTNamedModules" Condition="'$(CppWinRTBuildModule)' == 'true'" />
     </ItemGroup>
 
     <!-- When using reflection for our metadata provider, we need to include the reflection helper DLL which is in the same folder as this targets file -->

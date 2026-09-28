@@ -175,6 +175,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
         public bool EnableWin32Codegen { get; private set; }
         public bool UsingCSWinRT { get; private set; }
         public bool EnableBindingDiagnostics { get; private set; }
+        public bool UseCppWinRTNamedModules { get; private set; }
 
         // Controls whether or not usage of features (platform API, x:Bind functionality,
         // conditional XAML, etc.) should be validated against TargetPlatformMinVersion
@@ -329,6 +330,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
             EnableWin32Codegen = FeatureControlFlags.HasFlag(FeatureCtrlFlags.EnableWin32Codegen);
             UsingCSWinRT = FeatureControlFlags.HasFlag(FeatureCtrlFlags.UsingCSWinRT);
             EnableBindingDiagnostics = FeatureControlFlags.HasFlag(FeatureCtrlFlags.EnableBindingDiagnostics);
+            UseCppWinRTNamedModules = FeatureControlFlags.HasFlag(FeatureCtrlFlags.CppWinRTNamedModules);
             IgnoreSpecifiedTargetPlatformMinVersion = IgnoreSpecifiedTargetPlatformMinVersion;
 
             XamlApplications = GetFileItems(i.XamlApplications);
@@ -2018,6 +2020,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
 
             projectInfo.IsWin32App = EnableWin32Codegen;
             projectInfo.UsingCSWinRT = UsingCSWinRT;
+            projectInfo.UseCppWinRTNamedModules = UseCppWinRTNamedModules;
             projectInfo.PrecompiledHeaderFile = PrecompiledHeaderFile;
             projectInfo.EnabledXamlOptionalChanges = ParseCommaSeparatedList(EnabledXamlOptionalChanges);
             projectInfo.DisabledXamlOptionalChanges = ParseCommaSeparatedList(DisabledXamlOptionalChanges);
