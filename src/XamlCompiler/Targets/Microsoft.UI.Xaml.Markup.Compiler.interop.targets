@@ -626,35 +626,6 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <FileWrites Include="$(XamlSavedStateFilePath)" />
         </ItemGroup>
 
-        <!--
-          In C++/WinRT named-module mode, the existing Pass1 *.xaml.g.h files are also
-          compiled as named module interface units. The same files remain compatibility
-          headers: when included normally they only import <Class>_Xaml; when compiled
-          with WINRT_XAML_MODULE_INTERFACE they expose their original declarations.
-        -->
-        <ItemGroup Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'">
-            <_XamlGeneratedModuleInterfaces Include="@(_GeneratedCodeFiles)"
-                Condition="$([System.String]::Copy('%(_GeneratedCodeFiles.Identity)').EndsWith('.xaml.g.h'))" />
-            <_XamlModuleCompileMetadataSource Include="@(ClCompile)"
-                Condition="'%(ClCompile.CompilerIteration)' != 'XamlGenerated' and '%(ClCompile.CompilerIteration)' != 'XamlGeneratedModule'" />
-        </ItemGroup>
-        <PropertyGroup Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'">
-            <_XamlModulePreprocessorDefinitions>@(_XamlModuleCompileMetadataSource->'%(PreprocessorDefinitions)'->Distinct())</_XamlModulePreprocessorDefinitions>
-            <_XamlModuleAdditionalBMIDirectories>@(_XamlModuleCompileMetadataSource->'%(AdditionalBMIDirectories)'->Distinct())</_XamlModuleAdditionalBMIDirectories>
-        </PropertyGroup>
-        <ItemGroup Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'">
-            <ClCompile Remove="@(_XamlGeneratedModuleInterfaces)" />
-            <ClCompile Include="@(_XamlGeneratedModuleInterfaces)">
-                <CompileAs>CompileAsCppModule</CompileAs>
-                <ModulesSupported>true</ModulesSupported>
-                <PrecompiledHeader>NotUsing</PrecompiledHeader>
-                <PreprocessorDefinitions>WINRT_XAML_MODULE_INTERFACE;$(_XamlModulePreprocessorDefinitions)</PreprocessorDefinitions>
-                <AdditionalBMIDirectories Condition="'$(_XamlModuleAdditionalBMIDirectories)' != ''">$(_XamlModuleAdditionalBMIDirectories)</AdditionalBMIDirectories>
-                <CompilerIteration>XamlGeneratedModule</CompilerIteration>
-            </ClCompile>
-            <_XamlModuleCompileMetadataSource Remove="@(_XamlModuleCompileMetadataSource)" />
-        </ItemGroup>
-
         <Message Text="(Out) GeneratedCodeFiles: '@(_GeneratedCodeFiles)'" />
         <Message Text="(Out) GeneratedXamlFiles: '@(_GeneratedXamlFiles)'" />
         <Message Text="(Out) GeneratedXbfFiles: '@(_GeneratedXbfFiles)'" />
@@ -665,6 +636,30 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <PrevWarningLevel>$(WarningLevel)</PrevWarningLevel>
             <WarningLevel Condition="'$(SuppressWarningsInPass1)'=='true'">0</WarningLevel>
         </PropertyGroup>
+    </Target>
+
+    <!--
+      Add the existing Pass1 *.xaml.g.h outputs as C++ module interface units.
+      This target is intentionally ordered before C++/WinRT's own module-interface
+      discovery and FixupCLCompileOptions so the MSVC module dependency scanner sees
+      the XAML modules as ordinary ClCompile module items.
+    -->
+    <Target Name="XamlCppWinRTAddModuleInterfaces"
+            Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'"
+            DependsOnTargets="MarkupCompilePass1"
+            BeforeTargets="CppWinRTResolveModuleReferences;CppWinRTAddModuleInterfaces;FixupCLCompileOptions">
+        <ItemGroup>
+            <_XamlGeneratedModuleInterfaces Include="@(_GeneratedCodeFiles)"
+                Condition="$([System.String]::Copy('%(_GeneratedCodeFiles.Identity)').EndsWith('.xaml.g.h'))" />
+            <ClCompile Remove="@(_XamlGeneratedModuleInterfaces)" />
+            <ClCompile Include="@(_XamlGeneratedModuleInterfaces)">
+                <CompileAs>CompileAsCppModule</CompileAs>
+                <ModulesSupported>true</ModulesSupported>
+                <PrecompiledHeader>NotUsing</PrecompiledHeader>
+                <PreprocessorDefinitions>WINRT_XAML_MODULE_INTERFACE;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+                <CompilerIteration>XamlGeneratedModule</CompilerIteration>
+            </ClCompile>
+        </ItemGroup>
     </Target>
 
     <!--

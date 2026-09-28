@@ -13,7 +13,7 @@
 module;
 #include <unknwn.h>
 
-export module <#=Model.CodeInfo.ClassName.ShortName#>_Xaml;
+export module <#=CppWinRTProjectionDependency.GetXamlModuleName(Model.CodeInfo.ClassName.FullName)#>;
 
 #define WINRT_IMPORT_MODULE
 import std;
@@ -22,17 +22,18 @@ export import <#=CppWinRTProjectionDependency.GetModuleName(KnownNamespaces.Xaml
 export import <#=CppWinRTProjectionDependency.GetModuleName(KnownNamespaces.XamlMarkup)#>;
 export import <#=CppWinRTProjectionDependency.GetModuleName(KnownNamespaces.XamlInterop)#>;
 export import <#=CppWinRTProjectionDependency.GetModuleName(KnownNamespaces.WindowsXamlInterop)#>;
+export import <#=CppWinRTProjectionDependency.GetModuleName(ProjectInfo.RootNamespace)#>;
 <#  if (ProjectInfo.EnabledXamlOptionalChanges.Count > 0 || ProjectInfo.DisabledXamlOptionalChanges.Count > 0) { #>
 export import <#=CppWinRTProjectionDependency.GetModuleName(KnownNamespaces.XamlSettings)#>;
 <#  } #>
-export import XamlTypeInfo_Xaml;
+export import <#=CppWinRTProjectionDependency.GetProjectXamlModuleName(ProjectInfo.RootNamespace, "XamlTypeInfo")#>;
 
 #undef WINRT_XAML_MODULE_INTERFACE
 #define WINRT_XAML_EXPORT export
 
 #include "XamlMetaDataProvider.h"
 #else
-import <#=Model.CodeInfo.ClassName.ShortName#>_Xaml;
+import <#=CppWinRTProjectionDependency.GetXamlModuleName(Model.CodeInfo.ClassName.FullName)#>;
 #define WINRT_XAML_SKIP_BODY
 #endif
 <#  } else { #>

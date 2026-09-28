@@ -55,6 +55,16 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
         {
             return $"winrt.{projectionNamespace}";
         }
+
+        public static string GetXamlModuleName(string runtimeClassName)
+        {
+            return runtimeClassName.Replace("::", ".") + "_Xaml";
+        }
+
+        public static string GetProjectXamlModuleName(string rootNamespace, string moduleName)
+        {
+            return $"{rootNamespace}.{moduleName}_Xaml";
+        }
     }
 
     internal class CppWinRT_CodeGenerator<T> : NativeCodeGenerator<T>
