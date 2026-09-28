@@ -12,7 +12,7 @@
     <ProjectGuid>{6F2C6E77-8B6C-4D3B-B3D5-30A43C95A1E7}</ProjectGuid>
     <ProjectName>StaticControlsModuleConsumer</ProjectName>
     <RootNamespace>StaticControlsModuleConsumer</RootNamespace>
-    <MinimumVisualStudioVersion>18.0</MinimumVisualStudioVersion>
+    <MinimumVisualStudioVersion>14.0</MinimumVisualStudioVersion>
     <AppContainerApplication>true</AppContainerApplication>
     <ApplicationType>Windows Store</ApplicationType>
     <ApplicationTypeRevision>10.0</ApplicationTypeRevision>
