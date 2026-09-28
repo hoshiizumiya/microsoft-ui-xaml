@@ -318,7 +318,12 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 
         private List<string> LookupNeededCppWinRTProjectionNamespaces()
         {
-            var projectionNamespaces = new HashSet<string>();
+            var projectionNamespaces = new HashSet<string>
+            {
+                KnownNamespaces.WindowsFoundation,
+                KnownNamespaces.XamlMarkup,
+                KnownNamespaces.WindowsXamlInterop,
+            };
 
             void addCppWinRTProjectionForTypeIfNecessary(Type type)
             {

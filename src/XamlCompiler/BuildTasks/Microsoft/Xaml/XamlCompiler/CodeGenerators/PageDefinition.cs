@@ -227,7 +227,10 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 
             if (!_neededXamlHeaderFilesCalculated)
             {
-                neededCppWinRTProjectionNamespaces = new HashSet<string>();
+                neededCppWinRTProjectionNamespaces = new HashSet<string>
+                {
+                    KnownNamespaces.WindowsFoundation,
+                };
 
                 string headerFile;
                 if (ProjectInfo.ClassToHeaderFileMap.TryGetValue(CodeInfo.ClassName.FullName, out headerFile))

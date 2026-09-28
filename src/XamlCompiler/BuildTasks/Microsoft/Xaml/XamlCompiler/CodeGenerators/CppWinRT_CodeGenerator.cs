@@ -45,6 +45,40 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             return type.CppWinRTName();
         }
 
+        public string GetCppWinRTProjectionDependencyDirective(string projectionNamespace, bool optionalHeader = false)
+        {
+            string headerFile = CppWinRTProjectionDependency.GetHeaderFile(projectionNamespace);
+
+            if (ProjectInfo.UseCppWinRTNamedModules)
+            {
+                return $"import {CppWinRTProjectionDependency.GetModuleName(projectionNamespace)};";
+            }
+
+            if (optionalHeader)
+            {
+                return $"#if __has_include(<{headerFile}>)\n#include <{headerFile}>\n#endif";
+            }
+
+            return $"#include <{headerFile}>";
+        }
+
+        public string GetCppWinRTNamedModuleImportDirective(string projectionNamespace)
+        {
+            return ProjectInfo.UseCppWinRTNamedModules
+                ? $"import {CppWinRTProjectionDependency.GetModuleName(projectionNamespace)};"
+                : String.Empty;
+        }
+
+        public string GetCppWinRTModuleCompatibilityDefinition()
+        {
+            if (!ProjectInfo.UseCppWinRTNamedModules)
+            {
+                return String.Empty;
+            }
+
+            return "#ifndef WINRT_IMPORT_MODULE\n#define WINRT_IMPORT_MODULE\n#endif";
+        }
+
         public static String Projection(string typeName)
         {
             string newName = Globalize(typeName);
