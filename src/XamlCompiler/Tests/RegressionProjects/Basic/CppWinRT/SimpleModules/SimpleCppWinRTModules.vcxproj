@@ -134,6 +134,7 @@
       <DependentUpon>App.xaml</DependentUpon>
     </ClCompile>
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
+    <ClCompile Include="XamlModuleSmoke.cpp" />
     <ClCompile Include="EmptyPage.cpp">
       <DependentUpon>EmptyPage.xaml</DependentUpon>
     </ClCompile>

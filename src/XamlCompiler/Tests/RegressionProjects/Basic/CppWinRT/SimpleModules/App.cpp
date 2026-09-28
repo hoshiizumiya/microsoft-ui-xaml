@@ -10,7 +10,6 @@
 
 #define WINRT_IMPORT_MODULE
 import std;
-import Simple.Application_Xaml;
 import winrt.Windows.ApplicationModel;
 import winrt.Windows.ApplicationModel.Activation;
 import winrt.Microsoft.UI.Xaml.Navigation;
