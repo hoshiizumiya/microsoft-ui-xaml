@@ -9,6 +9,31 @@
 //------------------------------------------------------------------------------
 #pragma once
 
+<#  if (ProjectInfo.UseCppWinRTNamedModules) { #>
+#ifdef WINRT_XAML_MODULE_INTERFACE
+module;
+#include <unknwn.h>
+
+export module <#=Model.CodeInfo.ClassName.ShortName#>_Xaml;
+
+#define WINRT_IMPORT_MODULE
+import std;
+<#  foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { #>
+export import <#=CppWinRTProjectionDependency.GetModuleName(projectionNamespace)#>;
+<#  }#>
+<#  if (Model.CodeInfo.BindStatus != BindStatus.None) { #>
+export import XamlBindingInfo_Xaml;
+<#  } #>
+
+#undef WINRT_XAML_MODULE_INTERFACE
+#define WINRT_XAML_EXPORT export
+
+#include "<#=Model.CodeInfo.ClassName.ShortName#>.g.h"
+#else
+import <#=Model.CodeInfo.ClassName.ShortName#>_Xaml;
+#define WINRT_XAML_SKIP_BODY
+#endif
+<#  } else { #>
 #include <unknwn.h>
 
 // Undefine GetCurrentTime macro to prevent
@@ -20,13 +45,16 @@
 <#  foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { #>
 <#=GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)#>
 <#  }#>
-<#=GetCppWinRTModuleCompatibilityDefinition()#>
 
 <#  if (Model.CodeInfo.BindStatus != BindStatus.None) { #>
 #include "XamlBindingInfo.xaml.g.h"
 <#  } #>
 
-namespace winrt::<#=Colonize(Model.CodeInfo.ClassName.Namespace)#>::implementation
+#define WINRT_XAML_EXPORT
+<#  } #>
+
+#ifndef WINRT_XAML_SKIP_BODY
+WINRT_XAML_EXPORT namespace winrt::<#=Colonize(Model.CodeInfo.ClassName.Namespace)#>::implementation
 {
     using IInspectable = <#=Projection(KnownNamespaces.WindowsFoundation)#>::IInspectable;
 
@@ -94,3 +122,12 @@ namespace winrt::<#=Colonize(Model.CodeInfo.ClassName.Namespace)#>::implementati
 <#  }#>
     };
 }
+#endif // WINRT_XAML_SKIP_BODY
+
+#ifdef WINRT_XAML_EXPORT
+#undef WINRT_XAML_EXPORT
+#endif
+#ifdef WINRT_XAML_SKIP_BODY
+#undef WINRT_XAML_SKIP_BODY
+#endif
+

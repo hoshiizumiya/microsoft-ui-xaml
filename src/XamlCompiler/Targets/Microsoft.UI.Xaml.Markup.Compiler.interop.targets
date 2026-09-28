@@ -626,6 +626,25 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <FileWrites Include="$(XamlSavedStateFilePath)" />
         </ItemGroup>
 
+        <!--
+          In C++/WinRT named-module mode, the existing Pass1 *.xaml.g.h files are also
+          compiled as named module interface units. The same files remain compatibility
+          headers: when included normally they only import <Class>_Xaml; when compiled
+          with WINRT_XAML_MODULE_INTERFACE they expose their original declarations.
+        -->
+        <ItemGroup Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'">
+            <_XamlGeneratedModuleInterfaces Include="@(_GeneratedCodeFiles)"
+                Condition="$([System.String]::Copy('%(_GeneratedCodeFiles.Identity)').EndsWith('.xaml.g.h'))" />
+            <ClCompile Remove="@(_XamlGeneratedModuleInterfaces)" />
+            <ClCompile Include="@(_XamlGeneratedModuleInterfaces)">
+                <CompileAs>CompileAsCppModule</CompileAs>
+                <ModulesSupported>true</ModulesSupported>
+                <PrecompiledHeader>NotUsing</PrecompiledHeader>
+                <PreprocessorDefinitions>WINRT_XAML_MODULE_INTERFACE;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+                <CompilerIteration>XamlGeneratedModule</CompilerIteration>
+            </ClCompile>
+        </ItemGroup>
+
         <Message Text="(Out) GeneratedCodeFiles: '@(_GeneratedCodeFiles)'" />
         <Message Text="(Out) GeneratedXamlFiles: '@(_GeneratedXamlFiles)'" />
         <Message Text="(Out) GeneratedXbfFiles: '@(_GeneratedXbfFiles)'" />

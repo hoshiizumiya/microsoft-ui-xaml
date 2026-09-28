@@ -8,6 +8,31 @@
 //     the code is regenerated.
 //------------------------------------------------------------------------------
 
+<#  if (ProjectInfo.UseCppWinRTNamedModules) { #>
+#ifdef WINRT_XAML_MODULE_INTERFACE
+module;
+#include <unknwn.h>
+
+export module <#=Model.CodeInfo.ClassName.ShortName#>_Xaml;
+
+#define WINRT_IMPORT_MODULE
+import std;
+export import <#=CppWinRTProjectionDependency.GetModuleName(KnownNamespaces.WindowsFoundation)#>;
+export import <#=CppWinRTProjectionDependency.GetModuleName(KnownNamespaces.Xaml)#>;
+export import <#=CppWinRTProjectionDependency.GetModuleName(KnownNamespaces.XamlMarkup)#>;
+export import <#=CppWinRTProjectionDependency.GetModuleName(KnownNamespaces.XamlInterop)#>;
+export import <#=CppWinRTProjectionDependency.GetModuleName(KnownNamespaces.WindowsXamlInterop)#>;
+export import XamlTypeInfo_Xaml;
+
+#undef WINRT_XAML_MODULE_INTERFACE
+#define WINRT_XAML_EXPORT export
+
+#include "XamlMetaDataProvider.h"
+#else
+import <#=Model.CodeInfo.ClassName.ShortName#>_Xaml;
+#define WINRT_XAML_SKIP_BODY
+#endif
+<#  } else { #>
 #include <unknwn.h>
 
 // Undefine GetCurrentTime macro to prevent
@@ -19,12 +44,15 @@
 <#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlMarkup)#>
 <#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlInterop)#>
 <#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsXamlInterop)#>
-<#=GetCppWinRTModuleCompatibilityDefinition()#>
 
 #include "XamlTypeInfo.xaml.g.h"
 #include "XamlMetaDataProvider.h"
 
-namespace winrt::<#=Colonize(Model.CodeInfo.ClassName.Namespace)#>::implementation
+#define WINRT_XAML_EXPORT
+<#  } #>
+
+#ifndef WINRT_XAML_SKIP_BODY
+WINRT_XAML_EXPORT namespace winrt::<#=Colonize(Model.CodeInfo.ClassName.Namespace)#>::implementation
 {
     template <typename D, typename ... Interfaces>
     struct AppT: public <#=Projection(Model.CodeInfo.BaseTypeName)#>T<D, <#=Projection(KnownNamespaces.XamlMarkup)#>::IXamlMetadataProvider, Interfaces...>
@@ -78,3 +106,12 @@ namespace winrt::<#=Colonize(Model.CodeInfo.ClassName.Namespace)#>::implementati
         }
     };
 }
+#endif // WINRT_XAML_SKIP_BODY
+
+#ifdef WINRT_XAML_EXPORT
+#undef WINRT_XAML_EXPORT
+#endif
+#ifdef WINRT_XAML_SKIP_BODY
+#undef WINRT_XAML_SKIP_BODY
+#endif
+
