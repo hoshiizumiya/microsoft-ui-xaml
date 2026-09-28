@@ -7,8 +7,12 @@
 
 #include "pch.h"
 #include "windows.h"
-#include "winrt/Windows.ApplicationModel.Activation.h"
-#include "winrt/Microsoft.UI.Xaml.Navigation.h"
+
+#define WINRT_IMPORT_MODULE
+import std;
+import winrt.Windows.ApplicationModel;
+import winrt.Windows.ApplicationModel.Activation;
+import winrt.Microsoft.UI.Xaml.Navigation;
 
 #include "App.h"
 #include "MainPage.h"
