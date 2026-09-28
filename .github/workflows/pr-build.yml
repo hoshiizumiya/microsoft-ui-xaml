@@ -38,9 +38,11 @@ jobs:
     name: Sync XamlC T4 outputs
     runs-on: windows-2025
     permissions:
+      actions: write
       contents: write
     outputs:
       checkout_sha: ${{ steps.sync.outputs.checkout_sha }}
+      generated_commit: ${{ steps.sync.outputs.generated_commit }}
     steps:
       - name: Checkout PR head
         uses: actions/checkout@v5
@@ -73,6 +75,7 @@ jobs:
 
           if ($changed.Count -eq 0) {
               "checkout_sha=$(git rev-parse HEAD)" >> $env:GITHUB_OUTPUT
+              "generated_commit=false" >> $env:GITHUB_OUTPUT
               exit 0
           }
 
@@ -95,9 +98,17 @@ jobs:
           $generatedSha = git rev-parse HEAD
           git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
           "checkout_sha=$generatedSha" >> $env:GITHUB_OUTPUT
+          "generated_commit=true" >> $env:GITHUB_OUTPUT
+
+          # A push made with GITHUB_TOKEN does not recursively trigger the PR workflow.
+          # Dispatch a fresh run explicitly so the validation check suite is attached
+          # to the generated commit rather than to the stale pre-generation PR head.
+          $env:GH_TOKEN = "${{ github.token }}"
+          gh workflow run pr-build.yml --repo "${{ github.repository }}" --ref "${{ github.event.pull_request.head.ref }}"
 
   build:
     needs: sync-xamlc-t4
+    if: needs.sync-xamlc-t4.outputs.generated_commit != 'true'
     name: Build (${{ matrix.flavor }})
     runs-on: windows-2022
     timeout-minutes: 120
