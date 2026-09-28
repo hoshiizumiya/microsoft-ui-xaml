@@ -36,7 +36,7 @@ env:
 jobs:
   build:
     name: Build (${{ matrix.flavor }})
-    runs-on: windows-latest
+    runs-on: windows-2022
     timeout-minutes: 120
     strategy:
       fail-fast: false
