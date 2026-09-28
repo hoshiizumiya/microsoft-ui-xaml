@@ -30,8 +30,6 @@ export import <#=CppWinRTProjectionDependency.GetProjectXamlModuleName(ProjectIn
 
 #undef WINRT_XAML_MODULE_INTERFACE
 #define WINRT_XAML_EXPORT export extern "C++"
-
-#include "XamlMetaDataProvider.h"
 #else
 #ifndef WINRT_IMPORT_MODULE
 #define WINRT_IMPORT_MODULE
@@ -61,6 +59,10 @@ import <#=CppWinRTProjectionDependency.GetXamlModuleName(Model.CodeInfo.ClassNam
 #ifndef WINRT_XAML_SKIP_BODY
 WINRT_XAML_EXPORT namespace winrt::<#=Colonize(Model.CodeInfo.ClassName.Namespace)#>::implementation
 {
+<#  if (ProjectInfo.UseCppWinRTNamedModules) { #>
+    struct XamlMetaDataProvider;
+<#  } #>
+
     template <typename D, typename ... Interfaces>
     struct AppT: public <#=Projection(Model.CodeInfo.BaseTypeName)#>T<D, <#=Projection(KnownNamespaces.XamlMarkup)#>::IXamlMetadataProvider, Interfaces...>
     {
@@ -79,12 +81,21 @@ WINRT_XAML_EXPORT namespace winrt::<#=Colonize(Model.CodeInfo.ClassName.Namespac
 
 <#  if(!ProjectInfo.GenerateProviderCode) { #>
 
+<#      if (ProjectInfo.UseCppWinRTNamedModules) { #>
+        void AddOtherProvider(<#=Projection(KnownNamespaces.XamlMarkup)#>::IXamlMetadataProvider const& otherProvider);
+<#      } else { #>
         void AddOtherProvider(<#=Projection(KnownNamespaces.XamlMarkup)#>::IXamlMetadataProvider const& otherProvider)
         {
             AppProvider()->AddOtherProvider(otherProvider);
         }
+<#      } #>
 <#  }#>
 
+<#  if (ProjectInfo.UseCppWinRTNamedModules) { #>
+        IXamlType GetXamlType(<#=Projection(KnownNamespaces.WindowsXamlInterop)#>::TypeName const& type);
+        IXamlType GetXamlType(::winrt::hstring const& fullName);
+        ::winrt::com_array<<#=Projection(KnownNamespaces.XamlMarkup)#>::XmlnsDefinition> GetXmlnsDefinitions();
+<#  } else { #>
         IXamlType GetXamlType(<#=Projection(KnownNamespaces.WindowsXamlInterop)#>::TypeName const& type)
         {
             return AppProvider()->GetXamlType(type);
@@ -99,10 +110,14 @@ WINRT_XAML_EXPORT namespace winrt::<#=Colonize(Model.CodeInfo.ClassName.Namespac
         {
             return AppProvider()->GetXmlnsDefinitions();
         }
+<#  } #>
 
     private:
         bool _contentLoaded{false};
         winrt::com_ptr<XamlMetaDataProvider> _appProvider;
+<#  if (ProjectInfo.UseCppWinRTNamedModules) { #>
+        winrt::com_ptr<XamlMetaDataProvider> AppProvider();
+<#  } else { #>
         winrt::com_ptr<XamlMetaDataProvider> AppProvider()
         {
             if (!_appProvider)
@@ -111,6 +126,7 @@ WINRT_XAML_EXPORT namespace winrt::<#=Colonize(Model.CodeInfo.ClassName.Namespac
             }
             return _appProvider;
         }
+<#  } #>
     };
 }
 #endif // WINRT_XAML_SKIP_BODY
