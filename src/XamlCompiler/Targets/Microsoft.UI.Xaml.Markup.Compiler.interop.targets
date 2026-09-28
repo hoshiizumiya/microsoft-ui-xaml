@@ -646,7 +646,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
       making every XAML partition visible to the MSVC module dependency scanner.
     -->
     <Target Name="XamlCppWinRTAddModuleInterfaces"
-            Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'"
+            Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true' and ('@(Page)' != '' or '@(ApplicationDefinition)' != '')"
             DependsOnTargets="CppWinRTResolveModuleReferences;MarkupCompilePass1"
             BeforeTargets="CppWinRTAddModuleInterfaces;FixupCLCompileOptions">
         <ItemGroup>
@@ -913,7 +913,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
       C++/WinRT BMIs without an application-owned /FI preamble.
     -->
     <Target Name="XamlCppWinRTApplyGeneratedModuleReferences"
-            Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'"
+            Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true' and ('@(Page)' != '' or '@(ApplicationDefinition)' != '')"
             AfterTargets="ComputeXamlGeneratedCompileInputs"
             BeforeTargets="CompileXamlGeneratedFiles">
         <ItemGroup>
