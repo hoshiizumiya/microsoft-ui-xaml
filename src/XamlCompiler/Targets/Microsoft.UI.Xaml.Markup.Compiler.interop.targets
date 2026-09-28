@@ -851,7 +851,15 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <ClCompile Include="@(GeneratedXamlPagesFiles)" >
                 <CompilerIteration>XamlGenerated</CompilerIteration>
                 <PreprocessorDefinitions Condition="'$(_XamlGeneratedPreprocessorDefinitions)' != ''">$(_XamlGeneratedPreprocessorDefinitions)</PreprocessorDefinitions>
-                <AdditionalBMIDirectories Condition="'$(CppWinRTBuildModule)' == 'true'">$(_XamlGeneratedAdditionalBMIDirectories)</AdditionalBMIDirectories>
+            </ClCompile>
+
+            <!--
+              Update every XAML-generated compile item, including XamlMetaDataProvider.cpp which
+              C++/WinRT may have added before MarkupCompilePass2.
+            -->
+            <ClCompile Update="@(ClCompile)"
+                       Condition="'$(CppWinRTBuildModule)' == 'true' and '%(ClCompile.CompilerIteration)' == 'XamlGenerated'">
+                <AdditionalBMIDirectories>$(IntDir);$(_CppWinRTModuleIfcSearchDirs);$(_XamlGeneratedAdditionalBMIDirectories);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
             </ClCompile>
             <_XamlPass1PreprocessorSource Remove="@(_XamlPass1PreprocessorSource)" />
         </ItemGroup>
