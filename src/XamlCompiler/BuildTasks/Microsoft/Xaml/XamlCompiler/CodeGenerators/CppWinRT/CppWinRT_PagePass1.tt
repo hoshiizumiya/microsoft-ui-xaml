@@ -18,6 +18,7 @@ export module <#=Model.CodeInfo.ClassName.ShortName#>_Xaml;
 
 #define WINRT_IMPORT_MODULE
 import std;
+export import <#=CppWinRTProjectionDependency.GetModuleName(Model.CodeInfo.ClassName.Namespace)#>;
 <#  foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { #>
 export import <#=CppWinRTProjectionDependency.GetModuleName(projectionNamespace)#>;
 <#  }#>
