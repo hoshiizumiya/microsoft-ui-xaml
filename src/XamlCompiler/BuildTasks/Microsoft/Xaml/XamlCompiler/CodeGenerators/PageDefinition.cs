@@ -213,9 +213,17 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 
             if (!_neededXamlHeaderFilesCalculated)
             {
+                // These projections are referenced by the generated Page Pass1/Pass2
+                // scaffolding even when the XAML contains no named elements, events or bindings.
+                // Keep them as unconditional semantic dependencies; relying on transitive
+                // projection headers happens to work in header mode but is not valid for named
+                // modules where every directly referenced namespace must be reachable.
                 neededCppWinRTProjectionNamespaces = new HashSet<string>
                 {
                     KnownNamespaces.WindowsFoundation,
+                    KnownNamespaces.Xaml,
+                    KnownNamespaces.XamlControlsPrimitives,
+                    KnownNamespaces.XamlMarkup,
                 };
 
                 string headerFile;
@@ -226,12 +234,6 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 
                 foreach (XamlFileCodeInfo fileCodeInfo in CodeInfo.PerXamlFileInfo)
                 {
-                    if (fileCodeInfo.ConnectionIdElements.Any())
-                    {
-                        // IComponentConnector requires the Microsoft.UI.Xaml.Markup projection.
-                        neededCppWinRTProjectionNamespaces.Add("Microsoft.UI.Xaml.Markup");
-                    }
-
                     // iterate over all the fields
                     foreach (FieldDefinition fieldData in from c in fileCodeInfo.ConnectionIdElements
                                                           where c.FieldDefinition != null
