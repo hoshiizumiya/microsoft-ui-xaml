@@ -750,6 +750,21 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
                     extraFilePaths.Add(Path.Combine(SourceFileManager.OutputFolderFullpath, "XamlMetaDataProvider.h"));
                     extraFilePaths.Add(Path.Combine(SourceFileManager.OutputFolderFullpath, "XamlLibMetadataProvider.g.cpp"));
                     extraFilePaths.Add(Path.Combine(SourceFileManager.OutputFolderFullpath, "XamlTypeInfo.Impl.g.cpp"));
+
+                    // Native Pass1 normally regenerates these shared headers after per-class
+                    // code generation. The no-change shortcut returns before those generators
+                    // run, so report the existing files explicitly. Named-module builds depend
+                    // on XamlBindingInfo.xaml.g.h as the Application_Xaml primary interface and
+                    // on XamlTypeInfo.xaml.g.h as its optional TypeInfo partition.
+                    extraFilePaths.Add(Path.Combine(
+                        SourceFileManager.OutputFolderFullpath,
+                        KnownStrings.XamlBindingInfo + Language.Pass1Extension));
+                    if (!ShouldSuppressTypeInfoCodeGen())
+                    {
+                        extraFilePaths.Add(Path.Combine(
+                            SourceFileManager.OutputFolderFullpath,
+                            KnownStrings.XamlTypeInfo + Language.Pass1Extension));
+                    }
                 }
                 else
                 {
