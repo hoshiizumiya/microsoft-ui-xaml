@@ -639,9 +639,10 @@ Licensed under the MIT License. See LICENSE in the project root for license info
     </Target>
 
     <!--
-      Keep XAML BMIs separate from C++/WinRT projection BMIs. Component projection
-      modules generated with -opt are project-private, so a consumer must not add a
-      provider's entire IntDir to /ifcSearchDir just to import Application_Xaml.
+      Keep XAML BMIs in a dedicated subdirectory so their lifetime and mode switching
+      can be managed independently from C++/WinRT projection BMIs. Static-library
+      cross-project propagation remains the native VC/MSBuild module graph; this path
+      does not introduce a second ProjectReference protocol.
     -->
     <PropertyGroup>
         <XamlCppWinRTModuleIfcDir Condition="'$(XamlCppWinRTModuleIfcDir)' == ''">$(IntDir)XamlModules\</XamlCppWinRTModuleIfcDir>
