@@ -1031,14 +1031,21 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
                 // ClassFullName from SaveState and refreshes it when a XAML file changes.
                 if (Language.Name == ProgrammingLanguage.CppWinRT && _projectInfo.UseCppWinRTNamedModules)
                 {
-                    _projectInfo.XamlClassNames = ShouldSuppressPageCodeGen()
-                        ? Array.Empty<string>()
-                        : SourceFileManager.ProjectXamlTaskItems
-                            .Select(item => item.ClassFullName)
-                            .Where(className => !String.IsNullOrWhiteSpace(className))
-                            .Distinct(StringComparer.Ordinal)
-                            .OrderBy(className => className, StringComparer.Ordinal)
-                            .ToList();
+                    IEnumerable<TaskItemFilename> moduleXamlItems = SourceFileManager.ProjectXamlTaskItems;
+                    if (ShouldSuppressPageCodeGen())
+                    {
+                        // NoPageCodeGen suppresses non-Application pages only. App.xaml still
+                        // generates AppPass1/AppPass2, so its module partition must remain
+                        // reachable from the Application_Xaml primary interface.
+                        moduleXamlItems = moduleXamlItems.Where(item => item.IsApplication);
+                    }
+
+                    _projectInfo.XamlClassNames = moduleXamlItems
+                        .Select(item => item.ClassFullName)
+                        .Where(className => !String.IsNullOrWhiteSpace(className))
+                        .Distinct(StringComparer.Ordinal)
+                        .OrderBy(className => className, StringComparer.Ordinal)
+                        .ToList();
                 }
 
                 // Create Code Generator
