@@ -14,24 +14,20 @@
 module;
 #include <unknwn.h>
 
-export module <#=CppWinRTProjectionDependency.GetXamlModuleName(Model.CodeInfo.ClassName.FullName)#>;
+export module <#=CppWinRTProjectionDependency.GetXamlPartitionModuleName(ProjectInfo.RootNamespace, Model.CodeInfo.ClassName.FullName)#>;
 
 #define WINRT_IMPORT_MODULE
 import std;
 <#  foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { #>
 export import <#=CppWinRTProjectionDependency.GetModuleName(projectionNamespace)#>;
 <#  }#>
-<#  if (Model.CodeInfo.BindStatus != BindStatus.None) { #>
-export import <#=CppWinRTProjectionDependency.GetProjectXamlModuleName(ProjectInfo.RootNamespace, "XamlBindingInfo")#>;
-<#  } #>
-
 #undef WINRT_XAML_MODULE_INTERFACE
 #define WINRT_XAML_EXPORT export extern "C++"
 #else
 #ifndef WINRT_IMPORT_MODULE
 #define WINRT_IMPORT_MODULE
 #endif
-import <#=CppWinRTProjectionDependency.GetXamlModuleName(Model.CodeInfo.ClassName.FullName)#>;
+import <#=CppWinRTProjectionDependency.GetXamlPrimaryModuleName(ProjectInfo.RootNamespace)#>;
 #define WINRT_XAML_SKIP_BODY
 #endif
 <#  } else { #>
@@ -55,6 +51,13 @@ import <#=CppWinRTProjectionDependency.GetXamlModuleName(Model.CodeInfo.ClassNam
 <#  } #>
 
 #ifndef WINRT_XAML_SKIP_BODY
+<#  if (Model.CodeInfo.BindStatus != BindStatus.None) { #>
+WINRT_XAML_EXPORT namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation
+{
+    struct XamlBindings;
+}
+<#  } #>
+
 <#  if (Model.CodeInfo.HasInComponentBase) { #>
 WINRT_XAML_EXPORT namespace winrt::<#=Colonize(Model.CodeInfo.BaseType.UnderlyingType.Namespace)#>::implementation
 {

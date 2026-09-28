@@ -66,6 +66,11 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
             get { return HasCodeGenFlag(CodeGenCtrlFlags.IncrementalTypeInfoCodeGen); }
         }
 
+        public bool ShouldGenerateTypeInfoCode
+        {
+            get { return !HasCodeGenFlag(CodeGenCtrlFlags.NoTypeInfoCodeGen); }
+        }
+
         public bool GenerateProviderCode
         {
             get { return !HasCodeGenFlag(CodeGenCtrlFlags.DoNotGenerateOtherProviders); }

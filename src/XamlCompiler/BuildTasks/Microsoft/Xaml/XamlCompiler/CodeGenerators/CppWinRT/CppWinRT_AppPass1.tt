@@ -13,7 +13,7 @@
 module;
 #include <unknwn.h>
 
-export module <#=CppWinRTProjectionDependency.GetXamlModuleName(Model.CodeInfo.ClassName.FullName)#>;
+export module <#=CppWinRTProjectionDependency.GetXamlPartitionModuleName(ProjectInfo.RootNamespace, Model.CodeInfo.ClassName.FullName)#>;
 
 #define WINRT_IMPORT_MODULE
 import std;
@@ -32,7 +32,7 @@ export import <#=CppWinRTProjectionDependency.GetModuleName(KnownNamespaces.Xaml
 #ifndef WINRT_IMPORT_MODULE
 #define WINRT_IMPORT_MODULE
 #endif
-import <#=CppWinRTProjectionDependency.GetXamlModuleName(Model.CodeInfo.ClassName.FullName)#>;
+import <#=CppWinRTProjectionDependency.GetXamlPrimaryModuleName(ProjectInfo.RootNamespace)#>;
 #define WINRT_XAML_SKIP_BODY
 #endif
 <#  } else { #>

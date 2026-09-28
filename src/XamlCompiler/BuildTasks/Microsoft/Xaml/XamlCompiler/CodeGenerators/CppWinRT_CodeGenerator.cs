@@ -77,12 +77,12 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
         // are regenerated from the updated templates.
         public static string GetXamlModuleName(string runtimeClassName)
         {
-            return GetXamlPartitionModuleName(String.Empty, runtimeClassName);
+            return runtimeClassName.Replace("::", ".") + "_Xaml";
         }
 
         public static string GetProjectXamlModuleName(string rootNamespace, string moduleName)
         {
-            return GetXamlPartitionModuleName(rootNamespace, moduleName);
+            return $"{rootNamespace}.{moduleName}_Xaml";
         }
     }
 
