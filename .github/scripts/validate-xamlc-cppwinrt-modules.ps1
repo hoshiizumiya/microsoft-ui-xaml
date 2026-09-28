@@ -24,13 +24,14 @@ function Invoke-XamlModuleBuild {
     param(
         [Parameter(Mandatory)] [string]$RelativeProject,
         [Parameter(Mandatory)] [string]$LogName,
-        [string[]]$ExtraProperties = @()
+        [string[]]$ExtraProperties = @(),
+        [string]$Target = 'Build'
     )
 
     $project = Join-Path $repoRoot $RelativeProject
     $arguments = @(
         $project,
-        '/t:Build',
+        "/t:$Target",
         '/p:Configuration=Debug',
         '/p:Platform=x64',
         '/p:VisualStudioVersion=17.0',
@@ -99,6 +100,38 @@ Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.PageAddedBack' @('/
 $restoredEmptyPageHeaders = @(Get-ChildItem -Path $simpleObjRoot -Filter 'EmptyPage.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
 if ($restoredEmptyPageHeaders.Count -eq 0) {
     throw 'Restoring EmptyPage.xaml did not regenerate EmptyPage.xaml.g.h.'
+}
+
+# NoPageCodeGen is a Pass1 code-generation mode, so validate its module partition
+# contract without compiling application sources that intentionally depend on Page
+# InitializeComponent output.
+Invoke-XamlModuleBuild -RelativeProject $simpleModules -LogName 'SimpleCppWinRTModules.NoPagePass1' -Target 'MarkupCompilePass1' -ExtraProperties @('/p:XamlCodeGenerationControlFlags=NoPageCodeGen')
+
+$simplePrimaryHeaders = @(Get-ChildItem -Path $simpleObjRoot -Filter 'XamlBindingInfo.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
+if ($simplePrimaryHeaders.Count -eq 0) {
+    throw 'SimpleModules did not generate XamlBindingInfo.xaml.g.h.'
+}
+foreach ($header in $simplePrimaryHeaders) {
+    if (-not (Select-String -Path $header.FullName -SimpleMatch 'export import :Simple.App;' -Quiet)) {
+        throw "NoPageCodeGen dropped the App partition from $($header.FullName)."
+    }
+    if (Select-String -Path $header.FullName -SimpleMatch 'export import :Simple.MainPage;' -Quiet) {
+        throw "NoPageCodeGen retained the MainPage partition in $($header.FullName)."
+    }
+    if (Select-String -Path $header.FullName -SimpleMatch 'export import :Simple.EmptyPage;' -Quiet) {
+        throw "NoPageCodeGen retained the EmptyPage partition in $($header.FullName)."
+    }
+}
+
+# Switching the code-generation flags back to their default must invalidate saved
+# state again and restore the Page partitions.
+Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.PageCodeGenRestored'
+foreach ($header in $simplePrimaryHeaders) {
+    foreach ($partition in @(':Simple.App;', ':Simple.MainPage;', ':Simple.EmptyPage;')) {
+        if (-not (Select-String -Path $header.FullName -SimpleMatch "export import $partition" -Quiet)) {
+            throw "Restoring Page codegen did not restore partition $partition in $($header.FullName)."
+        }
+    }
 }
 
 $moduleIfcsBeforeHeaderSwitch = @(Get-ChildItem -Path $simpleObjRoot -Filter '*.ifc' -File -Recurse -ErrorAction SilentlyContinue |
