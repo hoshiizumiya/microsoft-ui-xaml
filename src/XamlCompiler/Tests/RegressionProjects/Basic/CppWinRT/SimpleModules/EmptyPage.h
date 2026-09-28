@@ -9,6 +9,11 @@ namespace winrt::Simple::implementation
     struct EmptyPage : EmptyPageT<EmptyPage>
     {
         EmptyPage();
+
+        hstring Marker() const
+        {
+            return L"EmptyPage";
+        }
     };
 }
 
