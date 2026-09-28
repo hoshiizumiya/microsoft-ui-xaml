@@ -648,8 +648,13 @@ Licensed under the MIT License. See LICENSE in the project root for license info
     </PropertyGroup>
 
     <Target Name="XamlCppWinRTGetModuleOutputs"
-            Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true' and ('@(Page)' != '' or '@(ApplicationDefinition)' != '')"
             Returns="@(XamlCppWinRTModuleOutputs)">
+        <Error Condition="'$(XamlLanguage)' != 'CppWinRT'"
+               Text="XamlCppWinRTConsumeModule=true requires a C++/WinRT XAML provider." />
+        <Error Condition="'$(CppWinRTBuildModule)' != 'true'"
+               Text="XamlCppWinRTConsumeModule=true requires the referenced XAML provider to enable CppWinRTBuildModule." />
+        <Error Condition="'@(Page)' == '' and '@(ApplicationDefinition)' == ''"
+               Text="XamlCppWinRTConsumeModule=true requires the referenced project to contain XAML." />
         <ItemGroup>
             <XamlCppWinRTModuleOutputs Include="$(MSBuildProjectFullPath)">
                 <XamlCppWinRTModuleIfcDir>$(XamlCppWinRTModuleIfcDir)</XamlCppWinRTModuleIfcDir>
@@ -678,14 +683,10 @@ Licensed under the MIT License. See LICENSE in the project root for license info
 
         <MSBuild Projects="@(_XamlCppWinRTModuleProviders)"
                  Targets="XamlCppWinRTGetModuleOutputs"
-                 SkipNonexistentTargets="true"
                  BuildInParallel="false"
                  Condition="'@(_XamlCppWinRTModuleProviders)' != ''">
             <Output TaskParameter="TargetOutputs" ItemName="_XamlCppWinRTResolvedModuleRefs" />
         </MSBuild>
-
-        <Error Condition="'@(_XamlCppWinRTModuleProviders)' != '' and '@(_XamlCppWinRTResolvedModuleRefs)' == ''"
-               Text="A ProjectReference marked XamlCppWinRTConsumeModule=true did not provide a C++/WinRT XAML module output. Ensure the referenced project enables CppWinRTBuildModule and contains XAML." />
 
         <PropertyGroup Condition="'@(_XamlCppWinRTResolvedModuleRefs)' != ''">
             <_XamlCppWinRTModuleIfcSearchDirs>@(_XamlCppWinRTResolvedModuleRefs->'%(XamlCppWinRTModuleIfcDir)'->Distinct())</_XamlCppWinRTModuleIfcSearchDirs>
