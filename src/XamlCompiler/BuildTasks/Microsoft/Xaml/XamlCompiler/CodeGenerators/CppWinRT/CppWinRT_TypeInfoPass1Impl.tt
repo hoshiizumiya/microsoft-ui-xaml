@@ -23,9 +23,10 @@
 // conflict with Storyboard::GetCurrentTime
 #undef GetCurrentTime
 
-#include "winrt/windows.foundation.h"
-#include "winrt/windows.ui.xaml.interop.h"
-#include "winrt/microsoft.ui.xaml.markup.h"
+<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsFoundation)#>
+<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsXamlInterop)#>
+<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlMarkup)#>
+<#=GetCppWinRTModuleCompatibilityDefinition()#>
 #include "XamlTypeInfo.xaml.g.h"
 #include "XamlMetaDataProvider.h"
 
