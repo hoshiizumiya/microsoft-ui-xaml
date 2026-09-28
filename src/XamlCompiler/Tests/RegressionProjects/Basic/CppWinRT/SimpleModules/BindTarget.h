@@ -9,6 +9,11 @@ namespace winrt::Simple::Targets::implementation
     struct BindTarget : BindTargetT<BindTarget>
     {
         BindTarget() = default;
+
+        hstring Marker() const
+        {
+            return L"BindTarget";
+        }
     };
 }
 

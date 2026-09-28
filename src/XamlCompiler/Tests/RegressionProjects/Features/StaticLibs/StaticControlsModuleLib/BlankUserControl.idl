@@ -6,5 +6,6 @@ namespace StaticControlsModuleLib
     runtimeclass BlankUserControl : Microsoft.UI.Xaml.Controls.UserControl
     {
         BlankUserControl();
+        String Marker { get; };
     }
 }

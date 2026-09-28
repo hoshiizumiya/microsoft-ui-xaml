@@ -9,6 +9,11 @@ namespace winrt::StaticControlsModuleLib::implementation
     struct BlankUserControl : BlankUserControlT<BlankUserControl>
     {
         BlankUserControl();
+
+        hstring Marker() const
+        {
+            return L"BlankUserControl";
+        }
     };
 }
 
