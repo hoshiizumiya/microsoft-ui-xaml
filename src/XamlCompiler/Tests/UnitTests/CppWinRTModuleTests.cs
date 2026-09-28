@@ -74,6 +74,17 @@ namespace UnitTests
 
 
         [TestMethod]
+        public void NoTypeInfoCodeGen_RemovesOptionalXamlTypeInfoPartition()
+        {
+            var projectInfo = new XamlProjectInfo();
+            Assert.IsTrue(projectInfo.ShouldGenerateTypeInfoCode);
+
+            projectInfo.SetCodeGenFlags("NoTypeInfoCodeGen");
+
+            Assert.IsFalse(projectInfo.ShouldGenerateTypeInfoCode);
+        }
+
+        [TestMethod]
         public void EmptyPage_StillRequiresGeneratedScaffoldingProjections()
         {
             const string xaml = @"

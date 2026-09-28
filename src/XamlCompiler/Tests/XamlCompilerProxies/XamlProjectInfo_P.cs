@@ -23,6 +23,8 @@ namespace Win8Xaml.CompilerProxies
         static PropertyInfo _targetPlatformMinVersion;
         static PropertyInfo _useCppWinRTNamedModules;
         static PropertyInfo _xamlClassNames;
+        static PropertyInfo _codeGenFlags;
+        static PropertyInfo _shouldGenerateTypeInfoCode;
 
         object _instance;
 
@@ -39,6 +41,8 @@ namespace Win8Xaml.CompilerProxies
             _targetPlatformMinVersion = _xamlProjectInfoType.GetProperty("TargetPlatformMinVersion");
             _useCppWinRTNamedModules = _xamlProjectInfoType.GetProperty("UseCppWinRTNamedModules");
             _xamlClassNames = _xamlProjectInfoType.GetProperty("XamlClassNames");
+            _codeGenFlags = _xamlProjectInfoType.GetProperty("CodeGenFlags");
+            _shouldGenerateTypeInfoCode = _xamlProjectInfoType.GetProperty("ShouldGenerateTypeInfoCode");
         }
 
         public XamlProjectInfo()
@@ -108,6 +112,18 @@ namespace Win8Xaml.CompilerProxies
         {
             get { return (IReadOnlyList<string>)_xamlClassNames.GetValue(_instance, null); }
             set { _xamlClassNames.SetValue(_instance, value); }
+        }
+
+        public bool ShouldGenerateTypeInfoCode
+        {
+            get { return (bool)_shouldGenerateTypeInfoCode.GetValue(_instance, null); }
+        }
+
+        public void SetCodeGenFlags(string flags)
+        {
+            string enumValue = (flags ?? String.Empty).Replace(';', ',');
+            object value = Enum.Parse(_codeGenFlags.PropertyType, enumValue.Length == 0 ? "Nothing" : enumValue, true);
+            _codeGenFlags.SetValue(_instance, value, null);
         }
 
         public Dictionary<String, String> ClassToHeaderFileMap
