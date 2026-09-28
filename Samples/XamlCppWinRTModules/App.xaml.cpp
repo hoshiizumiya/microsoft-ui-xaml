@@ -19,7 +19,8 @@ namespace winrt::XamlCppWinRTModulesSample::implementation
         {
             if (IsDebuggerPresent())
             {
-                auto errorMessage = e.Message();
+                auto const errorMessage = e.Message();
+                (void)errorMessage;
                 __debugbreak();
             }
         });

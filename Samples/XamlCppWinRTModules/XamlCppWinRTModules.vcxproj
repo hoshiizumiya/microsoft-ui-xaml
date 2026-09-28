@@ -3,7 +3,6 @@
   <PropertyGroup Label="Globals">
     <!-- Repo-local sample settings. CppWinRTBuildModule is the actual feature switch. -->
     <CppWinRTBuildModule>true</CppWinRTBuildModule>
-    <CppWinRTVersion>3.0.260818.1</CppWinRTVersion>
     <CppWinRTEnabled>true</CppWinRTEnabled>
     <CppWinRTOptimized>true</CppWinRTOptimized>
     <CppWinRTRootNamespaceAutoMerge>true</CppWinRTRootNamespaceAutoMerge>
@@ -25,6 +24,13 @@
   </PropertyGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+
+  <!-- eng/Versions.props currently pins the repo to C++/WinRT 2.x. Override it
+       after Microsoft.Cpp.Default.props (which imports Directory.Build.props) and
+       before importing the C++/WinRT package props. -->
+  <PropertyGroup>
+    <CppWinRTVersion>3.0.260818.1</CppWinRTVersion>
+  </PropertyGroup>
   <Import Project="$(NugetPackageDirectory)\Microsoft.WindowsAppSDK.WinUI.$(WinUIVersion)\build\native\Microsoft.WindowsAppSDK.WinUI.props" Condition="Exists('$(NugetPackageDirectory)\Microsoft.WindowsAppSDK.WinUI.$(WinUIVersion)\build\native\Microsoft.WindowsAppSDK.WinUI.props')" />
   <Import Project="$(NugetPackageDirectory)\Microsoft.Windows.SDK.BuildTools.MSIX.$(MicrosoftWindowsSDKBuildToolsMsixNugetPackageVersion)\build\Microsoft.Windows.SDK.BuildTools.MSIX.props" Condition="Exists('$(NugetPackageDirectory)\Microsoft.Windows.SDK.BuildTools.MSIX.$(MicrosoftWindowsSDKBuildToolsMsixNugetPackageVersion)\build\Microsoft.Windows.SDK.BuildTools.MSIX.props')" />
   <Import Project="$(NugetPackageDirectory)\Microsoft.Windows.CppWinRT.$(CppWinRTVersion)\build\native\Microsoft.Windows.CppWinRT.props" Condition="Exists('$(NugetPackageDirectory)\Microsoft.Windows.CppWinRT.$(CppWinRTVersion)\build\native\Microsoft.Windows.CppWinRT.props')" />
