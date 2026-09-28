@@ -5,6 +5,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:Simple"
+    xmlns:targets="using:Simple.Targets"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
@@ -39,6 +40,7 @@
             <Button Click="ClickHandler" Tapped="TappedHandler">Don't Click Me</Button>
             <Button Click="EventHandlerOnBase">Event Handler On Base</Button>
         </StackPanel>
+        <targets:BindTarget Content="{x:Bind PageName}" />
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
             <TextBlock>
                     <Run>Page name: </Run>

@@ -61,15 +61,21 @@ $mainPageModuleHeaders = @(Get-ChildItem -Path $simpleObjRoot -Filter 'MainPage.
 if ($mainPageModuleHeaders.Count -eq 0) {
     throw 'SimpleModules did not generate MainPage.xaml.g.h.'
 }
-$hasModelsProjectionImport = $false
-foreach ($header in $mainPageModuleHeaders) {
-    if (Select-String -Path $header.FullName -SimpleMatch 'export import winrt.Simple.Models;' -Quiet) {
-        $hasModelsProjectionImport = $true
-        break
+$requiredPageProjectionImports = @(
+    'export import winrt.Simple.Models;',
+    'export import winrt.Simple.Targets;'
+)
+foreach ($requiredImport in $requiredPageProjectionImports) {
+    $found = $false
+    foreach ($header in $mainPageModuleHeaders) {
+        if (Select-String -Path $header.FullName -SimpleMatch $requiredImport -Quiet) {
+            $found = $true
+            break
+        }
     }
-}
-if (-not $hasModelsProjectionImport) {
-    throw 'MainPage XAML partition did not export the intermediate x:Bind projection namespace winrt.Simple.Models.'
+    if (-not $found) {
+        throw "MainPage XAML partition did not export required x:Bind projection dependency: $requiredImport"
+    }
 }
 
 Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.NoChangeModule'
