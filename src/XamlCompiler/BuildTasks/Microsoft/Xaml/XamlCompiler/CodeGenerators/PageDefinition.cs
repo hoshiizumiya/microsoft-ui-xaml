@@ -293,10 +293,11 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 
                     foreach (BindPathStep bindPathStep in bindUniverse.BindPathSteps.Values)
                     {
-                        addCppWinRTProjectionForTypeIfNecessary(bindPathStep.ValueType?.UnderlyingType);
-                        if (bindPathStep.ImplementsIObservableVector || bindPathStep.ImplementsIObservableMap)
+                        XamlType valueType = bindPathStep.ValueType;
+                        addCppWinRTProjectionForTypeIfNecessary(valueType?.UnderlyingType);
+                        if (valueType != null && (bindPathStep.ImplementsIObservableVector || bindPathStep.ImplementsIObservableMap))
                         {
-                            addCppWinRTProjectionForTypeIfNecessary(bindPathStep.ValueType?.ItemType?.UnderlyingType);
+                            addCppWinRTProjectionForTypeIfNecessary(valueType.ItemType?.UnderlyingType);
                         }
 
                         if (bindPathStep is DependencyPropertyStep dependencyPropertyStep)
