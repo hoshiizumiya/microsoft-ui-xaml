@@ -24,6 +24,20 @@ namespace UnitTests
         }
 
         [TestMethod]
+        public void XamlModuleNames_AreQualifiedAndCollisionResistant()
+        {
+            Assert.AreEqual(
+                "OpenNet.UI.Pages.MainPage_Xaml",
+                CppWinRTProjectionDependency.GetXamlModuleName("OpenNet.UI.Pages.MainPage"));
+            Assert.AreEqual(
+                "OpenNet.UI.Pages.MainPage_Xaml",
+                CppWinRTProjectionDependency.GetXamlModuleName("OpenNet::UI::Pages::MainPage"));
+            Assert.AreEqual(
+                "OpenNet.XamlTypeInfo_Xaml",
+                CppWinRTProjectionDependency.GetProjectXamlModuleName("OpenNet", "XamlTypeInfo"));
+        }
+
+        [TestMethod]
         public void ProjectContext_PropagatesNamedModuleMode()
         {
             var context = new CodeGeneratorProjectContext(new Version(KnownVersions.Latest));
