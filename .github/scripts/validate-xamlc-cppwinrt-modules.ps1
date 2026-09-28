@@ -62,6 +62,12 @@ Start-Sleep -Seconds 1
 (Get-Item $mainPage).LastWriteTime = Get-Date
 Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.OnePageChanged'
 
+# Remove a Page without cleaning. The old EmptyPage.xaml.g.h must disappear; otherwise
+# cppwinrt's generated EmptyPage.g.h __has_include bridge finds the stale file and imports
+# an Application_Xaml umbrella that no longer exports the EmptyPage partition.
+Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.PageRemoved' @('/p:IncludeIncrementalEmptyPage=false')
+Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.PageAddedBack' @('/p:IncludeIncrementalEmptyPage=true')
+
 Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.HeaderSwitch' @('/p:CppWinRTBuildModule=false')
 Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.ModuleSwitchBack' @('/p:CppWinRTBuildModule=true')
 

@@ -109,7 +109,7 @@
     <ApplicationDefinition Include="App.xaml">
       <SubType>Designer</SubType>
     </ApplicationDefinition>
-    <Page Include="EmptyPage.xaml">
+    <Page Include="EmptyPage.xaml" Condition="'$(IncludeIncrementalEmptyPage)' != 'false'">
       <SubType>Designer</SubType>
     </Page>
     <Page Include="MainPage.xaml">
