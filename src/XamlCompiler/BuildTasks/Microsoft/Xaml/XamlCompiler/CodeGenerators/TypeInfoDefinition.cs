@@ -327,11 +327,15 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 
             void addCppWinRTProjectionForTypeIfNecessary(Type type)
             {
-                string projectionNamespace = CppWinRTProjectionDependency.GetNamespace(type);
-                if (projectionNamespace != null)
+                foreach (var projectionNamespace in CppWinRTProjectionDependency.GetNamespaces(type))
                 {
                     projectionNamespaces.Add(projectionNamespace);
                 }
+            }
+
+            void addCppWinRTProjectionForTypeEntryIfNecessary(InternalTypeEntry typeEntry)
+            {
+                addCppWinRTProjectionForTypeIfNecessary(typeEntry?.UnderlyingType);
             }
 
             foreach (var typeInfo in this.TypeInfos)
@@ -340,7 +344,30 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 
                 if (hasGeneratedCodeReference)
                 {
-                    addCppWinRTProjectionForTypeIfNecessary(typeInfo.TypeEntry?.UnderlyingType);
+                    addCppWinRTProjectionForTypeEntryIfNecessary(typeInfo.TypeEntry);
+                }
+
+                if (typeInfo.IsCollection)
+                {
+                    addCppWinRTProjectionForTypeEntryIfNecessary(typeInfo.ItemType);
+                }
+
+                if (typeInfo.IsDictionary)
+                {
+                    addCppWinRTProjectionForTypeEntryIfNecessary(typeInfo.KeyType);
+                    addCppWinRTProjectionForTypeEntryIfNecessary(typeInfo.ItemType);
+                }
+
+                if (typeInfo.HasCreateFromStringMethod)
+                {
+                    addCppWinRTProjectionForTypeIfNecessary(typeInfo.CreateFromStringMethod?.DeclaringType?.UnderlyingType);
+                }
+
+                foreach (var member in typeInfo.Members)
+                {
+                    addCppWinRTProjectionForTypeEntryIfNecessary(member.DeclaringType);
+                    addCppWinRTProjectionForTypeEntryIfNecessary(member.TargetType);
+                    addCppWinRTProjectionForTypeEntryIfNecessary(member.Type);
                 }
             }
 

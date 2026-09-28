@@ -22,6 +22,30 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             return adjustedType.Namespace;
         }
 
+        public static IEnumerable<string> GetNamespaces(Type type)
+        {
+            Type adjustedType = ((type != null) && type.IsArray) ? type.GetElementType() : type;
+            string projectionNamespace = GetNamespace(adjustedType);
+
+            if (projectionNamespace == null)
+            {
+                yield break;
+            }
+
+            yield return projectionNamespace;
+
+            if (adjustedType.IsGenericType)
+            {
+                foreach (var genericArgument in adjustedType.GetGenericArguments())
+                {
+                    foreach (var nestedNamespace in GetNamespaces(genericArgument))
+                    {
+                        yield return nestedNamespace;
+                    }
+                }
+            }
+        }
+
         public static string GetHeaderFile(string projectionNamespace)
         {
             return $"winrt/{projectionNamespace}.h";

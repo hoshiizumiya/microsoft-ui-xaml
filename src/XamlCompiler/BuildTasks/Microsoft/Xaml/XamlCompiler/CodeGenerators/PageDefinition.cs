@@ -205,23 +205,9 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 
             void addCppWinRTProjectionForTypeIfNecessary(Type type)
             {
-                // If the input type is an array type then we need to use its element type instead.
-                // Keep the semantic namespace as the dependency until the C++ backend selects either
-                // a projection header or a named-module import.
-                Type adjustedType = ((type != null) && type.IsArray) ? type.GetElementType() : type;
-                string projectionNamespace = CppWinRTProjectionDependency.GetNamespace(adjustedType);
-
-                if (projectionNamespace != null)
+                foreach (var projectionNamespace in CppWinRTProjectionDependency.GetNamespaces(type))
                 {
                     neededCppWinRTProjectionNamespaces.Add(projectionNamespace);
-
-                    if (adjustedType.IsGenericType)
-                    {
-                        foreach (var nestedType in adjustedType.GetGenericArguments())
-                        {
-                            addCppWinRTProjectionForTypeIfNecessary(nestedType);
-                        }
-                    }
                 }
             }
 
@@ -251,14 +237,10 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                                                           where c.FieldDefinition != null
                                                           select c.FieldDefinition)
                     {
+                        addCppWinRTProjectionForTypeIfNecessary(fieldData.FieldXamlType?.UnderlyingType);
                         if (ProjectInfo.ClassToHeaderFileMap.TryGetValue(fieldData.FieldTypeName, out headerFile))
                         {
                             _neededLocalXamlHeaderFiles.Add(headerFile);
-                        }
-                        else
-                        {
-                            // Not a local type, so its public projection is supplied by C++/WinRT.
-                            addCppWinRTProjectionForTypeIfNecessary(fieldData.FieldXamlType?.UnderlyingType);
                         }
                     }
 
@@ -270,23 +252,17 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                         foreach (EventAssignment xamlEvent in events)
                         {
                             // Event handler type (e.g. RoutedEventHandler)
+                            addCppWinRTProjectionForTypeIfNecessary(xamlEvent.EventType?.UnderlyingType);
                             if (ProjectInfo.ClassToHeaderFileMap.TryGetValue(xamlEvent.EventType.StandardName, out headerFile))
                             {
                                 _neededLocalXamlHeaderFiles.Add(headerFile);
                             }
-                            else
-                            {
-                                addCppWinRTProjectionForTypeIfNecessary(xamlEvent.EventType?.UnderlyingType);
-                            }
 
                             // Event's declaring type (e.g. MUXC.Primitives.ButtonBase)
+                            addCppWinRTProjectionForTypeIfNecessary(xamlEvent.DeclaringType?.UnderlyingType);
                             if (ProjectInfo.ClassToHeaderFileMap.TryGetValue(xamlEvent.DeclaringType.StandardName, out headerFile))
                             {
                                 _neededLocalXamlHeaderFiles.Add(headerFile);
-                            }
-                            else
-                            {
-                                addCppWinRTProjectionForTypeIfNecessary(xamlEvent.DeclaringType?.UnderlyingType);
                             }
                         }
                     }
