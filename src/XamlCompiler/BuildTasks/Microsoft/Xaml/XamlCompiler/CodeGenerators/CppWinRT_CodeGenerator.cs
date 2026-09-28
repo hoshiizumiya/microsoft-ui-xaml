@@ -8,6 +8,31 @@ using System.Xaml;
 
 namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 {
+    internal static class CppWinRTProjectionDependency
+    {
+        public static string GetNamespace(Type type)
+        {
+            Type adjustedType = ((type != null) && type.IsArray) ? type.GetElementType() : type;
+
+            if (adjustedType == null || XamlSchemaCodeInfo.IsProjectedPrimitiveCppType(adjustedType.FullName))
+            {
+                return null;
+            }
+
+            return adjustedType.Namespace;
+        }
+
+        public static string GetHeaderFile(string projectionNamespace)
+        {
+            return $"winrt/{projectionNamespace}.h";
+        }
+
+        public static string GetModuleName(string projectionNamespace)
+        {
+            return $"winrt.{projectionNamespace}";
+        }
+    }
+
     internal class CppWinRT_CodeGenerator<T> : NativeCodeGenerator<T>
     {
         public override string ToStringWithCulture(ICodeGenOutput codegenOutput)
@@ -18,6 +43,16 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
         public override string ToStringWithCulture(XamlType type)
         {
             return type.CppWinRTName();
+        }
+
+        public string GetCppWinRTProjectionDependencyDirective(string projectionNamespace)
+        {
+            if (ProjectInfo.UseCppWinRTNamedModules)
+            {
+                return $"import {CppWinRTProjectionDependency.GetModuleName(projectionNamespace)};";
+            }
+
+            return $"#include <{CppWinRTProjectionDependency.GetHeaderFile(projectionNamespace)}>";
         }
 
         public static String Projection(string typeName)

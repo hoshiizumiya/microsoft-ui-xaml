@@ -19,7 +19,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
         private Dictionary<String, int> _typeInfoIndexes;
         private UInt32[] _typeInfoLookup;
         private List<EnumGenInfo> _enumValues = new List<EnumGenInfo>();
-        private List<string> _neededCppWinRTProjectionHeaderFiles;
+        private List<string> _neededCppWinRTProjectionNamespaces;
 
         public TypeInfoDefinition(XamlProjectInfo projectInfo, XamlSchemaCodeInfo schemaInfo)
             : base(projectInfo, schemaInfo)
@@ -294,27 +294,38 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             }
         }
 
+        public IEnumerable<string> NeededCppWinRTProjectionNamespaces
+        {
+            get
+            {
+                if (_neededCppWinRTProjectionNamespaces == null)
+                {
+                    _neededCppWinRTProjectionNamespaces = LookupNeededCppWinRTProjectionNamespaces();
+                }
+                return _neededCppWinRTProjectionNamespaces;
+            }
+        }
+
+        // Compatibility adapter for the existing generated templates. The semantic dependency
+        // is a WinRT namespace; header/module spelling is selected later by the C++/WinRT backend.
         public IEnumerable<string> NeededCppWinRTProjectionHeaderFiles
         {
             get
             {
-                if (_neededCppWinRTProjectionHeaderFiles == null)
-                {
-                    _neededCppWinRTProjectionHeaderFiles = LookupNeededCppWinRTProjectionHeaderFiles();
-                }
-                return _neededCppWinRTProjectionHeaderFiles;
+                return NeededCppWinRTProjectionNamespaces.Select(CppWinRTProjectionDependency.GetHeaderFile);
             }
         }
 
-        private List<string> LookupNeededCppWinRTProjectionHeaderFiles()
+        private List<string> LookupNeededCppWinRTProjectionNamespaces()
         {
-            var headers = new HashSet<string>();
+            var projectionNamespaces = new HashSet<string>();
 
-            void addCppWinRTHeaderForTypeIfNecessary(Type type)
+            void addCppWinRTProjectionForTypeIfNecessary(Type type)
             {
-                if (type != null && !XamlSchemaCodeInfo.IsProjectedPrimitiveCppType(type.FullName))
+                string projectionNamespace = CppWinRTProjectionDependency.GetNamespace(type);
+                if (projectionNamespace != null)
                 {
-                    headers.Add($"winrt/{type.Namespace}.h");
+                    projectionNamespaces.Add(projectionNamespace);
                 }
             }
 
@@ -324,7 +335,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 
                 if (hasGeneratedCodeReference)
                 {
-                    addCppWinRTHeaderForTypeIfNecessary(typeInfo.TypeEntry?.UnderlyingType);
+                    addCppWinRTProjectionForTypeIfNecessary(typeInfo.TypeEntry?.UnderlyingType);
                 }
             }
 
@@ -333,22 +344,10 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             // C++/WinRT header is not implied by any registered XAML type, so include it explicitly.
             foreach (var provider in SchemaInfo.OtherMetadataProviders)
             {
-                addCppWinRTHeaderForTypeIfNecessary(provider.UnderlyingType);
+                addCppWinRTProjectionForTypeIfNecessary(provider.UnderlyingType);
             }
 
-            // Sort the projection headers by namespace
-            return headers.OrderBy(
-                value =>
-                {
-                    if (value.EndsWith(".h"))
-                    {
-                        return value.Substring(0, value.Length - 2);
-                    }
-                    else
-                    {
-                        return value;
-                    }
-                }).ToList();
+            return projectionNamespaces.OrderBy(value => value).ToList();
         }
 
         public String GetterName(int i)
