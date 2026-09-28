@@ -123,6 +123,16 @@ foreach ($header in $simplePrimaryHeaders) {
     }
 }
 
+$noPageAppHeaders = @(Get-ChildItem -Path $simpleObjRoot -Filter 'App.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
+$noPageMainPageHeaders = @(Get-ChildItem -Path $simpleObjRoot -Filter 'MainPage.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
+$noPageEmptyPageHeaders = @(Get-ChildItem -Path $simpleObjRoot -Filter 'EmptyPage.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
+if ($noPageAppHeaders.Count -eq 0) {
+    throw 'NoPageCodeGen removed the App XAML code output.'
+}
+if ($noPageMainPageHeaders.Count -ne 0 -or $noPageEmptyPageHeaders.Count -ne 0) {
+    throw 'NoPageCodeGen left stale non-Application .xaml.g.h outputs on disk.'
+}
+
 # Switching the code-generation flags back to their default must invalidate saved
 # state again and restore the Page partitions.
 Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.PageCodeGenRestored'
@@ -131,6 +141,11 @@ foreach ($header in $simplePrimaryHeaders) {
         if (-not (Select-String -Path $header.FullName -SimpleMatch "export import $partition" -Quiet)) {
             throw "Restoring Page codegen did not restore partition $partition in $($header.FullName)."
         }
+    }
+}
+foreach ($pageHeaderName in @('App.xaml.g.h', 'MainPage.xaml.g.h', 'EmptyPage.xaml.g.h')) {
+    if (@(Get-ChildItem -Path $simpleObjRoot -Filter $pageHeaderName -File -Recurse -ErrorAction SilentlyContinue).Count -eq 0) {
+        throw "Restoring Page codegen did not regenerate $pageHeaderName."
     }
 }
 
