@@ -12,13 +12,13 @@
 <#  }#>
 #include <windows.h>
 #include <type_traits>
-<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.Xaml)#>
-<#  if (ProjectInfo.EnabledXamlOptionalChanges.Count > 0 || ProjectInfo.DisabledXamlOptionalChanges.Count > 0) { #>
-<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlSettings)#>
-<#  } #>
 <#  if (ProjectInfo.UseCppWinRTNamedModules) { #>
-<#=GetCppWinRTNamedModuleImportDirective(Model.CodeInfo.ClassName.Namespace)#>
 <#=GetCppWinRTModuleCompatibilityDefinition()#>
+<#  } else { #>
+<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.Xaml)#>
+<#      if (ProjectInfo.EnabledXamlOptionalChanges.Count > 0 || ProjectInfo.DisabledXamlOptionalChanges.Count > 0) { #>
+<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlSettings)#>
+<#      } #>
 <#  } #>
 <#  foreach (var includeFile in Model.NeededLocalXamlHeaderFiles) { #>
 #include "<#=includeFile#>"

@@ -23,10 +23,13 @@
 // conflict with Storyboard::GetCurrentTime
 #undef GetCurrentTime
 
-<#  foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { #>
-<#=GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)#>
-<#  }#>
+<#  if (ProjectInfo.UseCppWinRTNamedModules) { #>
 <#=GetCppWinRTModuleCompatibilityDefinition()#>
+<#  } else { #>
+<#      foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { #>
+<#=GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)#>
+<#      }#>
+<#  } #>
 
 <#  if (ProjectInfo.GenerateIncrementalTypeInfo) { #>
 #ifdef XAML_TYPE_INFO_INC

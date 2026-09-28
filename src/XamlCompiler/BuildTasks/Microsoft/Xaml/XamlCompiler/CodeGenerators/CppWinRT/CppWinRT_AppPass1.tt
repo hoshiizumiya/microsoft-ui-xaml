@@ -22,6 +22,9 @@ export import <#=CppWinRTProjectionDependency.GetModuleName(KnownNamespaces.Xaml
 export import <#=CppWinRTProjectionDependency.GetModuleName(KnownNamespaces.XamlMarkup)#>;
 export import <#=CppWinRTProjectionDependency.GetModuleName(KnownNamespaces.XamlInterop)#>;
 export import <#=CppWinRTProjectionDependency.GetModuleName(KnownNamespaces.WindowsXamlInterop)#>;
+<#  if (ProjectInfo.EnabledXamlOptionalChanges.Count > 0 || ProjectInfo.DisabledXamlOptionalChanges.Count > 0) { #>
+export import <#=CppWinRTProjectionDependency.GetModuleName(KnownNamespaces.XamlSettings)#>;
+<#  } #>
 export import XamlTypeInfo_Xaml;
 
 #undef WINRT_XAML_MODULE_INTERFACE

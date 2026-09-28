@@ -19,10 +19,6 @@
 #include <cstdint>
 
 <#  if (ProjectInfo.UseCppWinRTNamedModules) { #>
-<#=GetCppWinRTNamedModuleImportDirective(Model.CodeInfo.ClassName.Namespace)#>
-<#      foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { #>
-<#=GetCppWinRTNamedModuleImportDirective(projectionNamespace)#>
-<#      }#>
 <#=GetCppWinRTModuleCompatibilityDefinition()#>
 <#  } #>
 <#  foreach (var includeFile in Model.NeededLocalXamlHeaderFiles) { #>
