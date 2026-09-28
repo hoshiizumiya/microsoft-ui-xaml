@@ -34,6 +34,9 @@ export import <#=CppWinRTProjectionDependency.GetModuleName(projectionNamespace)
 #undef WINRT_XAML_MODULE_INTERFACE
 #define WINRT_XAML_EXPORT export
 #else
+#ifndef WINRT_IMPORT_MODULE
+#define WINRT_IMPORT_MODULE
+#endif
 import <#=CppWinRTProjectionDependency.GetProjectXamlModuleName(ProjectInfo.RootNamespace, "XamlTypeInfo")#>;
 #define WINRT_XAML_SKIP_BODY
 #endif

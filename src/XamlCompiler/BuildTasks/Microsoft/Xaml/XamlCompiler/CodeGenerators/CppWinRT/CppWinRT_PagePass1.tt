@@ -30,6 +30,9 @@ export import <#=CppWinRTProjectionDependency.GetProjectXamlModuleName(ProjectIn
 
 #include "<#=Model.CodeInfo.ClassName.ShortName#>.g.h"
 #else
+#ifndef WINRT_IMPORT_MODULE
+#define WINRT_IMPORT_MODULE
+#endif
 import <#=CppWinRTProjectionDependency.GetXamlModuleName(Model.CodeInfo.ClassName.FullName)#>;
 #define WINRT_XAML_SKIP_BODY
 #endif
