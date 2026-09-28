@@ -24,6 +24,35 @@ namespace UnitTests
         }
 
         [TestMethod]
+        public void ProjectionDependency_RecursesThroughGenericArguments()
+        {
+            var namespaces = CppWinRTProjectionDependency.GetNamespaces(
+                typeof(ProjectionDependencyFixtures.Outer.Container<
+                    ProjectionDependencyFixtures.Middle.Envelope<
+                        ProjectionDependencyFixtures.Inner.Payload>>));
+
+            CollectionAssert.AreEquivalent(
+                new[]
+                {
+                    "ProjectionDependencyFixtures.Outer",
+                    "ProjectionDependencyFixtures.Middle",
+                    "ProjectionDependencyFixtures.Inner",
+                },
+                namespaces);
+        }
+
+        [TestMethod]
+        public void ProjectionDependency_DoesNotTreatProjectedPrimitiveAsNamespaceDependency()
+        {
+            var namespaces = CppWinRTProjectionDependency.GetNamespaces(
+                typeof(ProjectionDependencyFixtures.Outer.Container<int>));
+
+            CollectionAssert.AreEquivalent(
+                new[] { "ProjectionDependencyFixtures.Outer" },
+                namespaces);
+        }
+
+        [TestMethod]
         public void XamlModuleNames_AreQualifiedAndCollisionResistant()
         {
             Assert.AreEqual(
@@ -109,5 +138,27 @@ namespace UnitTests
                 },
                 definition.NeededCppWinRTProjectionNamespaces);
         }
+    }
+}
+
+
+namespace ProjectionDependencyFixtures.Outer
+{
+    internal sealed class Container<T>
+    {
+    }
+}
+
+namespace ProjectionDependencyFixtures.Middle
+{
+    internal sealed class Envelope<T>
+    {
+    }
+}
+
+namespace ProjectionDependencyFixtures.Inner
+{
+    internal sealed class Payload
+    {
     }
 }

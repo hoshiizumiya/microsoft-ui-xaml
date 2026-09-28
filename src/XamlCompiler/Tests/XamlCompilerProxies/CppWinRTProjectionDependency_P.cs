@@ -1,6 +1,9 @@
 ﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 
 namespace Win8Xaml.CompilerProxies
@@ -10,6 +13,7 @@ namespace Win8Xaml.CompilerProxies
         static readonly ProxyHelper _projectionDependencyType;
         static readonly MethodInfo _getHeaderFile;
         static readonly MethodInfo _getModuleName;
+        static readonly MethodInfo _getNamespaces;
         static readonly MethodInfo _getXamlPrimaryModuleName;
         static readonly MethodInfo _getXamlPartitionName;
         static readonly MethodInfo _getXamlPartitionModuleName;
@@ -19,6 +23,7 @@ namespace Win8Xaml.CompilerProxies
             _projectionDependencyType = new ProxyHelper("Microsoft.UI.Xaml.Markup.Compiler.CodeGen.CppWinRTProjectionDependency");
             _getHeaderFile = _projectionDependencyType.GetStaticMethod("GetHeaderFile", 1);
             _getModuleName = _projectionDependencyType.GetStaticMethod("GetModuleName", 1);
+            _getNamespaces = _projectionDependencyType.GetStaticMethod("GetNamespaces", 1);
             _getXamlPrimaryModuleName = _projectionDependencyType.GetStaticMethod("GetXamlPrimaryModuleName", 1);
             _getXamlPartitionName = _projectionDependencyType.GetStaticMethod("GetXamlPartitionName", 1);
             _getXamlPartitionModuleName = _projectionDependencyType.GetStaticMethod("GetXamlPartitionModuleName", 2);
@@ -32,6 +37,11 @@ namespace Win8Xaml.CompilerProxies
         public static string GetModuleName(string projectionNamespace)
         {
             return (string)_getModuleName.Invoke(null, new object[] { projectionNamespace });
+        }
+
+        public static string[] GetNamespaces(Type type)
+        {
+            return ((IEnumerable<string>)_getNamespaces.Invoke(null, new object[] { type })).ToArray();
         }
 
         public static string GetXamlPrimaryModuleName(string rootNamespace)
