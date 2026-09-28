@@ -10,6 +10,8 @@ namespace winrt::Simple::implementation
 {
     EmptyPage::EmptyPage()
     {
-        InitializeComponent();
+        // Intentionally does not call InitializeComponent(). The regression removes and
+        // restores EmptyPage.xaml without cleaning, so the runtime class must remain a
+        // valid non-XAML component when the Page item is temporarily absent.
     }
 }

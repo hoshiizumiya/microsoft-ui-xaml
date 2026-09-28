@@ -66,7 +66,18 @@ Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.OnePageChanged'
 # cppwinrt's generated EmptyPage.g.h __has_include bridge finds the stale file and imports
 # an Application_Xaml umbrella that no longer exports the EmptyPage partition.
 Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.PageRemoved' @('/p:IncludeIncrementalEmptyPage=false')
+
+$simpleObjRoot = Join-Path $repoRoot 'BuildOutput\obj\amd64chk\src\XamlCompiler\Tests\RegressionProjects\Basic\CppWinRT\SimpleModules'
+$staleEmptyPageHeaders = @(Get-ChildItem -Path $simpleObjRoot -Filter 'EmptyPage.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
+if ($staleEmptyPageHeaders.Count -ne 0) {
+    throw "Removed XAML Page left a stale EmptyPage.xaml.g.h: $($staleEmptyPageHeaders.FullName -join '; ')"
+}
+
 Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.PageAddedBack' @('/p:IncludeIncrementalEmptyPage=true')
+$restoredEmptyPageHeaders = @(Get-ChildItem -Path $simpleObjRoot -Filter 'EmptyPage.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
+if ($restoredEmptyPageHeaders.Count -eq 0) {
+    throw 'Restoring EmptyPage.xaml did not regenerate EmptyPage.xaml.g.h.'
+}
 
 Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.HeaderSwitch' @('/p:CppWinRTBuildModule=false')
 Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.ModuleSwitchBack' @('/p:CppWinRTBuildModule=true')
