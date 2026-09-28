@@ -50,6 +50,7 @@
     <Compile Include="ConnectionIdElement_P.cs" />
     <Compile Include="CompilerDomRoot.cs" />
     <Compile Include="CompileXaml_P.cs" />
+    <Compile Include="CppWinRTProjectionDependency_P.cs" />
     <Compile Include="DirectUIAssembly_P.cs" />
     <Compile Include="DirectUiSchemaContext_P.cs" />
     <Compile Include="DirectUISystem_P.cs" />
