@@ -651,6 +651,19 @@ Licensed under the MIT License. See LICENSE in the project root for license info
         <ItemGroup>
             <_XamlGeneratedModuleInterfaces Include="@(_GeneratedCodeFiles)"
                 Condition="$([System.String]::Copy('%(_GeneratedCodeFiles.Identity)').EndsWith('.xaml.g.h'))" />
+            <!--
+              XamlBindingInfo.xaml.g.h is the always-generated primary interface for
+              <RootNamespace>.Application_Xaml. App/Page and XamlTypeInfo headers are
+              interface partitions discovered by the normal VC module dependency scanner.
+            -->
+            <_XamlPrimaryModuleInterface Include="@(_XamlGeneratedModuleInterfaces)"
+                Condition="$([System.String]::Copy('%(_XamlGeneratedModuleInterfaces.Identity)').EndsWith('XamlBindingInfo.xaml.g.h'))" />
+        </ItemGroup>
+
+        <Error Condition="'@(_XamlPrimaryModuleInterface)' == ''"
+               Text="C++/WinRT named-module XAML compilation expected XamlBindingInfo.xaml.g.h to provide the Application_Xaml primary module interface, but Pass1 did not report that generated file." />
+
+        <ItemGroup>
             <ClCompile Remove="@(_XamlGeneratedModuleInterfaces)" />
             <ClCompile Include="@(_XamlGeneratedModuleInterfaces)">
                 <CompileAs>CompileAsCppModule</CompileAs>
@@ -659,6 +672,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                 <PreprocessorDefinitions>WINRT_XAML_MODULE_INTERFACE;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
                 <CompilerIteration>XamlGeneratedModule</CompilerIteration>
             </ClCompile>
+            <_XamlPrimaryModuleInterface Remove="@(_XamlPrimaryModuleInterface)" />
         </ItemGroup>
     </Target>
 
