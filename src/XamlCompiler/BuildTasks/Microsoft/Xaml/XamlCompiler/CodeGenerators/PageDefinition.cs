@@ -283,6 +283,32 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                     }
                 }
 
+                // Binding Pass2 code is generated from the complete bind-path graph, not only
+                // from the final target assignment. Intermediate steps are materialized in
+                // casts, observable-vector/map tracking caches and function calls, so every
+                // type that can be spelled by that generated C++ must be reachable through
+                // the Page partition in named-module mode.
+                foreach (BindUniverse bindUniverse in CodeInfo.BindUniverses)
+                {
+                    foreach (BindPathStep bindPathStep in bindUniverse.BindPathSteps.Values)
+                    {
+                        addCppWinRTProjectionForTypeIfNecessary(bindPathStep.ValueType?.UnderlyingType);
+                        addCppWinRTProjectionForTypeIfNecessary(bindPathStep.ValueType?.ItemType?.UnderlyingType);
+
+                        if (bindPathStep is FunctionStep functionStep)
+                        {
+                            addCppWinRTProjectionForTypeIfNecessary(functionStep.Method?.OwnerType?.UnderlyingType);
+
+                            foreach (FunctionParam parameter in functionStep.Parameters)
+                            {
+                                addCppWinRTProjectionForTypeIfNecessary(parameter.ParameterType);
+                                addCppWinRTProjectionForTypeIfNecessary(parameter.ValueType?.UnderlyingType);
+                                addCppWinRTProjectionForTypeIfNecessary(parameter.AssignmentType?.UnderlyingType);
+                            }
+                        }
+                    }
+                }
+
                 _neededCppWinRTProjectionNamespaces = neededCppWinRTProjectionNamespaces.OrderBy(value => value).ToList();
 
                 _neededXamlHeaderFilesCalculated = true;
