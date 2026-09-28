@@ -635,14 +635,24 @@ Licensed under the MIT License. See LICENSE in the project root for license info
         <ItemGroup Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'">
             <_XamlGeneratedModuleInterfaces Include="@(_GeneratedCodeFiles)"
                 Condition="$([System.String]::Copy('%(_GeneratedCodeFiles.Identity)').EndsWith('.xaml.g.h'))" />
+            <_XamlModuleCompileMetadataSource Include="@(ClCompile)"
+                Condition="'%(ClCompile.CompilerIteration)' != 'XamlGenerated' and '%(ClCompile.CompilerIteration)' != 'XamlGeneratedModule'" />
+        </ItemGroup>
+        <PropertyGroup Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'">
+            <_XamlModulePreprocessorDefinitions>@(_XamlModuleCompileMetadataSource->'%(PreprocessorDefinitions)'->Distinct())</_XamlModulePreprocessorDefinitions>
+            <_XamlModuleAdditionalBMIDirectories>@(_XamlModuleCompileMetadataSource->'%(AdditionalBMIDirectories)'->Distinct())</_XamlModuleAdditionalBMIDirectories>
+        </PropertyGroup>
+        <ItemGroup Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'">
             <ClCompile Remove="@(_XamlGeneratedModuleInterfaces)" />
             <ClCompile Include="@(_XamlGeneratedModuleInterfaces)">
                 <CompileAs>CompileAsCppModule</CompileAs>
                 <ModulesSupported>true</ModulesSupported>
                 <PrecompiledHeader>NotUsing</PrecompiledHeader>
-                <PreprocessorDefinitions>WINRT_XAML_MODULE_INTERFACE;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+                <PreprocessorDefinitions>WINRT_XAML_MODULE_INTERFACE;$(_XamlModulePreprocessorDefinitions)</PreprocessorDefinitions>
+                <AdditionalBMIDirectories Condition="'$(_XamlModuleAdditionalBMIDirectories)' != ''">$(_XamlModuleAdditionalBMIDirectories)</AdditionalBMIDirectories>
                 <CompilerIteration>XamlGeneratedModule</CompilerIteration>
             </ClCompile>
+            <_XamlModuleCompileMetadataSource Remove="@(_XamlModuleCompileMetadataSource)" />
         </ItemGroup>
 
         <Message Text="(Out) GeneratedCodeFiles: '@(_GeneratedCodeFiles)'" />

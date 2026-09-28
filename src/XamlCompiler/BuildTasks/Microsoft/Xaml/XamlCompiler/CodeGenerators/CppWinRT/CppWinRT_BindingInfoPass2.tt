@@ -13,6 +13,8 @@
 <#  }#>
 
 #include <cstdint>
+#include <memory>
+#include <utility>
 
 <#=GetCppWinRTModuleCompatibilityDefinition()#>
 #include "XamlBindingInfo.xaml.g.h"

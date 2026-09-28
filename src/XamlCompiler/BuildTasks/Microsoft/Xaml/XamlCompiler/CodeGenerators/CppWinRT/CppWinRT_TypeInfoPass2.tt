@@ -16,8 +16,13 @@
 #include "<#=ProjectInfo.PrecompiledHeaderFile#>"
 <#  }#>
 #include <unknwn.h>
-#include <memory>
+#include <algorithm>
+#include <cstddef>
 #include <cstdint>
+#include <memory>
+#include <mutex>
+#include <type_traits>
+#include <vector>
 
 // Undefine GetCurrentTime macro to prevent
 // conflict with Storyboard::GetCurrentTime
