@@ -40,14 +40,9 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             this.Write(this.ToStringHelper.ToStringWithCulture(ProjectInfo.PrecompiledHeaderFile));
             this.Write("\"\r\n");
   }
-            this.Write("\r\n#include <cstdint>\r\n\r\n");
+            this.Write("\r\n#include <cstdint>\r\n#include <memory>\r\n#include <type_traits>\r\n#include <utilit" +
+                    "y>\r\n\r\n");
   if (ProjectInfo.UseCppWinRTNamedModules) { 
-            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTNamedModuleImportDirective(Model.CodeInfo.ClassName.Namespace)));
-            this.Write("\r\n");
-      foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { 
-            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTNamedModuleImportDirective(projectionNamespace)));
-            this.Write("\r\n");
-      }
             this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTModuleCompatibilityDefinition()));
             this.Write("\r\n");
   } 

@@ -40,15 +40,30 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             this.Write(this.ToStringHelper.ToStringWithCulture(ProjectInfo.PrecompiledHeaderFile));
             this.Write("\"\r\n");
   }
-            this.Write("#include <unknwn.h>\r\n#include <memory>\r\n#include <cstdint>\r\n\r\n// Undefine GetCurr" +
-                    "entTime macro to prevent\r\n// conflict with Storyboard::GetCurrentTime\r\n#undef Ge" +
-                    "tCurrentTime\r\n\r\n");
-  foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { 
+            this.Write(@"#include <unknwn.h>
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <mutex>
+#include <type_traits>
+#include <vector>
+
+// Undefine GetCurrentTime macro to prevent
+// conflict with Storyboard::GetCurrentTime
+#undef GetCurrentTime
+
+");
+  if (ProjectInfo.UseCppWinRTNamedModules) { 
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTModuleCompatibilityDefinition()));
+            this.Write("\r\n");
+  } else { 
+      foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { 
             this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)));
             this.Write("\r\n");
-  }
-            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTModuleCompatibilityDefinition()));
-            this.Write("\r\n\r\n");
+      }
+  } 
+            this.Write("\r\n");
   if (ProjectInfo.GenerateIncrementalTypeInfo) { 
             this.Write("#ifdef XAML_TYPE_INFO_INC\r\n#include XAML_TYPE_INFO_INC\r\n#endif\r\n");
   } 

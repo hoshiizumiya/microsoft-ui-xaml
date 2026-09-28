@@ -32,18 +32,9 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 //------------------------------------------------------------------------------
 #pragma once
 
-#include <functional>
-#include <map>
-#include <memory>
-#include <vector>
-#include <unknwn.h>
-
-// Undefine GetCurrentTime macro to prevent
-// conflict with Storyboard::GetCurrentTime
-#undef GetCurrentTime
-
 ");
   if (ProjectInfo.UseCppWinRTNamedModules) { 
+            this.Write("import std;\r\n");
             this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTNamedModuleImportDirective(ProjectInfo.RootNamespace)));
             this.Write("\r\n");
             this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTNamedModuleImportDirective(KnownNamespaces.XamlMarkup)));
@@ -52,6 +43,10 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             this.Write("\r\n");
             this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTModuleCompatibilityDefinition()));
             this.Write("\r\n");
+  } else { 
+            this.Write("#include <functional>\r\n#include <map>\r\n#include <memory>\r\n#include <vector>\r\n#inc" +
+                    "lude <unknwn.h>\r\n\r\n// Undefine GetCurrentTime macro to prevent\r\n// conflict with" +
+                    " Storyboard::GetCurrentTime\r\n#undef GetCurrentTime\r\n");
   } 
             this.Write("#include \"XamlTypeInfo.xaml.g.h\"\r\n#include \"XamlMetaDataProvider.g.h\"\r\n\r\n/*\r\n    " +
                     "If the file above was not generated, you may be missing a declaration\r\n    for t" +
