@@ -57,8 +57,13 @@ $staticConsumer = 'src\XamlCompiler\Tests\RegressionProjects\Features\StaticLibs
 # module-mode default and forces XamlC's FeatureControlFlags/saved state to invalidate.
 Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.CleanModule'
 
-$simpleObjRoot = Join-Path $repoRoot 'BuildOutput\obj\amd64chk\src\XamlCompiler\Tests\RegressionProjects\Basic\CppWinRT\SimpleModules'
-$mainPageModuleHeaders = @(Get-ChildItem -Path $simpleObjRoot -Filter 'MainPage.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
+$simpleGeneratedRoot = Join-Path $repoRoot 'BuildOutput\obj\amd64chk\src\XamlCompiler\Tests\RegressionProjects\Basic\CppWinRT\SimpleModules'
+# ConsumeBinaries rewrites IntDir from ...\src\XamlCompiler\Tests\RegressionProjects\...
+# to ...\CompilerTests\..., while GeneratedFilesDir retains the source-relative path.
+# XAML IFCs are emitted under $(IntDir)XamlModules\, so validate them from the rewritten
+# compiler-test intermediate root instead of the generated-code root.
+$simpleIntRoot = Join-Path $repoRoot 'BuildOutput\obj\amd64chk\CompilerTests\Basic\CppWinRT\SimpleModules\SimpleCppWinRTModules'
+$mainPageModuleHeaders = @(Get-ChildItem -Path $simpleGeneratedRoot -Filter 'MainPage.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
 if ($mainPageModuleHeaders.Count -eq 0) {
     throw 'SimpleModules did not generate MainPage.xaml.g.h.'
 }
@@ -91,13 +96,13 @@ Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.OnePageChanged'
 # an Application_Xaml umbrella that no longer exports the EmptyPage partition.
 Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.PageRemoved' @('/p:IncludeIncrementalEmptyPage=false')
 
-$staleEmptyPageHeaders = @(Get-ChildItem -Path $simpleObjRoot -Filter 'EmptyPage.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
+$staleEmptyPageHeaders = @(Get-ChildItem -Path $simpleGeneratedRoot -Filter 'EmptyPage.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
 if ($staleEmptyPageHeaders.Count -ne 0) {
     throw "Removed XAML Page left a stale EmptyPage.xaml.g.h: $($staleEmptyPageHeaders.FullName -join '; ')"
 }
 
 Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.PageAddedBack' @('/p:IncludeIncrementalEmptyPage=true')
-$restoredEmptyPageHeaders = @(Get-ChildItem -Path $simpleObjRoot -Filter 'EmptyPage.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
+$restoredEmptyPageHeaders = @(Get-ChildItem -Path $simpleGeneratedRoot -Filter 'EmptyPage.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
 if ($restoredEmptyPageHeaders.Count -eq 0) {
     throw 'Restoring EmptyPage.xaml did not regenerate EmptyPage.xaml.g.h.'
 }
@@ -107,7 +112,7 @@ if ($restoredEmptyPageHeaders.Count -eq 0) {
 # InitializeComponent output.
 Invoke-XamlModuleBuild -RelativeProject $simpleModules -LogName 'SimpleCppWinRTModules.NoPagePass1' -Target 'MarkupCompilePass1' -ExtraProperties @('/p:XamlCodeGenerationControlFlags=NoPageCodeGen')
 
-$simplePrimaryHeaders = @(Get-ChildItem -Path $simpleObjRoot -Filter 'XamlBindingInfo.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
+$simplePrimaryHeaders = @(Get-ChildItem -Path $simpleGeneratedRoot -Filter 'XamlBindingInfo.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
 if ($simplePrimaryHeaders.Count -eq 0) {
     throw 'SimpleModules did not generate XamlBindingInfo.xaml.g.h.'
 }
@@ -123,9 +128,9 @@ foreach ($header in $simplePrimaryHeaders) {
     }
 }
 
-$noPageAppHeaders = @(Get-ChildItem -Path $simpleObjRoot -Filter 'App.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
-$noPageMainPageHeaders = @(Get-ChildItem -Path $simpleObjRoot -Filter 'MainPage.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
-$noPageEmptyPageHeaders = @(Get-ChildItem -Path $simpleObjRoot -Filter 'EmptyPage.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
+$noPageAppHeaders = @(Get-ChildItem -Path $simpleGeneratedRoot -Filter 'App.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
+$noPageMainPageHeaders = @(Get-ChildItem -Path $simpleGeneratedRoot -Filter 'MainPage.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
+$noPageEmptyPageHeaders = @(Get-ChildItem -Path $simpleGeneratedRoot -Filter 'EmptyPage.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
 if ($noPageAppHeaders.Count -eq 0) {
     throw 'NoPageCodeGen removed the App XAML code output.'
 }
@@ -144,26 +149,26 @@ foreach ($header in $simplePrimaryHeaders) {
     }
 }
 foreach ($pageHeaderName in @('App.xaml.g.h', 'MainPage.xaml.g.h', 'EmptyPage.xaml.g.h')) {
-    if (@(Get-ChildItem -Path $simpleObjRoot -Filter $pageHeaderName -File -Recurse -ErrorAction SilentlyContinue).Count -eq 0) {
+    if (@(Get-ChildItem -Path $simpleGeneratedRoot -Filter $pageHeaderName -File -Recurse -ErrorAction SilentlyContinue).Count -eq 0) {
         throw "Restoring Page codegen did not regenerate $pageHeaderName."
     }
 }
 
-$moduleIfcsBeforeHeaderSwitch = @(Get-ChildItem -Path $simpleObjRoot -Filter '*.ifc' -File -Recurse -ErrorAction SilentlyContinue |
+$moduleIfcsBeforeHeaderSwitch = @(Get-ChildItem -Path $simpleIntRoot -Filter '*.ifc' -File -Recurse -ErrorAction SilentlyContinue |
     Where-Object { $_.DirectoryName -like '*\XamlModules*' })
 if ($moduleIfcsBeforeHeaderSwitch.Count -eq 0) {
     throw 'Module-mode build did not produce any XAML IFCs before the header-mode transition.'
 }
 
 Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.HeaderSwitch' @('/p:CppWinRTBuildModule=false')
-$moduleIfcsInHeaderMode = @(Get-ChildItem -Path $simpleObjRoot -Filter '*.ifc' -File -Recurse -ErrorAction SilentlyContinue |
+$moduleIfcsInHeaderMode = @(Get-ChildItem -Path $simpleIntRoot -Filter '*.ifc' -File -Recurse -ErrorAction SilentlyContinue |
     Where-Object { $_.DirectoryName -like '*\XamlModules*' })
 if ($moduleIfcsInHeaderMode.Count -ne 0) {
     throw "Header-mode build left stale XAML IFCs: $($moduleIfcsInHeaderMode.FullName -join '; ')"
 }
 
 Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.ModuleSwitchBack' @('/p:CppWinRTBuildModule=true')
-$moduleIfcsAfterSwitchBack = @(Get-ChildItem -Path $simpleObjRoot -Filter '*.ifc' -File -Recurse -ErrorAction SilentlyContinue |
+$moduleIfcsAfterSwitchBack = @(Get-ChildItem -Path $simpleIntRoot -Filter '*.ifc' -File -Recurse -ErrorAction SilentlyContinue |
     Where-Object { $_.DirectoryName -like '*\XamlModules*' })
 if ($moduleIfcsAfterSwitchBack.Count -eq 0) {
     throw 'Switching back to module mode did not regenerate XAML IFCs.'
