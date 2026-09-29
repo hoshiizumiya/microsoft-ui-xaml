@@ -112,6 +112,18 @@ Licensed under the MIT License. See LICENSE in the project root for license info
       <XamlFeatureControlFlags Include="CppWinRTNamedModules" Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'" />
     </ItemGroup>
 
+    <!--
+      XamlTypeInfo.xaml.g.h declares IXamlUserType as a classic COM interface derived
+      from IUnknown. In named-module mode C++/WinRT's winrt_base module must therefore
+      be built with legacy COM support enabled; including <unknwn.h> only in the XAML
+      module interface is too late because winrt::implements is exported by winrt_base.
+    -->
+    <ItemDefinitionGroup Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'">
+      <ClCompile>
+        <PreprocessorDefinitions>WINRT_ENABLE_LEGACY_COM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      </ClCompile>
+    </ItemDefinitionGroup>
+
     <!-- When using reflection for our metadata provider, we need to include the reflection helper DLL which is in the same folder as this targets file -->
     <Choose>
         <When Condition="'$(EnableTypeInfoReflection)' == 'true'">
