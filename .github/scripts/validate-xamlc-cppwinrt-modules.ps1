@@ -203,6 +203,17 @@ if (Test-Path $inactiveConsumerXamlModuleDir) {
     throw 'A module-mode C++/WinRT project with no XAML left stale XamlModules output behind.'
 }
 
+$staticConsumerGeneratedRoot = Join-Path $repoRoot 'BuildOutput\obj\amd64chk\src\XamlCompiler\Tests\RegressionProjects\Features\StaticLibs\StaticControlsModuleConsumer'
+$duplicateConsumerModules = @(Get-ChildItem -Path $staticConsumerGeneratedRoot -Filter '*.ixx' -File -Recurse -ErrorAction SilentlyContinue |
+    Where-Object {
+        $_.Name -like 'winrt.Windows.*.ixx' -or
+        $_.Name -like 'winrt.Microsoft.*.ixx' -or
+        $_.Name -like 'winrt.StaticControlsModuleLib*.ixx'
+    })
+if ($duplicateConsumerModules.Count -ne 0) {
+    throw "Static consumer regenerated projection modules already supplied by its provider: $($duplicateConsumerModules.FullName -join '; ')"
+}
+
 $unitTestProject = Join-Path $repoRoot 'src\XamlCompiler\Tests\UnitTests\XamlCompilerUnitTests.csproj'
 & msbuild.exe $unitTestProject /t:Build /restore /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 '/p:RuntimeIdentifiers=win;win10-x64;win10-x86;win10-arm64' /p:DisableWarnForInvalidRestoreProjects=true /m:2 /ds:false "/binaryLogger:$binlogDir\XamlCompilerUnitTests.ModuleValidation.binlog"
 if ($LASTEXITCODE -ne 0) {
