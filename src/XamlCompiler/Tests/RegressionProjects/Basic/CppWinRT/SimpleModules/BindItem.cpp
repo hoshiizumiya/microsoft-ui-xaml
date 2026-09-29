@@ -4,4 +4,4 @@
 
 #define WINRT_IMPORT_MODULE
 #include "BindItem.h"
-#include "BindItem.g.cpp"
+#include "Models.BindItem.g.cpp"

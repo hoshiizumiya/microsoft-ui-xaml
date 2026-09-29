@@ -4,7 +4,7 @@
 
 #define WINRT_IMPORT_MODULE
 #include "BindModel.h"
-#include "BindModel.g.cpp"
+#include "Models.BindModel.g.cpp"
 
 namespace winrt::Simple::Models::implementation
 {

@@ -13,6 +13,8 @@ import std;
 import winrt.Windows.ApplicationModel;
 import winrt.Windows.ApplicationModel.Activation;
 import winrt.Microsoft.UI.Xaml.Navigation;
+import winrt.Microsoft.UI.Xaml.Input;
+import winrt.Simple.Models;
 
 #include "App.h"
 #include "MainPage.h"
@@ -106,6 +108,8 @@ void App::OnLaunched(winrt::Microsoft::UI::Xaml::LaunchActivatedEventArgs const&
                 // parameter
                 rootFrame.Navigate(xaml_typename<winrt::Simple::MainPage>(), winrt::box_value(e.Arguments()));
             }
+            // Place the frame in the current Window
+            Window::Current().Content(rootFrame);
             // Ensure the current window is active
             Window::Current().Activate();
         }

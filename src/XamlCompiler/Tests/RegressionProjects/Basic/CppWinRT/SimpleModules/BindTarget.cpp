@@ -4,4 +4,4 @@
 
 #define WINRT_IMPORT_MODULE
 #include "BindTarget.h"
-#include "BindTarget.g.cpp"
+#include "Targets.BindTarget.g.cpp"

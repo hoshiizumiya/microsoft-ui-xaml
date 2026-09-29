@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 #pragma once
 
-#include "BindTarget.g.h"
+#include "Targets.BindTarget.g.h"
 
 namespace winrt::Simple::Targets::implementation
 {
