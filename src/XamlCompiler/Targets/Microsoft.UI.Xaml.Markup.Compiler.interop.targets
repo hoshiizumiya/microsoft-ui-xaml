@@ -730,6 +730,46 @@ Licensed under the MIT License. See LICENSE in the project root for license info
     </Target>
 
     <!--
+      SetModuleDependencies consumes module interface sources through MultiToolTask,
+      which keys work items by a canonical source rooting marker. C++/WinRT and XamlC
+      discover their interfaces independently, so canonicalize the combined module
+      interface set by physical path after both registration targets have run.
+
+      The FullPath transform preserves the source item's metadata. RemoveDuplicates
+      then keeps the first item for each case-insensitive physical path, avoiding
+      duplicate work-item keys without changing ordinary C++ translation units.
+    -->
+    <Target Name="XamlCppWinRTNormalizeModuleCompileItems"
+            Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true' and ('@(Page)' != '' or '@(ApplicationDefinition)' != '')"
+            DependsOnTargets="CppWinRTAddModuleInterfaces"
+            BeforeTargets="FixupCLCompileOptions">
+        <ItemGroup>
+            <_XamlCppWinRTModuleCompileCandidates Include="@(ClCompile->'%(FullPath)')"
+                Condition="'%(ClCompile.CompileAs)' == 'CompileAsCppModule'" />
+        </ItemGroup>
+
+        <RemoveDuplicates Inputs="@(_XamlCppWinRTModuleCompileCandidates)">
+            <Output TaskParameter="Filtered" ItemName="_XamlCppWinRTUniqueModuleCompileItems" />
+            <Output TaskParameter="HadAnyDuplicates" PropertyName="_XamlCppWinRTModuleCompileItemsHadDuplicates" />
+        </RemoveDuplicates>
+
+        <ItemGroup Condition="'$(_XamlCppWinRTModuleCompileItemsHadDuplicates)' == 'true'">
+            <ClCompile Remove="@(ClCompile)"
+                Condition="'%(ClCompile.CompileAs)' == 'CompileAsCppModule'" />
+            <ClCompile Include="@(_XamlCppWinRTUniqueModuleCompileItems)" />
+        </ItemGroup>
+
+        <Message Condition="'$(_XamlCppWinRTModuleCompileItemsHadDuplicates)' == 'true'"
+                 Importance="High"
+                 Text="XamlC: normalized duplicate C++ module compile items by physical path before SetModuleDependencies." />
+
+        <ItemGroup>
+            <_XamlCppWinRTModuleCompileCandidates Remove="@(_XamlCppWinRTModuleCompileCandidates)" />
+            <_XamlCppWinRTUniqueModuleCompileItems Remove="@(_XamlCppWinRTUniqueModuleCompileItems)" />
+        </ItemGroup>
+    </Target>
+
+    <!--
     ================================================================
                          MarkupCompilePass2
     ================================================================
