@@ -8,7 +8,6 @@
 //     the code is regenerated.
 // </auto-generated>
 //------------------------------------------------------------------------------
-#pragma once
 
 <#  if (ProjectInfo.UseCppWinRTNamedModules) { #>
 #ifdef WINRT_XAML_MODULE_INTERFACE
@@ -37,6 +36,7 @@ export import :XamlTypeInfo;
 #undef WINRT_XAML_MODULE_INTERFACE
 #define WINRT_XAML_EXPORT export extern "C++"
 #else
+#pragma once
 #ifndef WINRT_IMPORT_MODULE
 #define WINRT_IMPORT_MODULE
 #endif
@@ -44,6 +44,7 @@ import <#=CppWinRTProjectionDependency.GetXamlPrimaryModuleName(ProjectInfo.Root
 #define WINRT_XAML_SKIP_BODY
 #endif
 <#  } else { #>
+#pragma once
 #include <unknwn.h>
 
 // Undefine GetCurrentTime macro to prevent
