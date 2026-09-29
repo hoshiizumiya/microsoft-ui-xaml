@@ -285,8 +285,9 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                 // Binding Pass2 code is generated from the complete bind-path graph, not only
                 // from the final target assignment. Intermediate steps are materialized in
                 // casts, observable-vector/map tracking caches and function calls, so every
-                // type that can be spelled by that generated C++ must be reachable through
-                // the Page partition in named-module mode.
+                // type that can be spelled by that generated C++ must be part of the semantic
+                // dependency closure. Pass2 lowers this closure directly to imports/includes;
+                // Pass1 may know only the subset available before the intermediate WinMD exists.
                 foreach (BindUniverse bindUniverse in CodeInfo.BindUniverses)
                 {
                     addCppWinRTProjectionForTypeIfNecessary(bindUniverse.DataRootType?.UnderlyingType);

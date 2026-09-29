@@ -24,6 +24,9 @@
 <#  if (ProjectInfo.UseCppWinRTNamedModules) { #>
 <#=GetCppWinRTModuleCompatibilityDefinition()#>
 <#  } #>
+<#  foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { #>
+<#=GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)#>
+<#  } #>
 <#  foreach (var includeFile in Model.NeededLocalXamlHeaderFiles) { #>
 #include "<#=includeFile#>"
 <#  }#>

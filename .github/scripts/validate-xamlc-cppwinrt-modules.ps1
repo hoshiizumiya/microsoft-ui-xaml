@@ -63,24 +63,24 @@ $simpleGeneratedRoot = Join-Path $repoRoot 'BuildOutput\obj\amd64chk\src\XamlCom
 # XAML IFCs are emitted under $(IntDir)XamlModules\, so validate them from the rewritten
 # compiler-test intermediate root instead of the generated-code root.
 $simpleIntRoot = Join-Path $repoRoot 'BuildOutput\obj\amd64chk\CompilerTests\Basic\CppWinRT\SimpleModules\SimpleCppWinRTModules'
-$mainPageModuleHeaders = @(Get-ChildItem -Path $simpleGeneratedRoot -Filter 'MainPage.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
-if ($mainPageModuleHeaders.Count -eq 0) {
-    throw 'SimpleModules did not generate MainPage.xaml.g.h.'
+$mainPagePass2Files = @(Get-ChildItem -Path $simpleGeneratedRoot -Filter 'MainPage.xaml.g.hpp' -File -Recurse -ErrorAction SilentlyContinue)
+if ($mainPagePass2Files.Count -eq 0) {
+    throw 'SimpleModules did not generate MainPage.xaml.g.hpp.'
 }
 $requiredPageProjectionImports = @(
-    'export import winrt.Simple.Models;',
-    'export import winrt.Simple.Targets;'
+    'import winrt.Simple.Models;',
+    'import winrt.Simple.Targets;'
 )
 foreach ($requiredImport in $requiredPageProjectionImports) {
     $found = $false
-    foreach ($header in $mainPageModuleHeaders) {
-        if (Select-String -Path $header.FullName -SimpleMatch $requiredImport -Quiet) {
+    foreach ($pass2File in $mainPagePass2Files) {
+        if (Select-String -Path $pass2File.FullName -SimpleMatch $requiredImport -Quiet) {
             $found = $true
             break
         }
     }
     if (-not $found) {
-        throw "MainPage XAML partition did not export required x:Bind projection dependency: $requiredImport"
+        throw "MainPage Pass2 did not import required x:Bind projection dependency: $requiredImport"
     }
 }
 
