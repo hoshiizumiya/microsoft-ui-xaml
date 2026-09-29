@@ -58,10 +58,15 @@ WINRT_XAML_EXPORT namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::imp
 }
 <#  } #>
 
-<#  if (Model.CodeInfo.HasInComponentBase) { #>
-WINRT_XAML_EXPORT namespace winrt::<#=Colonize(Model.CodeInfo.BaseType.UnderlyingType.Namespace)#>::implementation
+<#  if (Model.CodeInfo.HasInComponentBase) {
+        var baseTypeName = Model.CodeInfo.BaseTypeName;
+        var baseTypeSeparator = baseTypeName.LastIndexOf('.');
+        var baseTypeNamespace = baseTypeName.Substring(0, baseTypeSeparator);
+        var baseTypeShortName = baseTypeName.Substring(baseTypeSeparator + 1);
+#>
+WINRT_XAML_EXPORT namespace winrt::<#=Colonize(baseTypeNamespace)#>::implementation
 {
-    struct <#=Model.CodeInfo.BaseType.UnderlyingType.Name#>;
+    struct <#=baseTypeShortName#>;
 }
 <#  } #>
 
