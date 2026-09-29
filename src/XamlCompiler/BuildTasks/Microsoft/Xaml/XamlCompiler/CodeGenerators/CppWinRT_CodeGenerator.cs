@@ -46,6 +46,23 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             }
         }
 
+        public static IEnumerable<string> GetNamespaces(Type type, string unresolvedNamespace)
+        {
+            if (type == null)
+            {
+                if (!String.IsNullOrWhiteSpace(unresolvedNamespace))
+                {
+                    yield return unresolvedNamespace;
+                }
+                yield break;
+            }
+
+            foreach (var projectionNamespace in GetNamespaces(type))
+            {
+                yield return projectionNamespace;
+            }
+        }
+
         public static string GetHeaderFile(string projectionNamespace)
         {
             return $"winrt/{projectionNamespace}.h";

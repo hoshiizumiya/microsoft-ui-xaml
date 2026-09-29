@@ -42,6 +42,19 @@ namespace UnitTests
         }
 
         [TestMethod]
+        public void ProjectionDependency_UsesNamespaceFallbackForUnresolvedPass1Type()
+        {
+            var namespaces = CppWinRTProjectionDependency.GetNamespaces(null, "Simple");
+
+            CollectionAssert.AreEqual(
+                new[] { "Simple" },
+                new System.Collections.Generic.List<string>(namespaces));
+
+            var knownPrimitiveNamespaces = CppWinRTProjectionDependency.GetNamespaces(typeof(int), "Simple");
+            Assert.AreEqual(0, new System.Collections.Generic.List<string>(knownPrimitiveNamespaces).Count);
+        }
+
+        [TestMethod]
         public void ProjectionDependency_DoesNotTreatProjectedPrimitiveAsNamespaceDependency()
         {
             var namespaces = CppWinRTProjectionDependency.GetNamespaces(

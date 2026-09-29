@@ -194,9 +194,9 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
         {
             HashSet<string> neededCppWinRTProjectionNamespaces;
 
-            void addCppWinRTProjectionForTypeIfNecessary(Type type)
+            void addCppWinRTProjectionForTypeIfNecessary(Type type, string unresolvedNamespace = null)
             {
-                foreach (var projectionNamespace in CppWinRTProjectionDependency.GetNamespaces(type))
+                foreach (var projectionNamespace in CppWinRTProjectionDependency.GetNamespaces(type, unresolvedNamespace))
                 {
                     neededCppWinRTProjectionNamespaces.Add(projectionNamespace);
                 }
@@ -237,7 +237,12 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                                                           where c.FieldDefinition != null
                                                           select c.FieldDefinition)
                     {
-                        addCppWinRTProjectionForTypeIfNecessary(fieldData.FieldXamlType?.UnderlyingType);
+                        // Local using: types are intentionally unresolved during Pass1. In that
+                        // case FieldDefinition retains the namespace in FieldTypePath even though
+                        // FieldXamlType.UnderlyingType is unavailable. The generated Pass1
+                        // interface still spells the projected field type, so preserve that
+                        // semantic dependency for named-module reachability.
+                        addCppWinRTProjectionForTypeIfNecessary(fieldData.FieldXamlType?.UnderlyingType, fieldData.FieldTypePath);
                         if (ProjectInfo.ClassToHeaderFileMap.TryGetValue(fieldData.FieldTypeName, out headerFile))
                         {
                             _neededLocalXamlHeaderFiles.Add(headerFile);
