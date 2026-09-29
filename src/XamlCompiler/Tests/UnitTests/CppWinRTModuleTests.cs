@@ -138,6 +138,44 @@ namespace UnitTests
                 },
                 definition.NeededCppWinRTProjectionNamespaces);
         }
+
+        [TestMethod]
+        public void PageProjectionDependency_ToleratesUnresolvedBindPathValueType()
+        {
+            const string xaml = @"
+<Page
+    xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'
+    xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml'
+    x:Class='TestApp.BindingPage'>
+    <Grid>
+        <Button x:Name='source' />
+        <TextBlock Text='{x:Bind source.Tag}' />
+    </Grid>
+</Page>";
+
+            var helper = new TestHelper();
+            var schema = helper.LoadSchema(SchemaMode.ManagedRuntime);
+            var domRoot = helper.LoadXamlDom(xaml, schema);
+            var codeInfo = helper.HarvestClassCodeInfo(".", domRoot, true, false);
+            var fileCodeInfo = helper.HarvestFileCodeInfo(".", true, codeInfo, domRoot);
+            codeInfo.AddXamlFileInfo(fileCodeInfo);
+
+            Assert.IsTrue(codeInfo.BindUniverses.Count > 0);
+            codeInfo.BindUniverses[0].AddUnresolvedRootStepForTest("__unresolved");
+
+            var projectInfo = new XamlProjectInfo
+            {
+                ClassToHeaderFileMap = new System.Collections.Generic.Dictionary<string, string>(),
+            };
+            var definition = new PageDefinition(projectInfo, new XamlSchemaCodeInfo())
+            {
+                CodeInfo = codeInfo,
+            };
+
+            CollectionAssert.Contains(
+                definition.NeededCppWinRTProjectionNamespaces,
+                "Microsoft.UI.Xaml");
+        }
     }
 }
 
