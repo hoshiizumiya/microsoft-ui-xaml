@@ -5,9 +5,11 @@
   <PropertyGroup>
     <CppWinRTBuildModule>true</CppWinRTBuildModule>
     <UseXamlCompiler>true</UseXamlCompiler>
-    <!-- Static-library BMIs propagate through MSBuild. Do not generate a second
-         reference-projection module for the provider namespace in this project. -->
-    <CppWinRTModuleExclude>StaticControlsModuleLib</CppWinRTModuleExclude>
+    <!-- Static-library BMIs propagate through MSBuild. The provider builds the
+         Windows platform, WinUI/WebView2 reference, and StaticControlsModuleLib
+         projection modules needed by its XAML module, so this pure consumer must not
+         generate duplicate IFCs for the same namespace prefixes. -->
+    <CppWinRTModuleExclude>Windows;Microsoft;StaticControlsModuleLib</CppWinRTModuleExclude>
   </PropertyGroup>
   <Import Project="..\..\..\..\..\..\..\packages\Microsoft.Windows.CppWinRT.3.0.260818.1\build\native\Microsoft.Windows.CppWinRT.props" Condition="Exists('..\..\..\..\..\..\..\packages\Microsoft.Windows.CppWinRT.3.0.260818.1\build\native\Microsoft.Windows.CppWinRT.props')" />
   <PropertyGroup Label="Globals">
