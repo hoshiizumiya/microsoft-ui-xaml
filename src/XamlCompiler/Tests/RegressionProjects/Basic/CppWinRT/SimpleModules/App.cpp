@@ -108,8 +108,6 @@ void App::OnLaunched(winrt::Microsoft::UI::Xaml::LaunchActivatedEventArgs const&
                 // parameter
                 rootFrame.Navigate(xaml_typename<winrt::Simple::MainPage>(), winrt::box_value(e.Arguments()));
             }
-            // Place the frame in the current Window
-            Window::Current().Content(rootFrame);
             // Ensure the current window is active
             Window::Current().Activate();
         }
