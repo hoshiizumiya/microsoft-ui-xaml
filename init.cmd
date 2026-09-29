@@ -314,6 +314,10 @@ if "%EnvOnly%"=="" (
     rem For dev builds, ensure that submodules are populated with latest commits
     git submodule update --init --recursive
     powershell -ExecutionPolicy Bypass -NoProfile -File %RepoRoot%\scripts\init\Initialize-Restore.ps1 -RepoRoot %RepoRoot% %Verbose%
+    if errorlevel 1 (
+        echo Dependency restore failed during Initialize-Restore.ps1.
+        exit /b 1
+    )
 )
 
 if "%ARM64EC%"=="1" (
