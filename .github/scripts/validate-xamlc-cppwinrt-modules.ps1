@@ -190,12 +190,15 @@ foreach ($header in $providerPrimaryHeaders) {
     }
 }
 
-$inactiveConsumerXamlModuleDir = Join-Path $repoRoot 'BuildOutput\obj\XamlModuleValidation\InactiveConsumerXamlModules'
+# Seed the consumer's real default XAML-module output directory. Do not override
+# XamlCppWinRTModuleIfcDir as a global property here: global MSBuild properties flow to
+# ProjectReferences and would redirect the static provider's real Application_Xaml IFCs
+# into the consumer's sentinel directory as well.
+$inactiveConsumerXamlModuleDir = Join-Path $repoRoot 'BuildOutput\obj\amd64chk\CompilerTests\Features\StaticLibs\StaticControlsModuleConsumer\StaticControlsModuleConsumer\XamlModules'
 New-Item -ItemType Directory -Force -Path $inactiveConsumerXamlModuleDir | Out-Null
 Set-Content -Path (Join-Path $inactiveConsumerXamlModuleDir 'stale.ifc') -Value 'stale'
-$inactiveConsumerXamlModuleProperty = "/p:XamlCppWinRTModuleIfcDir=$inactiveConsumerXamlModuleDir\"
 
-Invoke-XamlModuleBuild $staticConsumer 'StaticControlsModuleConsumer.CrossProject' @($inactiveConsumerXamlModuleProperty)
+Invoke-XamlModuleBuild $staticConsumer 'StaticControlsModuleConsumer.CrossProject'
 if (Test-Path $inactiveConsumerXamlModuleDir) {
     throw 'A module-mode C++/WinRT project with no XAML left stale XamlModules output behind.'
 }
