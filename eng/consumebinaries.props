@@ -13,6 +13,15 @@
 
     <ItemGroup>
         <Reference Include="@(WinUIWinMDReferences)" />
+
+        <!--
+          The merged Microsoft.UI.Xaml WinMD exposes WebView2 members whose signatures
+          reference Microsoft.Web.WebView2.Core types. XamlCompiler regression projects
+          consume the merged WinUI metadata directly, so cppwinrt also needs the WebView2
+          WinMD in the same reference closure when it builds a reference projection.
+        -->
+        <Reference Include="$(NugetPackageDirectory)\$(WebView2PackageName).$(WebView2Version)\lib\Microsoft.Web.WebView2.Core.winmd"
+                   Condition="Exists('$(NugetPackageDirectory)\$(WebView2PackageName).$(WebView2Version)\lib\Microsoft.Web.WebView2.Core.winmd')" />
     </ItemGroup>
 
     <PropertyGroup Condition="$(MSBuildProjectExtension)=='.vcxproj'">
