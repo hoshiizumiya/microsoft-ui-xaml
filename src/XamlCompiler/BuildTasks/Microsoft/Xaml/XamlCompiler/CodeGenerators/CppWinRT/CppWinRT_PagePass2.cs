@@ -46,6 +46,10 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTModuleCompatibilityDefinition()));
             this.Write("\r\n");
   } 
+  foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { 
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)));
+            this.Write("\r\n");
+  } 
   foreach (var includeFile in Model.NeededLocalXamlHeaderFiles) { 
             this.Write("#include \"");
             this.Write(this.ToStringHelper.ToStringWithCulture(includeFile));
