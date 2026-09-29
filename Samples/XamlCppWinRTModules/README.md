@@ -144,8 +144,11 @@ required in ordinary Page/Window implementation source.
 ```
 
 `Model` is `XamlCppWinRTModulesSample.Models.GreetingModel`, not a type in the
-MainWindow namespace. XamlC records that semantic WinRT namespace and emits the required
-projection dependency in the MainWindow partition.
+MainWindow namespace. XamlC records that semantic WinRT namespace while analyzing the
+binding graph. A local runtimeclass can still be unresolved during Pass1 because the
+intermediate component WinMD does not exist yet; Pass2 sees the completed metadata and
+emits the fully resolved projection dependency directly in the generated
+`MainWindow.xaml.g.hpp`.
 
 The point is that application code does not maintain an extra list of
 `import winrt....;` statements for types discovered by XAML/x:Bind.

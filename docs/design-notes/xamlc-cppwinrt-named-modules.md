@@ -338,9 +338,17 @@ The closure includes:
 - the target member type and declaring type;
 - dependency-property owner types.
 
+Pass1 can only export projection dependencies that are resolvable before the intermediate
+component WinMD exists. Local runtimeclasses in a separate project namespace may therefore
+still be unresolved during Pass1. After the intermediate WinMD is available, Pass2
+recomputes the same semantic closure and materializes the fully resolved dependencies as
+direct `import winrt....;` declarations in module mode (or projection-header includes in
+header mode).
+
 The regression project intentionally uses independent namespaces on both sides of a
-binding graph so the generated Page partition must explicitly export both projection
-modules instead of succeeding through a same-namespace accident.
+binding graph and checks the generated `MainPage.xaml.g.hpp` for both imports. This
+prevents a same-namespace or transitive-header accident from hiding a missing Pass2
+dependency.
 
 ---
 
