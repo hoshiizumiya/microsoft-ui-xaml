@@ -204,6 +204,9 @@ if (Test-Path $inactiveConsumerXamlModuleDir) {
 }
 
 $staticConsumerGeneratedRoot = Join-Path $repoRoot 'BuildOutput\obj\amd64chk\src\XamlCompiler\Tests\RegressionProjects\Features\StaticLibs\StaticControlsModuleConsumer'
+if (-not (Test-Path $staticConsumerGeneratedRoot)) {
+    throw "Static consumer generated-files root was not created: $staticConsumerGeneratedRoot"
+}
 $duplicateConsumerModules = @(Get-ChildItem -Path $staticConsumerGeneratedRoot -Filter '*.ixx' -File -Recurse -ErrorAction SilentlyContinue |
     Where-Object {
         $_.Name -like 'winrt.Windows.*.ixx' -or
