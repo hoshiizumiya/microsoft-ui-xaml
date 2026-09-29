@@ -682,25 +682,8 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             BeforeTargets="CppWinRTAddModuleInterfaces;FixupCLCompileOptions">
         <MakeDir Directories="$(XamlCppWinRTModuleIfcDir)" />
         <ItemGroup>
-            <_XamlGeneratedModuleInterfaceCandidates Include="@(_GeneratedCodeFiles)"
+            <_XamlGeneratedModuleInterfaces Include="@(_GeneratedCodeFiles)"
                 Condition="$([System.String]::Copy('%(_GeneratedCodeFiles.Identity)').EndsWith('.xaml.g.h'))" />
-        </ItemGroup>
-
-        <!--
-          _GeneratedCodeFiles is an MSBuild item list, not a set. Incremental/no-change
-          reporting is allowed to surface the same generated path more than once. Do not
-          copy those duplicates into ClCompile: SetModuleDependencies consumes the complete
-          ClCompile list and requires each source identity to be unique.
-        -->
-        <RemoveDuplicates Inputs="@(_XamlGeneratedModuleInterfaceCandidates)">
-            <Output TaskParameter="Filtered" ItemName="_XamlGeneratedModuleInterfaces" />
-            <Output TaskParameter="HadAnyDuplicates" PropertyName="_XamlGeneratedModuleInterfacesHadDuplicates" />
-        </RemoveDuplicates>
-        <Message Condition="'$(_XamlGeneratedModuleInterfacesHadDuplicates)' == 'true'"
-                 Importance="High"
-                 Text="XamlC: removed duplicate generated C++ module-interface items before SetModuleDependencies." />
-
-        <ItemGroup>
             <!--
               XamlBindingInfo.xaml.g.h is the always-generated primary interface for
               <RootNamespace>.Application_Xaml. App/Page and XamlTypeInfo headers are
@@ -725,7 +708,6 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                 <CompilerIteration>XamlGeneratedModule</CompilerIteration>
             </ClCompile>
             <_XamlPrimaryModuleInterface Remove="@(_XamlPrimaryModuleInterface)" />
-            <_XamlGeneratedModuleInterfaceCandidates Remove="@(_XamlGeneratedModuleInterfaceCandidates)" />
         </ItemGroup>
     </Target>
 
