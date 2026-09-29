@@ -2,12 +2,40 @@
 
 > **Status**
 >
-> This document describes the named-module implementation on the
-> `feat/xamlccppmodule/phase1` development branch. It is a repository/developer
-> contract until the work is merged and shipped in a Windows App SDK release.
+> Phase 1 is in **integration hardening** on `feat/xamlccppmodule/phase1`.
+> The module architecture, dependency model, incremental cleanup and regression topology
+> are implemented, but the final VS2026/MSVC v145 focused gate is not yet the acceptance
+> signal for the whole path. This document is a repository/developer contract until the
+> work is merged and shipped in a Windows App SDK release.
 >
 > Tracking: [microsoft-ui-xaml#11524](https://github.com/microsoft/microsoft-ui-xaml/issues/11524)  
-> Related but separate path-mapping work: [microsoft-ui-xaml#11525](https://github.com/microsoft/microsoft-ui-xaml/issues/11525)
+> Related but separate path-mapping work: [microsoft-ui-xaml#11525](https://github.com/microsoft/microsoft-ui-xaml/issues/11525)  
+> Detailed implementation/debugging guide:
+> [xamlc-cppwinrt-named-modules-implementation-guide.md](xamlc-cppwinrt-named-modules-implementation-guide.md)
+
+## Current phase
+
+Phase 1 has moved beyond proof-of-concept generation.
+
+Already established:
+
+- `<RootNamespace>.Application_Xaml` as the public project XAML module;
+- App/Page/TypeInfo interface partitions using existing Pass1 `*.xaml.g.h` output;
+- semantic WinRT projection dependency discovery with header/module backend lowering;
+- Page/x:Bind and TypeInfo dependency closure;
+- Pass1/Pass2 ownership rules;
+- MSBuild registration, IFC cleanup and combined module-input normalization;
+- native static-library BMI propagation instead of a second XamlC ProjectReference protocol;
+- focused regression projects covering incremental transitions and cross-project use.
+
+Still open:
+
+- make the focused VS2026/MSVC v145/SDK26100 validation chain green end to end;
+- fix any concrete compiler reachability/module-ownership defect exposed by that gate;
+- keep #11525 separate from the module architecture.
+
+“Implemented” in this document means the path exists with targeted regression coverage;
+it does not imply that every final v145 compiler diagnostic has already been cleared.
 
 ## Summary
 
@@ -55,12 +83,19 @@ A repository sample is available at
 Named-module XAML builds require:
 
 - C++/WinRT 3.x with named-module support.
-- MSVC C++20 module support.
+- A C++/WinRT-3.x-compatible MSVC module toolchain. The current focused repository
+  validation uses Visual Studio 2026 / MSVC v145.
 - `CppWinRTBuildModule=true`.
 - A module-capable language mode; the sample uses `/std:c++latest`.
 - STL module support when generated code imports `std`; the sample sets
   `BuildStlModules=true`.
 - A valid `RootNamespace`. It is part of the public module identity.
+
+The WinUI product PR build remains on its existing VS2022/toolset and SDK package
+baseline. Only the focused C++/WinRT 3.x named-module validation uses VS2026/v145.
+The current `windows-2025-vs2026` hosted image exposes Windows SDK 10.0.26100.0, so
+that gate overrides its installed target SDK to 26100 without changing the repository-wide
+SDK package baseline.
 
 For this repository branch, the sample also sets `UseXamlCompiler=true` so it consumes
 the in-repo XamlC implementation. That property is a repository-development detail, not
@@ -413,6 +448,8 @@ XamlCppWinRTAddModuleInterfaces
         |
 CppWinRTAddModuleInterfaces
         |
+XamlCppWinRTNormalizeModuleCompileItems
+        |
 FixupCLCompileOptions / MSVC dependency scanning
         |
 C++ compilation
@@ -672,16 +709,28 @@ The PR workflow:
 2. verifies that only valid generated `.cs` files changed;
 3. commits synchronized generated output when necessary;
 4. dispatches validation again;
-5. performs product validation on the VS2022 / MSBuild 17.x toolchain.
+5. performs product validation on the VS2022 / MSBuild 17.x toolchain;
+6. runs the focused named-module path separately with VS2026 / MSVC v145.
 
-This split exists because the T4 tooling and the product compiler toolchain have different
-version requirements.
+The focused module validation currently targets the VS2026 hosted image's installed
+Windows SDK 10.0.26100.0. That override is intentionally local to module validation.
+
+A repository-local workflow-dispatch file also exists for a shorter module-only inner
+loop. GitHub's Actions UI only exposes `workflow_dispatch` for workflows present on the
+default branch, so a workflow introduced only on this feature branch cannot yet be used
+as a normal manual Actions entry. This is a CI iteration limitation, not part of the
+XamlC design.
+
+This split exists because the T4 tooling, product compiler baseline, and C++/WinRT 3.x
+named-module validation have different toolchain requirements.
 
 ---
 
 ## Validation coverage
 
-The focused x64 Debug module gate currently covers:
+The focused regression suite is implemented with the coverage below. The final VS2026/v145/SDK26100 end-to-end gate is still the remaining acceptance step.
+
+The focused x64 Debug module gate covers:
 
 - module clean build;
 - no-change rebuild;
@@ -698,6 +747,33 @@ The focused x64 Debug module gate currently covers:
 - static-library provider and cross-project module consumer;
 - no-XAML stale-module cleanup;
 - importer-side completeness of BindingInfo/TypeInfo/legacy-COM declarations.
+
+---
+
+## Current acceptance state
+
+The architecture should not be treated as complete merely because the generated files
+exist. The remaining phase-1 acceptance condition is a green focused build using the
+toolchain that C++/WinRT 3.x named modules actually require.
+
+The current progression of integration failures has already validated several layers:
+
+- XamlC Pass1 produces and reports App/Page/BindingInfo/TypeInfo interface files;
+- XamlC and C++/WinRT module items reach the VC module dependency scanner;
+- combined module compile inputs are normalized before `SetModuleDependencies`;
+- clean Pass1 reports the TypeInfo partition after it is generated;
+- generated module-interface branches now place the global module fragment before
+  `#pragma once`;
+- the focused validation environment is explicitly VS2026/v145 and SDK26100.
+
+Any next failure should be classified as one of:
+
+1. semantic dependency/reachability;
+2. generated C++ module ownership;
+3. native MSBuild/VC module graph/toolchain integration.
+
+Do not reintroduce the application-owned forced-include workaround to bypass one of these
+layers.
 
 ---
 

@@ -8,6 +8,12 @@ For the architecture and migration details, see
 
 > This sample targets the implementation on `feat/xamlccppmodule/phase1`. Until that
 > compiler work ships in a Windows App SDK release, build it against this repository.
+> Phase 1 is currently in integration hardening; the public module contract is established,
+> while the final VS2026/MSVC v145 focused validation gate is still being closed.
+
+For implementation ownership, exact source files, MSBuild ordering, failure signatures and
+phase-1 acceptance criteria, see
+[`xamlc-cppwinrt-named-modules-implementation-guide.md`](../../docs/design-notes/xamlc-cppwinrt-named-modules-implementation-guide.md).
 
 ## What the sample demonstrates
 
@@ -31,17 +37,26 @@ Normal `App.xaml.cpp` and `MainWindow.xaml.cpp` do **not** write that import.
 
 ## Build
 
-From an initialized repository developer prompt:
+For the current C++/WinRT 3.x development branch, use a Visual Studio 2026
+developer prompt. The focused repository validation uses MSVC v145 and the hosted
+runner's installed Windows SDK 10.0.26100.0:
 
 ```bat
-init.cmd
+init.cmd x64chk /nopgo
 nuget install Samples\XamlCppWinRTModules\packages.config -OutputDirectory packages -NonInteractive
 
 msbuild Samples\XamlCppWinRTModules\XamlCppWinRTModules.vcxproj ^
   /p:Configuration=Debug ^
   /p:Platform=x64 ^
-  /p:VisualStudioVersion=17.0
+  /p:VisualStudioVersion=18.0 ^
+  /p:PlatformToolset=v145 ^
+  /p:WindowsSdkTargetPlatformVersion=10.0.26100.0 ^
+  /p:TargetPlatformVersion=10.0.26100.0 ^
+  /p:WindowsTargetPlatformVersion=10.0.26100.0
 ```
+
+The SDK 26100 override above is a repository-validation detail for the current VS2026
+hosted image. It does not change WinUI's normal product SDK package baseline.
 
 `UseXamlCompiler=true` in the project makes the sample use the compiler built from this
 repository. That property is only needed for repo development; a future SDK containing
