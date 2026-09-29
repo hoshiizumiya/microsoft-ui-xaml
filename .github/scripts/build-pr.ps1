@@ -50,13 +50,8 @@ $sequence = $prereqSteps + @(
     "msbuild controls\dev\dll\Microsoft.UI.Xaml.Controls.vcxproj /p:Platform=$Platform /p:Configuration=$Configuration $commonArgs /binaryLogger:$binlogDir\Microsoft.UI.Xaml.Controls.$Platform.$Configuration.binlog"
 )
 
-# Named-module regressions are intentionally a focused x64 Debug gate. They consume
-# the compiler/product artifacts built above, so running them in this initialized
-# process validates the in-repo XamlC without multiplying the full regression suite
-# across the six product matrix legs.
-if ($Platform -eq 'x64' -and $Configuration -eq 'Debug') {
-    $sequence += "powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-cppwinrt-modules.ps1"
-}
+# C++/WinRT 3.x named-module validation runs in a separate VS2026/v145 job.
+# Keep this product matrix on the repository's VS2022 baseline.
 
 $sequence += "pack.component.cmd"
 

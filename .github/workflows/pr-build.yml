@@ -216,3 +216,76 @@ jobs:
             BuildOutput/packaging/${{ matrix.configuration }}/runtimes-framework/win-${{ matrix.platform }}/**
           if-no-files-found: warn
           retention-days: 7
+
+      - name: Upload named-module validation prerequisites
+        if: matrix.flavor == 'x64chk' && env.DISABLE_PR_BUILD_MATRIX_VALIDATION != 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: xaml-module-prereqs-x64chk
+          path: |
+            BuildOutput/packaging/Debug/**
+            BuildOutput/bin/amd64chk/Product/**
+            BuildOutput/bin/GenXbf/**
+            BuildOutput/obj/amd64chk/MergedWinMD/**
+          if-no-files-found: error
+          retention-days: 7
+
+  cppwinrt-modules:
+    needs:
+      - sync-xamlc-t4
+      - build
+    if: needs.sync-xamlc-t4.outputs.generated_commit != 'true'
+    name: Validate C++/WinRT named modules
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 60
+    env:
+      NUGET_PACKAGES: ${{ github.workspace }}\packages
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      CL: '/MP2'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ needs.sync-xamlc-t4.outputs.checkout_sha }}
+          fetch-depth: 1
+          show-progress: false
+
+      - name: Restore VS2022-built XamlC and WinUI prerequisites
+        uses: actions/download-artifact@v6
+        with:
+          name: xaml-module-prereqs-x64chk
+          path: BuildOutput
+
+      - name: Initialize VS2026 module environment and validate
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsInstall = & $vswhere -latest -version '[18.0,19.0)' -requires Microsoft.Component.MSBuild -property installationPath
+          if (-not $vsInstall) {
+              throw 'Visual Studio 2026 / MSBuild 18.x is required for C++/WinRT 3.x named-module validation.'
+          }
+
+          $vsDevCmd = Join-Path $vsInstall 'Common7\Tools\VsDevCmd.bat'
+          $quote = [char]34
+          $chain = "call $quote$vsDevCmd$quote -no_logo -arch=amd64 -host_arch=amd64" +
+              " && init.cmd x64chk /nopgo" +
+              " && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-cppwinrt-modules.ps1 -ModuleVisualStudioVersion 18.0 -ModulePlatformToolset v145"
+
+          cmd /d /c $chain
+          if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+          }
+
+      - name: Upload named-module binlogs
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: binlogs-cppwinrt-modules
+          path: BuildOutput/binlogs/*.binlog
+          if-no-files-found: ignore
+          retention-days: 7
+
