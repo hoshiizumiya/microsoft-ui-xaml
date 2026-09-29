@@ -67,11 +67,16 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             this.Write("::implementation\r\n{\r\n    struct XamlBindings;\r\n}\r\n");
   } 
             this.Write("\r\n");
-  if (Model.CodeInfo.HasInComponentBase) { 
+  if (Model.CodeInfo.HasInComponentBase) {
+        var baseTypeName = Model.CodeInfo.BaseTypeName;
+        var baseTypeSeparator = baseTypeName.LastIndexOf('.');
+        var baseTypeNamespace = baseTypeName.Substring(0, baseTypeSeparator);
+        var baseTypeShortName = baseTypeName.Substring(baseTypeSeparator + 1);
+
             this.Write("WINRT_XAML_EXPORT namespace winrt::");
-            this.Write(this.ToStringHelper.ToStringWithCulture(Colonize(Model.CodeInfo.BaseType.UnderlyingType.Namespace)));
+            this.Write(this.ToStringHelper.ToStringWithCulture(Colonize(baseTypeNamespace)));
             this.Write("::implementation\r\n{\r\n    struct ");
-            this.Write(this.ToStringHelper.ToStringWithCulture(Model.CodeInfo.BaseType.UnderlyingType.Name));
+            this.Write(this.ToStringHelper.ToStringWithCulture(baseTypeShortName));
             this.Write(";\r\n}\r\n");
   } 
             this.Write("\r\nWINRT_XAML_EXPORT namespace winrt::");
