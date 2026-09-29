@@ -30,7 +30,6 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 //     the code is regenerated.
 // </auto-generated>
 //------------------------------------------------------------------------------
-#pragma once
 
 ");
   if (ProjectInfo.UseCppWinRTNamedModules) { 
@@ -61,14 +60,14 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             this.Write("export import :XamlTypeInfo;\r\n");
   } 
             this.Write("\r\n#undef WINRT_XAML_MODULE_INTERFACE\r\n#define WINRT_XAML_EXPORT export extern \"C+" +
-                    "+\"\r\n#else\r\n#ifndef WINRT_IMPORT_MODULE\r\n#define WINRT_IMPORT_MODULE\r\n#endif\r\nimp" +
-                    "ort ");
+                    "+\"\r\n#else\r\n#pragma once\r\n#ifndef WINRT_IMPORT_MODULE\r\n#define WINRT_IMPORT_MODUL" +
+                    "E\r\n#endif\r\nimport ");
             this.Write(this.ToStringHelper.ToStringWithCulture(CppWinRTProjectionDependency.GetXamlPrimaryModuleName(ProjectInfo.RootNamespace)));
             this.Write(";\r\n#define WINRT_XAML_SKIP_BODY\r\n#endif\r\n");
   } else { 
-            this.Write("#include <unknwn.h>\r\n\r\n// Undefine GetCurrentTime macro to prevent\r\n// conflict w" +
-                    "ith Storyboard::GetCurrentTime\r\n#undef GetCurrentTime\r\n\r\n#include <cstdint>\r\n#in" +
-                    "clude <memory>\r\n\r\n");
+            this.Write("#pragma once\r\n#include <unknwn.h>\r\n\r\n// Undefine GetCurrentTime macro to prevent\r" +
+                    "\n// conflict with Storyboard::GetCurrentTime\r\n#undef GetCurrentTime\r\n\r\n#include " +
+                    "<cstdint>\r\n#include <memory>\r\n\r\n");
             this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsFoundation)));
             this.Write("\r\n");
             this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsFoundationCollections)));

@@ -30,7 +30,6 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 //     the code is regenerated.
 // </auto-generated>
 //------------------------------------------------------------------------------
-#pragma once
 
 ");
   if (ProjectInfo.UseCppWinRTNamedModules) { 
@@ -60,15 +59,26 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             this.Write(";\r\n");
   }
             this.Write("\r\n#undef WINRT_XAML_MODULE_INTERFACE\r\n#define WINRT_XAML_EXPORT export extern \"C+" +
-                    "+\"\r\n#else\r\n#ifndef WINRT_IMPORT_MODULE\r\n#define WINRT_IMPORT_MODULE\r\n#endif\r\nimp" +
-                    "ort ");
+                    "+\"\r\n#else\r\n#pragma once\r\n#ifndef WINRT_IMPORT_MODULE\r\n#define WINRT_IMPORT_MODUL" +
+                    "E\r\n#endif\r\nimport ");
             this.Write(this.ToStringHelper.ToStringWithCulture(CppWinRTProjectionDependency.GetXamlPrimaryModuleName(ProjectInfo.RootNamespace)));
             this.Write(";\r\n#define WINRT_XAML_SKIP_BODY\r\n#endif\r\n");
   } else { 
-            this.Write("#include <unknwn.h>\r\n\r\n#include <functional>\r\n#include <map>\r\n#include <memory>\r\n" +
-                    "#include <vector>\r\n#include <mutex>\r\n#include <cstdint>\r\n\r\n// Undefine GetCurren" +
-                    "tTime macro to prevent\r\n// conflict with Storyboard::GetCurrentTime\r\n#undef GetC" +
-                    "urrentTime\r\n\r\n");
+            this.Write(@"#pragma once
+#include <unknwn.h>
+
+#include <functional>
+#include <map>
+#include <memory>
+#include <vector>
+#include <mutex>
+#include <cstdint>
+
+// Undefine GetCurrentTime macro to prevent
+// conflict with Storyboard::GetCurrentTime
+#undef GetCurrentTime
+
+");
             this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsFoundation)));
             this.Write("\r\n");
             this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsFoundationCollections)));
