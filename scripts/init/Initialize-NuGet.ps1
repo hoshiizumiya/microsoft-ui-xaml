@@ -39,17 +39,7 @@ if ($PSVersionTable.PSVersion.Major -eq 5)
 
 try
 {
-    # The public OSS feed is anonymously readable, so the Azure Artifacts credential
-    # provider is unnecessary there. Skipping it also avoids making every public init
-    # depend on the GitHub Releases API used by the provider bootstrap script.
-    if ($env:IsInternalWinUIBuild -eq 'true')
-    {
-        Invoke-Expression "& { $(Invoke-RestMethod https://aka.ms/install-artifacts-credprovider.ps1) } -AddNetfx"
-    }
-    else
-    {
-        Write-Host "Skipping Azure Artifacts Credential Provider for OSS build."
-    }
+    Invoke-Expression "& { $(Invoke-RestMethod https://aka.ms/install-artifacts-credprovider.ps1) } -AddNetfx"
 }
 finally
 {
