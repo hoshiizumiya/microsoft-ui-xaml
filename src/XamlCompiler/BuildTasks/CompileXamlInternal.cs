@@ -1168,6 +1168,22 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
                     return false;
                 }
 
+                // UpdateGeneratedFilesLists runs before GenerateTypeInfo on the normal path.
+                // In native Pass1, XamlTypeInfo.xaml.g.h therefore does not exist yet when
+                // that list is populated on a clean build. Report the newly materialized
+                // TypeInfo partition explicitly so the MSBuild module-registration target
+                // can compile it with the other Application_Xaml interfaces.
+                if (IsPass1 && Language.IsNative && !ShouldSuppressTypeInfoCodeGen())
+                {
+                    string xamlTypeInfoPass1 = Path.Combine(
+                        OutputFolderFullpath,
+                        KnownStrings.XamlTypeInfo + Language.Pass1Extension);
+                    if (File.Exists(xamlTypeInfoPass1) && !_generatedCodeFiles.Contains(xamlTypeInfoPass1))
+                    {
+                        _generatedCodeFiles.Add(xamlTypeInfoPass1);
+                    }
+                }
+
                 try
                 {
                     if (!IsPass1 && !this.DisableXbfGeneration)
