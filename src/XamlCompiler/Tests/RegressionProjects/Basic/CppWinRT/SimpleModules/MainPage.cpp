@@ -1,8 +1,6 @@
 ﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
-#include "pch.h"
 
-#define WINRT_IMPORT_MODULE
 import winrt.Microsoft.UI.Xaml.Input;
 import winrt.Simple.Models;
 
