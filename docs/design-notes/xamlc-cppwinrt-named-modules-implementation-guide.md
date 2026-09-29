@@ -277,6 +277,19 @@ Simple.Targets
 
 and requires Pass2 `MainPage.xaml.g.hpp` to materialize both imports.
 
+### Unresolved local fields in Pass1
+
+For `<local:PropBag x:Name="propertyBagObject" />` with `xmlns:local="using:Simple"`,
+Pass1 may have `FieldXamlType.UnderlyingType == null`, while XamlHarvester has
+already preserved `FieldTypePath = "Simple"` and `FieldTypeShortName = "PropBag"`.
+The generated declaration still names `winrt::Simple::PropBag`.
+
+`PageDefinition` therefore calls
+`CppWinRTProjectionDependency.GetNamespaces(fieldData.FieldXamlType?.UnderlyingType, fieldData.FieldTypePath)`.
+The namespace fallback applies only when the reflection type is null. A resolved
+primitive such as `int` must not acquire an unrelated namespace dependency from
+the fallback string. The focused gate checks that Pass1 exports `winrt.Simple`.
+
 ## 8. Pass1 versus Pass2 ownership
 
 ### Pass1
@@ -410,6 +423,37 @@ registration and canonicalizes `CompileAsCppModule` items by physical `FullPath`
 Do not move this normalization back to the XamlC-only generated-file subset; the
 duplicate-key failure that motivated it occurred after both module producers had
 contributed items.
+
+### Consumer macro and PCH-free fixture
+
+`SimpleCppWinRTModules.vcxproj` uses `PrecompiledHeader=NotUsing`; it has no
+`pch.h` or `pch.cpp`. This also lets C++/WinRT generate component implementation
+files without a PCH include.
+
+Its `ConfigureCppWinRTModuleConsumerCompileItems` target runs after
+`XamlCppWinRTNormalizeModuleCompileItems` and before `FixupCLCompileOptions`.
+In module mode it adds `WINRT_IMPORT_MODULE` only to compile items whose
+`CompileAs` is not `CompileAsCppModule`. Do not define this consumer guard globally:
+projection producers such as `winrt_base.ixx` and `winrt.*.ixx` must retain the
+declarations they are building.
+
+Authored dependencies remain separate from generated XAML dependencies. For example,
+`MainPage.h` declares a `Simple.Models.BindModel` member, so authored sources that
+include that header import `winrt.Simple.Models`. XamlC does not infer that dependency
+from the authored header. Since the fixture also switches to header mode, those sources
+select projection imports under `WINRT_IMPORT_MODULE` and corresponding projection
+headers otherwise.
+
+`XamlModuleSmoke.cpp` imports only `Simple.Application_Xaml`. Do not add a shared
+import-everything preamble: that would hide missing dependencies of the XAML umbrella.
+
+### Legacy COM producer configuration
+
+`XamlTypeInfo.xaml.g.h` declares `IXamlUserType : ::IUnknown` and uses that
+interface in `winrt::implements`. The interop targets enable
+`WINRT_ENABLE_LEGACY_COM` for named-module C++/WinRT builds, including compilation
+of `winrt_base.ixx`. Including `<unknwn.h>` only in the later XAML TypeInfo
+partition cannot retroactively enable classic COM support in the compiled base module.
 
 ## 13. XAML IFC lifetime
 
@@ -692,8 +736,9 @@ the entire WinUI repository.
 
 When a new compiler error appears:
 
-1. identify whether it is a XamlC semantic dependency problem, a generated C++ module
-   ownership problem, or an MSBuild/toolchain graph problem;
+1. identify whether it is a XamlC semantic dependency/ownership problem, a C++/WinRT
+   projection problem, an authored fixture dependency/migration problem, or an
+   MSBuild/restore/toolchain problem;
 2. locate the smallest owning layer;
 3. fix that layer only;
 4. add or tighten a regression at the same boundary;

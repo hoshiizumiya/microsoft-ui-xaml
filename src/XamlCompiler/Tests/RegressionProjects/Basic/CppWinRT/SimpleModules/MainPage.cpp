@@ -1,8 +1,13 @@
 ﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+#ifdef WINRT_IMPORT_MODULE
 import winrt.Microsoft.UI.Xaml.Input;
 import winrt.Simple.Models;
+#else
+#include <winrt/Microsoft.UI.Xaml.Input.h>
+#include <winrt/Simple.Models.h>
+#endif
 
 #include "MainPage.h"
 #include "MainPage.g.cpp"

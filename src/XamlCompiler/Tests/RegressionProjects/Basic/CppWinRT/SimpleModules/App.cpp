@@ -7,12 +7,21 @@
 
 #include <windows.h>
 
+#ifdef WINRT_IMPORT_MODULE
 import std;
 import winrt.Windows.ApplicationModel;
 import winrt.Windows.ApplicationModel.Activation;
 import winrt.Microsoft.UI.Xaml.Navigation;
 import winrt.Microsoft.UI.Xaml.Input;
 import winrt.Simple.Models;
+#else
+#include <string>
+#include <winrt/Windows.ApplicationModel.h>
+#include <winrt/Windows.ApplicationModel.Activation.h>
+#include <winrt/Microsoft.UI.Xaml.Navigation.h>
+#include <winrt/Microsoft.UI.Xaml.Input.h>
+#include <winrt/Simple.Models.h>
+#endif
 
 #include "App.h"
 #include "MainPage.h"
@@ -38,7 +47,7 @@ App::App()
     Suspending({ this, &App::OnSuspending });
 
 #if defined _DEBUG && !defined DISABLE_XAML_GENERATED_BREAK_ON_UNHANDLED_EXCEPTION
-    UnhandledException([this](IInspectable const&, ::Microsoft::UI::Xaml::UnhandledExceptionEventArgs const& e)
+    UnhandledException([this](IInspectable const&, ::winrt::Microsoft::UI::Xaml::UnhandledExceptionEventArgs const& e)
     {
         if (IsDebuggerPresent())
         {

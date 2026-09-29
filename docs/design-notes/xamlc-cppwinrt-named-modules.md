@@ -118,7 +118,12 @@ import winrt.Microsoft.UI.Xaml;
 #include "MainWindow.xaml.h"
 ```
 
-The sample deliberately does not use a WinRT projection PCH.
+The sample deliberately does not use a WinRT projection PCH. The focused
+`SimpleCppWinRTModules` regression fixture is entirely PCH-free. It defines
+`WINRT_IMPORT_MODULE` through compile-item metadata only for ordinary consumers,
+after module interface registration; module producers do not receive this consumer guard.
+It deliberately avoids a shared import-everything preamble so the direct umbrella smoke
+test can expose missing generated dependencies.
 
 ---
 
@@ -422,9 +427,12 @@ interface free from component implementation ownership and redefinition problems
 The TypeInfo partition exports XamlC metadata-provider implementation types and may use
 legacy COM concepts such as `IUnknown`.
 
-Native COM declarations are provided from the global module fragment where required;
-WinRT projection dependencies are tracked semantically and emitted as explicit module
-imports.
+Native COM declarations are provided from the global module fragment where required.
+The interop targets also enable `WINRT_ENABLE_LEGACY_COM` while compiling
+C++/WinRT's base module: TypeInfo uses `IXamlUserType : ::IUnknown` in
+`winrt::implements`, and including `<unknwn.h>` in a later XAML partition alone
+cannot enable that support retroactively. WinRT projection dependencies are tracked
+semantically and emitted as explicit module imports.
 
 The current regression suite also imports the final XAML umbrella from an independent
 consumer translation unit and requires the exported BindingInfo, TypeInfo, and
