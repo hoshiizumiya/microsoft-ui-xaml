@@ -22,6 +22,68 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $binlogDir = Join-Path $repoRoot 'BuildOutput\binlogs'
 New-Item -ItemType Directory -Force -Path $binlogDir | Out-Null
 
+$packagesDir = Join-Path $repoRoot 'packages'
+$nugetConfig = Join-Path $repoRoot 'NuGet.config'
+$nuget = Get-Command nuget.exe -ErrorAction Stop
+
+# init.cmd normally restores these repository packages, but its credential-provider
+# bootstrap can be interrupted by an external GitHub Releases API failure. The focused
+# module gate must not depend on that unrelated side effect: restore the exact package
+# roots consumed by these regression projects when they are absent.
+$rootPackagesConfig = Join-Path $repoRoot 'packages.config'
+[xml]$rootPackages = Get-Content $rootPackagesConfig
+$cachePackage = $rootPackages.packages.package | Where-Object { $_.id -eq 'Microsoft.MSBuildCache.Local' }
+if (-not $cachePackage) {
+    throw 'Microsoft.MSBuildCache.Local was not found in packages.config.'
+}
+
+$cachePackageDir = Join-Path $packagesDir ("{0}.{1}" -f $cachePackage.id, $cachePackage.version)
+if (-not (Test-Path $cachePackageDir)) {
+    foreach ($config in @($rootPackagesConfig, (Join-Path $repoRoot 'packages.x64.config'))) {
+        & $nuget.Source restore $config -ConfigFile $nugetConfig -PackagesDirectory $packagesDir -NonInteractive
+        if ($LASTEXITCODE -ne 0) {
+            throw "NuGet restore for $config failed with exit code $LASTEXITCODE."
+        }
+    }
+}
+
+function Get-OssPackageVersion {
+    param([Parameter(Mandatory)] [string]$PropertyName)
+
+    [xml]$versions = Get-Content (Join-Path $repoRoot 'eng\Versions.props')
+    $node = @($versions.SelectNodes("//$PropertyName")) |
+        Where-Object { $_.Condition -and $_.Condition -match 'IsInternalWinUIBuild' -and $_.Condition -match '!=' } |
+        Select-Object -Last 1
+    if (-not $node -or [string]::IsNullOrWhiteSpace($node.InnerText)) {
+        throw "Could not resolve the OSS package version for $PropertyName from eng\Versions.props."
+    }
+    return $node.InnerText.Trim()
+}
+
+function Install-NuGetPackageIfMissing {
+    param(
+        [Parameter(Mandatory)] [string]$Id,
+        [Parameter(Mandatory)] [string]$Version
+    )
+
+    $legacyPackageDir = Join-Path $packagesDir ("{0}.{1}" -f $Id, $Version)
+    $globalPackageDir = Join-Path $packagesDir ((Join-Path $Id.ToLowerInvariant() $Version))
+    if ((Test-Path $legacyPackageDir) -or (Test-Path $globalPackageDir)) {
+        return
+    }
+
+    & $nuget.Source install $Id -Version $Version -OutputDirectory $packagesDir -ConfigFile $nugetConfig -NonInteractive
+    if ($LASTEXITCODE -ne 0) {
+        throw "NuGet install for $Id $Version failed with exit code $LASTEXITCODE."
+    }
+}
+
+# These two PackageReference dependencies are normally restored by
+# eng\Microsoft.MaestroRestore.csproj during full init. They are the only Maestro
+# packages consumed by the focused module fixtures.
+Install-NuGetPackageIfMissing 'Microsoft.Internal.WinUIDetails' (Get-OssPackageVersion 'WinUIDetailsNugetVersion')
+Install-NuGetPackageIfMissing 'Microsoft.WindowsAppSDK.Foundation' (Get-OssPackageVersion 'FoundationTransportPackageVersion')
+
 $cppWinRTPackagesConfig = Join-Path $repoRoot 'src\XamlCompiler\Tests\RegressionProjects\Basic\CppWinRT\SimpleModules\packages.config'
 [xml]$packagesConfig = Get-Content $cppWinRTPackagesConfig
 $cppWinRTPackage = $packagesConfig.packages.package | Where-Object { $_.id -eq 'Microsoft.Windows.CppWinRT' }
@@ -31,8 +93,7 @@ if (-not $cppWinRTPackage) {
 
 $cppWinRTPackageDir = Join-Path $repoRoot ("packages\{0}.{1}" -f $cppWinRTPackage.id, $cppWinRTPackage.version)
 if (-not (Test-Path $cppWinRTPackageDir)) {
-    $nuget = Get-Command nuget.exe -ErrorAction Stop
-    & $nuget.Source install $cppWinRTPackage.id -Version $cppWinRTPackage.version -OutputDirectory (Join-Path $repoRoot 'packages') -Source https://api.nuget.org/v3/index.json -NonInteractive
+    & $nuget.Source install $cppWinRTPackage.id -Version $cppWinRTPackage.version -OutputDirectory $packagesDir -Source https://api.nuget.org/v3/index.json -NonInteractive
     if ($LASTEXITCODE -ne 0) {
         throw "NuGet restore for $($cppWinRTPackage.id) $($cppWinRTPackage.version) failed with exit code $LASTEXITCODE."
     }
