@@ -4,9 +4,10 @@ name: PR Build
 
 on:
   pull_request:
-    branches:
-      - main
-      - winui3/main
+    branches-ignore:
+      - l10n_develop
+      - release
+      - dependabot/**
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
