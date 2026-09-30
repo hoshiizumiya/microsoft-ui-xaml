@@ -196,6 +196,16 @@
       </ClCompile>
     </ItemGroup>
   </Target>
+  <Target Name="ValidateXamlModuleConsumerPreprocessorDefinitions"
+          Condition="'$(CppWinRTBuildModule)' == 'true'"
+          AfterTargets="XamlCppWinRTApplyGeneratedModuleReferences">
+    <ItemGroup>
+      <_XamlConsumersWithModuleInterfaceDefinitions Include="@(ClCompile)"
+          Condition="'%(ClCompile.CompilerIteration)' == 'XamlGenerated' and $([System.String]::Copy(';%(ClCompile.PreprocessorDefinitions);').Contains(';WINRT_XAML_MODULE_INTERFACE;'))" />
+    </ItemGroup>
+    <Error Condition="'@(_XamlConsumersWithModuleInterfaceDefinitions)' != ''"
+           Text="XAML Pass2 consumers inherited module-interface producer definitions: @(_XamlConsumersWithModuleInterfaceDefinitions)" />
+  </Target>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>

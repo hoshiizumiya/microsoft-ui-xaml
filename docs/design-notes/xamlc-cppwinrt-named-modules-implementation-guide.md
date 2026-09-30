@@ -447,6 +447,12 @@ headers otherwise.
 `XamlModuleSmoke.cpp` imports only `Simple.Application_Xaml`. Do not add a shared
 import-everything preamble: that would hide missing dependencies of the XAML umbrella.
 
+Pass2 copies preprocessor definitions from the PCH-producing source or, for PCH-free
+projects, ordinary Pass1 sources. The fallback excludes `CompileAsCppModule` items:
+`WINRT_XAML_MODULE_INTERFACE` selects the producer branch of a dual-use XAML header
+and must not leak into a late generated consumer. The fixture checks this boundary after
+`XamlCppWinRTApplyGeneratedModuleReferences`.
+
 ### Legacy COM producer configuration
 
 `XamlTypeInfo.xaml.g.h` declares `IXamlUserType : ::IUnknown` and uses that

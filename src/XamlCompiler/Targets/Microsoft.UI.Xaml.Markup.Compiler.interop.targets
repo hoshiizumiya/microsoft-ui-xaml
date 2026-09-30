@@ -952,13 +952,15 @@ Licensed under the MIT License. See LICENSE in the project root for license info
           the existing ClCompile items before the ClCompile target. XamlCompiler's Pass 2 adds its
           generated translation units afterward, so they do not inherit that item metadata. Copy
           the preprocessor definitions from the PCH-producing source, or from the pass-1 sources
-          when no PCH exists, so both CL passes compile with the same conditional declarations.
+          when no PCH exists, excluding module interfaces whose producer definitions must not flow
+          to ordinary translation units. Both CL passes then use the same conditional declarations.
         -->
         <ItemGroup>
             <_XamlPass1PreprocessorSource Include="@(ClCompile)" Condition="'%(ClCompile.PrecompiledHeader)' == 'Create'" />
         </ItemGroup>
         <ItemGroup Condition="'@(_XamlPass1PreprocessorSource)' == ''">
-            <_XamlPass1PreprocessorSource Include="@(ClCompile)" Condition="'%(ClCompile.CompilerIteration)' != 'XamlGenerated'" />
+            <_XamlPass1PreprocessorSource Include="@(ClCompile)"
+                Condition="'%(ClCompile.CompilerIteration)' != 'XamlGenerated' and '%(ClCompile.CompileAs)' != 'CompileAsCppModule'" />
         </ItemGroup>
         <PropertyGroup>
             <_XamlGeneratedPreprocessorDefinitions>@(_XamlPass1PreprocessorSource->'%(PreprocessorDefinitions)'->Distinct())</_XamlGeneratedPreprocessorDefinitions>
