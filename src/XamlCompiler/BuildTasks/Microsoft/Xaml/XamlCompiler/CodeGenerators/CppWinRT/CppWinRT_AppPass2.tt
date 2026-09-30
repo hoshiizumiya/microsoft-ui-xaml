@@ -31,6 +31,9 @@
 namespace winrt::<#=Colonize(Model.CodeInfo.ClassName.Namespace)#>::implementation
 {
     template <typename D, typename ... Interfaces>
+    AppT<D, Interfaces...>::AppT() = default;
+
+    template <typename D, typename ... Interfaces>
     AppT<D, Interfaces...>::~AppT() = default;
 
 <#      if(!ProjectInfo.GenerateProviderCode) { #>

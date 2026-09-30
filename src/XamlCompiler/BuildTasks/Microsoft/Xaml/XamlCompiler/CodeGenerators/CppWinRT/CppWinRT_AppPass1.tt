@@ -67,6 +67,7 @@ WINRT_XAML_EXPORT namespace winrt::<#=Colonize(Model.CodeInfo.ClassName.Namespac
     {
         using IXamlType = <#=Projection(KnownNamespaces.XamlMarkup)#>::IXamlType;
 <#  if (ProjectInfo.UseCppWinRTNamedModules) { #>
+        AppT();
         ~AppT();
 <#  } #>
 

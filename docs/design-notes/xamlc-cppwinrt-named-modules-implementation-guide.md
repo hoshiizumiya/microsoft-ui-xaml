@@ -321,10 +321,18 @@ completes them in Pass2.
 
 This includes generated operations around:
 
-- App destruction;
+- App default construction and destruction;
 - `GetXamlType`;
 - `GetXmlnsDefinitions`;
 - generated metadata-provider construction/access.
+
+Declaring only the destructor out of line is insufficient. When authored `App.cpp`
+constructs `AppT<App>`, an implicitly generated constructor can instantiate cleanup of
+its `com_ptr<XamlMetaDataProvider>` member while the provider is still incomplete.
+Pass1 therefore declares both `AppT()` and `~AppT()`; Pass2 defaults both after
+including `XamlMetaDataProvider.h` and explicitly instantiates the App specialization.
+The focused fixture's authored `App.cpp` exercises this boundary without importing the
+provider implementation.
 
 ## 10. Page implementation bases
 
