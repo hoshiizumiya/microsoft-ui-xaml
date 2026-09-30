@@ -84,11 +84,8 @@ $staticConsumer = 'src\XamlCompiler\Tests\RegressionProjects\Features\StaticLibs
 # module-mode default and forces XamlC's FeatureControlFlags/saved state to invalidate.
 Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.CleanModule'
 
-$simpleGeneratedRoot = Join-Path $repoRoot 'BuildOutput\obj\amd64chk\src\XamlCompiler\Tests\RegressionProjects\Basic\CppWinRT\SimpleModules'
-# ConsumeBinaries rewrites IntDir from ...\src\XamlCompiler\Tests\RegressionProjects\...
-# to ...\CompilerTests\..., while GeneratedFilesDir retains the source-relative path.
-# XAML IFCs are emitted under $(IntDir)XamlModules\, so validate them from the rewritten
-# compiler-test intermediate root instead of the generated-code root.
+$simpleGeneratedRoot = Join-Path $repoRoot 'BuildOutput\obj\amd64chk\CompilerTests\Basic\CppWinRT\SimpleModules'
+# ConsumeBinaries keeps generated code and XAML IFCs under the shortened test root.
 $simpleIntRoot = Join-Path $repoRoot 'BuildOutput\obj\amd64chk\CompilerTests\Basic\CppWinRT\SimpleModules\SimpleCppWinRTModules'
 $mainPageModuleHeaders = @(Get-ChildItem -Path $simpleGeneratedRoot -Filter 'MainPage.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
 if ($mainPageModuleHeaders.Count -eq 0) {
@@ -216,7 +213,7 @@ if ($moduleIfcsAfterSwitchBack.Count -eq 0) {
 Invoke-XamlModuleBuild $staticProvider 'StaticControlsModuleLib.Module'
 Invoke-XamlModuleBuild $staticProvider 'StaticControlsModuleLib.NoTypeInfo' @('/p:XamlCodeGenerationControlFlags=NoTypeInfoCodeGen')
 
-$staticProviderObjRoot = Join-Path $repoRoot 'BuildOutput\obj\amd64chk\src\XamlCompiler\Tests\RegressionProjects\Features\StaticLibs\StaticControlsModuleLib'
+$staticProviderObjRoot = Join-Path $repoRoot 'BuildOutput\obj\amd64chk\CompilerTests\Features\StaticLibs\StaticControlsModuleLib'
 $providerPrimaryHeaders = @(Get-ChildItem -Path $staticProviderObjRoot -Filter 'XamlBindingInfo.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
 if ($providerPrimaryHeaders.Count -eq 0) {
     throw 'StaticControlsModuleLib did not generate XamlBindingInfo.xaml.g.h.'
@@ -240,7 +237,7 @@ if (Test-Path $inactiveConsumerXamlModuleDir) {
     throw 'A module-mode C++/WinRT project with no XAML left stale XamlModules output behind.'
 }
 
-$staticConsumerGeneratedRoot = Join-Path $repoRoot 'BuildOutput\obj\amd64chk\src\XamlCompiler\Tests\RegressionProjects\Features\StaticLibs\StaticControlsModuleConsumer'
+$staticConsumerGeneratedRoot = Join-Path $repoRoot 'BuildOutput\obj\amd64chk\CompilerTests\Features\StaticLibs\StaticControlsModuleConsumer'
 if (-not (Test-Path $staticConsumerGeneratedRoot)) {
     throw "Static consumer generated-files root was not created: $staticConsumerGeneratedRoot"
 }

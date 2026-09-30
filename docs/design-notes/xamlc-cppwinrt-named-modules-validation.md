@@ -107,3 +107,18 @@ true → unchanged true → false → unchanged false → true. All three projec
 targets reran on mode transitions and skipped unchanged builds. These checks
 validate argument parsing and incremental target behavior; complete Windows
 fixture compilation and unit-suite results remain pending new CI.
+
+Runs 36707890398 (phase 1) and 36709024101 (phase 2) passed the product
+matrix and all SimpleModules transitions, including HeaderSwitch and
+ModuleSwitchBack. Both module jobs then failed in StaticControlsModuleLib:
+CL could not open the AppointmentsProvider projection interface at a
+260-character absolute path. ConsumeBinaries shortened IntDir but omitted
+GeneratedFilesDir. Applying the same shortening to generated output reduces
+that path to 232 characters; the path-limit diagnosis still needs a Windows
+rerun to confirm.
+
+The phase-2 unit build reached CppWinRTModuleTests but failed with CS1501.
+The tests used GetNamespaces(Type, string), which existed in the compiler
+but was missing from CppWinRTProjectionDependency_P.cs. The proxy now forwards
+the two-argument overload through reflection. No test assertions were removed.
+These fixes have not yet passed Windows CI.

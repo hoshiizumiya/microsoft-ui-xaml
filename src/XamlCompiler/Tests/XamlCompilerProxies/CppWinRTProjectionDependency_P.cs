@@ -14,6 +14,7 @@ namespace Win8Xaml.CompilerProxies
         static readonly MethodInfo _getHeaderFile;
         static readonly MethodInfo _getModuleName;
         static readonly MethodInfo _getNamespaces;
+        static readonly MethodInfo _getNamespacesWithFallback;
         static readonly MethodInfo _getXamlPrimaryModuleName;
         static readonly MethodInfo _getXamlPartitionName;
         static readonly MethodInfo _getXamlPartitionModuleName;
@@ -24,6 +25,7 @@ namespace Win8Xaml.CompilerProxies
             _getHeaderFile = _projectionDependencyType.GetStaticMethod("GetHeaderFile", 1);
             _getModuleName = _projectionDependencyType.GetStaticMethod("GetModuleName", 1);
             _getNamespaces = _projectionDependencyType.GetStaticMethod("GetNamespaces", 1);
+            _getNamespacesWithFallback = _projectionDependencyType.GetStaticMethod("GetNamespaces", 2);
             _getXamlPrimaryModuleName = _projectionDependencyType.GetStaticMethod("GetXamlPrimaryModuleName", 1);
             _getXamlPartitionName = _projectionDependencyType.GetStaticMethod("GetXamlPartitionName", 1);
             _getXamlPartitionModuleName = _projectionDependencyType.GetStaticMethod("GetXamlPartitionModuleName", 2);
@@ -42,6 +44,11 @@ namespace Win8Xaml.CompilerProxies
         public static string[] GetNamespaces(Type type)
         {
             return ((IEnumerable<string>)_getNamespaces.Invoke(null, new object[] { type })).ToArray();
+        }
+
+        public static string[] GetNamespaces(Type type, string unresolvedNamespace)
+        {
+            return ((IEnumerable<string>)_getNamespacesWithFallback.Invoke(null, new object[] { type, unresolvedNamespace })).ToArray();
         }
 
         public static string GetXamlPrimaryModuleName(string rootNamespace)
