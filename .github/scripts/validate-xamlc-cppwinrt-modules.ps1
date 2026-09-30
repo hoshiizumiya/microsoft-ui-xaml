@@ -239,23 +239,22 @@ $inactiveConsumerXamlModuleDir = Join-Path $repoRoot 'BuildOutput\obj\amd64chk\C
 New-Item -ItemType Directory -Force -Path $inactiveConsumerXamlModuleDir | Out-Null
 Set-Content -Path (Join-Path $inactiveConsumerXamlModuleDir 'stale.ifc') -Value 'stale'
 
-Invoke-XamlModuleBuild $staticConsumer 'StaticControlsModuleConsumer.CrossProject'
+# Keep the no-XAML cleanup check in producer mode; the full consumer build creates no modules.
+Invoke-XamlModuleBuild -RelativeProject $staticConsumer -LogName 'StaticControlsModuleConsumer.NoXamlCleanup' -Target 'XamlCppWinRTRemoveInactiveModuleOutputs' -ExtraProperties @('/p:CppWinRTBuildModule=true')
+
 if (Test-Path $inactiveConsumerXamlModuleDir) {
     throw 'A module-mode C++/WinRT project with no XAML left stale XamlModules output behind.'
 }
+
+Invoke-XamlModuleBuild $staticConsumer 'StaticControlsModuleConsumer.CrossProject'
 
 $staticConsumerGeneratedRoot = Join-Path $repoRoot 'BuildOutput\obj\amd64chk\CompilerTests\Features\StaticLibs\StaticControlsModuleConsumer'
 if (-not (Test-Path $staticConsumerGeneratedRoot)) {
     throw "Static consumer generated-files root was not created: $staticConsumerGeneratedRoot"
 }
-$duplicateConsumerModules = @(Get-ChildItem -Path $staticConsumerGeneratedRoot -Filter '*.ixx' -File -Recurse -ErrorAction SilentlyContinue |
-    Where-Object {
-        $_.Name -like 'winrt.Windows.*.ixx' -or
-        $_.Name -like 'winrt.Microsoft.*.ixx' -or
-        $_.Name -like 'winrt.StaticControlsModuleLib*.ixx'
-    })
+$duplicateConsumerModules = @(Get-ChildItem -Path $staticConsumerGeneratedRoot -Filter '*.ixx' -File -Recurse -ErrorAction SilentlyContinue)
 if ($duplicateConsumerModules.Count -ne 0) {
-    throw "Static consumer regenerated projection modules already supplied by its provider: $($duplicateConsumerModules.FullName -join '; ')"
+    throw "Pure static consumer generated unexpected module interfaces: $($duplicateConsumerModules.FullName -join '; ')"
 }
 
 $unitTestProject = Join-Path $repoRoot 'src\XamlCompiler\Tests\UnitTests\XamlCompilerUnitTests.csproj'

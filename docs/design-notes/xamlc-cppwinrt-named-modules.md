@@ -543,6 +543,12 @@ import ControlsLibrary.Application_Xaml;
 
 through the normal static-library ProjectReference.
 
+A pure consumer with no local IDL or XAML uses `CppWinRTBuildModule=false`:
+it imports the provider's modules through the native graph without generating its
+own projection interfaces. The flag controls projection production, not whether
+ordinary C++ source may use `import`. Namespace exclusion alone does not prevent
+the package from generating `winrt_base` and `winrt_numerics`.
+
 C++/WinRT projection-module policy remains independent. If the provider's projection BMI
 is already propagated from the static library, prevent the consumer from generating a
 duplicate module for the same namespace:
