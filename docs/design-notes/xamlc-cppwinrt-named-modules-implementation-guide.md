@@ -3,9 +3,9 @@
 > **Status**
 >
 > Phase 1 is in integration hardening. The architecture and generated-code contract are
-> largely established, but the focused VS2026/MSVC v145 validation gate is not yet the
-> final green acceptance signal. Treat compiler failures from that gate as implementation
-> defects to investigate, not as permission to weaken the module contract.
+> largely established, but the focused VS2026/MSVC v145 gate has not passed end to end.
+> Classify each failure at its owning layer before changing generated code. The latest
+> integration evidence and unverified stages are recorded in section 24.
 >
 > Main design note:
 > [xamlc-cppwinrt-named-modules.md](xamlc-cppwinrt-named-modules.md)
@@ -36,6 +36,7 @@ The work has moved beyond proof-of-concept code generation.
 | Focused regression suite | Implemented | Simple app + static provider/consumer + unit tests |
 | VS2026/v145 toolchain validation | In progress | Final focused gate still needs to become green |
 | Windows SDK for focused gate | Scoped | VS2026 runner uses installed SDK 10.0.26100.0 only for this gate |
+| Store runtime selection for focused gate | Scoped mitigation | Native invocations pass `SpectreMitigation=false`; follow-up linking remains unverified |
 | Physical XAML companion path mapping | Out of scope | Tracked independently by #11525 |
 
 The important distinction is:
@@ -455,6 +456,13 @@ headers otherwise.
 `XamlModuleSmoke.cpp` imports only `Simple.Application_Xaml`. Do not add a shared
 import-everything preamble: that would hide missing dependencies of the XAML umbrella.
 
+The component generator still produces implementation `.g.h` files. With `-name
+Simple -prefix`, `Simple.Models.BindItem` uses `Models.BindItem.g.h/.g.cpp`,
+`Simple.Models.BindModel` uses `Models.BindModel.g.h/.g.cpp`, and
+`Simple.Targets.BindTarget` uses `Targets.BindTarget.g.h/.g.cpp`. Authored fixture
+includes must match those component filenames. This naming correction does not
+resolve the independent physical XAML companion-path mapping in upstream #11525.
+
 Pass2 copies preprocessor definitions from the PCH-producing source or, for PCH-free
 projects, ordinary Pass1 sources. The fallback excludes `CompileAsCppModule` items:
 `WINRT_XAML_MODULE_INTERFACE` selects the producer branch of a dual-use XAML header
@@ -704,10 +712,53 @@ though projection and XAML module compilation can succeed.
 
 The focused native validation passes `/p:SpectreMitigation=false` to
 `Invoke-XamlModuleBuild`, including its ProjectReferences and header-mode transitions.
-This restores normal Store runtime library selection without changing product builds
-or generated imports. Do not compensate with desktop runtime paths or `/NODEFAULTLIB`.
+The VC property logic then selects the normal Store runtime paths. Successful linking
+after the override remains subject to the next CI result; product builds and generated
+imports are unchanged. Do not compensate with desktop runtime paths or `/NODEFAULTLIB`.
 
 Microsoft documents that [Spectre-mitigated runtime libraries are unavailable for UWP](https://learn.microsoft.com/en-us/cpp/build/reference/qspectre?view=msvc-170).
+
+### C2027: incomplete XamlMetaDataProvider from App.cpp
+
+Read the instantiation stack. In run 36624346691, `com_ptr<XamlMetaDataProvider>`
+destruction was instantiated by the implicit `AppT<App>` constructor, even though
+the App destructor was already out of line. `CppWinRT_AppPass1.tt` now declares
+`AppT()` and `~AppT()`; `CppWinRT_AppPass2.tt` defaults both after including
+`XamlMetaDataProvider.h` and explicitly instantiates the App specialization.
+The next full run reached `CreateWinMD`, clearing that particular first-stage error.
+Adding the concrete provider header to the App partition would violate the Pass1 split.
+
+### WINRT_XAML_MODULE_INTERFACE on a late Pass2 consumer
+
+Check `MarkupCompilePass2` in `Microsoft.UI.Xaml.Markup.Compiler.interop.targets`.
+For a PCH-free project, `_XamlPass1PreprocessorSource` must exclude
+`CompileAsCppModule` items before collecting `PreprocessorDefinitions`. Otherwise
+the producer marker can reach a generated ordinary `.cpp`, selecting the interface
+branch of a dual-use XAML header. Commit `c44e4c3` fixes this source-selection boundary;
+it was found by source audit, not attributed to a demonstrated CI compiler diagnostic.
+
+### C1010 or missing component header in authored fixture code
+
+`C1010` in the direct-import smoke indicated a fixture PCH requirement. The fixture
+now uses `PrecompiledHeader=NotUsing` and has no PCH files. A missing
+`Models.BindItem.g.h` versus `BindItem.g.h` is a component filename mismatch in
+authored code. Neither signature justifies adding imports to an XAML partition.
+
+### Credential-provider release discovery fails with 403
+
+`scripts/init/Initialize-Restore.ps1` calls `Initialize-NuGet.ps1` before dependency
+restoration. The official installer previously queried
+`api.github.com/repos/microsoft/artifacts-credprovider/releases/latest`; a hosted
+run recorded `403 Forbidden` at that discovery step. The log does not preserve HTTP
+response headers/body, so quota exhaustion is a plausible cause rather than a verified
+diagnosis. [GitHub documents](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api)
+an unauthenticated limit of 60 requests/hour per source IP.
+
+`Initialize-NuGet.ps1` now downloads the official latest release assets directly:
+NetFx48 plus the host-specific self-contained Net8 package, installed into the normal
+NuGet plugin locations. It still installs the provider. `init.cmd` independently
+checks the restore PowerShell exit code and stops on failure. Neither skipping the
+provider nor repairing root packages inside the focused script preserves that flow.
 
 ## 20. Validation workflow caveat
 
@@ -726,7 +777,7 @@ Do not encode this GitHub UI limitation into the XamlC architecture.
 Phase 1 should be considered ready when all of the following are true:
 
 - [x] project XAML umbrella and partitions are generated from existing Pass1 files;
-- [x] header mode remains intact;
+- [x] header-mode generation and a module/header transition fixture are retained;
 - [x] semantic projection dependencies are backend-lowered;
 - [x] Page/x:Bind and TypeInfo dependency closures have targeted regressions;
 - [x] App metadata-provider dependency is split correctly across Pass1/Pass2;
@@ -776,3 +827,51 @@ When a new compiler error appears:
 
 The objective is not merely to make the regression compile. The objective is to make
 XamlC a native participant in the C++/WinRT named-module build model.
+
+## 24. Integration evidence and open validation
+
+This checkpoint is dated 2026-09-30 and is based on feature commit
+[`f6d7989`](https://github.com/hoshiizumiya/microsoft-ui-xaml/commit/f6d7989fd921233f1d23a2214e5e8aeb6441eae4).
+Documentation is maintained on `docs/xamlc-cppwinrt-modules-hardening-20260930` so
+editing these notes does not move the implementation PR's head or cancel its Actions run.
+The status below is a checkpoint, not a live CI dashboard.
+
+| Evidence | First blocking error or result | Owning layer and disposition |
+| --- | --- | --- |
+| [Run 36591969555 / job 109516642249](https://github.com/hoshiizumiya/microsoft-ui-xaml/actions/runs/36591969555/job/109516642249), `508d6e4` | Credential-provider release API returned 403; the build subsequently started | Bootstrap discovery and batch exit-code propagation; direct asset downloads and fail-fast initialization are now present |
+| [Run 36624346691 / job 109624041372](https://github.com/hoshiizumiya/microsoft-ui-xaml/actions/runs/36624346691/job/109624041372), `b90deb9` | C2027 from incomplete provider cleanup during App base construction | XamlC App special-member placement; fixed in [ea9956f](https://github.com/hoshiizumiya/microsoft-ui-xaml/commit/ea9956f5028d5cf5910d53e19e591bcf1bd7bf5e), T4 synchronized by [5fdc435](https://github.com/hoshiizumiya/microsoft-ui-xaml/commit/5fdc435cb476c5e334e52ba6b04014473e3f4ecc) |
+| [Run 36654268434 / job 109709975748](https://github.com/hoshiizumiya/microsoft-ui-xaml/actions/runs/36654268434/job/109709975748), `5fdc435` | Six product builds passed; first module compile stage reached CreateWinMD, then LNK1104 for msvcprtd.lib | Store/Spectre library selection; scoped validation override in f6d7989, follow-up result pending |
+| [Run 36665332238](https://github.com/hoshiizumiya/microsoft-ui-xaml/actions/runs/36665332238), `f6d7989` | In progress at this checkpoint | No end-to-end acceptance claim |
+
+`CreateWinMD` links the first-stage objects to produce the intermediate component
+metadata. XamlC Pass2 then consumes that metadata to resolve local types. Reaching
+this link establishes progress through the first C++ compile stage, not successful
+late generated implementation compilation.
+
+The focused script runs its stages sequentially and throws on the first failed build.
+The following work has coverage in source but remains unverified by the latest full run:
+
+- successful `CreateWinMD`, late Pass2 compilation and final SimpleModules link;
+- no-change/edit/remove/restore and `NoPageCodeGen` transitions;
+- module to header to module compilation and IFC cleanup;
+- static provider `NoTypeInfoCodeGen` and native cross-project BMI consumption;
+- the final focused `CppWinRTModuleTests` invocation.
+
+A synchronization-only workflow success is insufficient. For example, run 36654165811
+produced a T4 bot commit and dispatched validation; the ensuing full run 36654268434
+failed. Always follow the synchronized head into the run containing the module job.
+
+### Independently reportable build defects
+
+These reports have pinned upstream source and fork CI evidence. They are separate
+from the named-module public contract and from upstream #11525:
+
+| Report | Boundary |
+| --- | --- |
+| [Fork #4](https://github.com/hoshiizumiya/microsoft-ui-xaml/issues/4) | `init.cmd` must propagate restore-process failure before setting the success marker |
+| [Fork #5](https://github.com/hoshiizumiya/microsoft-ui-xaml/issues/5) | Credential-provider installation should not require anonymous release JSON discovery |
+| [Fork #6](https://github.com/hoshiizumiya/microsoft-ui-xaml/issues/6) | Store/UWP validation must select supported runtime-library paths instead of inheriting the unsupported Spectre default |
+
+Generator defects already addressed inside upstream #11524 remain part of that patch.
+No C++/WinRT projection-module defect is asserted without a failing generated producer
+and a reproduction that isolates it from authored or XAML-generated code.

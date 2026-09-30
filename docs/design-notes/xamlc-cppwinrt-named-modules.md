@@ -4,8 +4,8 @@
 >
 > Phase 1 is in **integration hardening** on `feat/xamlccppmodule/phase1`.
 > The module architecture, dependency model, incremental cleanup and regression topology
-> are implemented, but the final VS2026/MSVC v145 focused gate is not yet the acceptance
-> signal for the whole path. This document is a repository/developer contract until the
+> are implemented, but the focused VS2026/MSVC v145 gate has not passed end to end.
+> This document is a repository/developer contract until the
 > work is merged and shipped in a Windows App SDK release.
 >
 > Tracking: [microsoft-ui-xaml#11524](https://github.com/microsoft/microsoft-ui-xaml/issues/11524)  
@@ -360,6 +360,13 @@ This separation is important because XamlC has three different dependency catego
    Examples include `<cstdint>`, `<unknwn.h>`, or `std`. These follow their own
    native/module rules and are not treated as WinRT projection namespaces.
 
+For a local field such as `<local:PropBag x:Name="propertyBagObject" />`, Pass1
+can lack a reflection `Type` while already knowing `FieldTypePath = "Simple"` and
+`FieldTypeShortName = "PropBag"`. `CppWinRTProjectionDependency.GetNamespaces(Type,
+string)` uses that namespace only when `Type` is null; a resolved type still follows
+the recursive projection closure. The generated `winrt::Simple::PropBag` field
+therefore requires `winrt.Simple` even before the intermediate component WinMD exists.
+
 ---
 
 ## x:Bind dependency closure
@@ -402,12 +409,17 @@ Module mode therefore keeps provider-dependent App members as declarations in Pa
 Pass2, after including the complete metadata-provider definition, supplies definitions for
 operations such as:
 
-- App destruction;
+- App default construction and destruction;
 - `GetXamlType`;
 - `GetXmlnsDefinitions`;
 - construction/access of the generated metadata provider.
 
 This keeps implementation-only provider dependencies out of the App partition interface.
+
+Both special members must be declared in Pass1 and defaulted in Pass2. Moving only
+the destructor is insufficient: constructing `AppT<App>` in authored `App.cpp` can
+instantiate exception cleanup of its `com_ptr<XamlMetaDataProvider>` member. Pass2
+includes the complete provider and explicitly instantiates the App specialization.
 
 ---
 
@@ -653,7 +665,7 @@ textually predeclare the same projections that are later imported as modules.
 
 ### Normal XAML implementation source
 
-Usually only the platform projections needed directly by the implementation:
+Import the projection namespaces used by the authored implementation and its headers:
 
 ```cpp
 #include <windows.h>
@@ -664,6 +676,13 @@ import winrt.Microsoft.UI.Xaml;
 
 #include "MainWindow.xaml.h"
 ```
+
+For example, the fixture's `MainPage.h` declares a `Simple.Models.BindModel` member.
+Sources that include it import `winrt.Simple.Models`; authored uses of XAML Input
+types likewise require `winrt.Microsoft.UI.Xaml.Input`. XamlC does not inspect an
+authored header to infer these dependencies. XamlC collects dependencies of the code
+it generates: partitions expose declaration dependencies, while Pass2 imports the
+dependencies needed by generated implementation.
 
 Do not add `import MyApp.Application_Xaml;` merely because the file implements a XAML
 class. The generated-header bridge already provides that.
@@ -764,7 +783,7 @@ The architecture should not be treated as complete merely because the generated 
 exist. The remaining phase-1 acceptance condition is a green focused build using the
 toolchain that C++/WinRT 3.x named modules actually require.
 
-The current progression of integration failures has already validated several layers:
+The current progression of integration failures has exercised several layers:
 
 - XamlC Pass1 produces and reports App/Page/BindingInfo/TypeInfo interface files;
 - XamlC and C++/WinRT module items reach the VC module dependency scanner;
@@ -774,11 +793,26 @@ The current progression of integration failures has already validated several la
   `#pragma once`;
 - the focused validation environment is explicitly VS2026/v145 and SDK26100.
 
+As of 2026-09-30, the latest completed full build is
+[run 36654268434](https://github.com/hoshiizumiya/microsoft-ui-xaml/actions/runs/36654268434)
+at `5fdc435`. All six product builds passed. The module job passed its first C++
+compile stage and failed in `CreateWinMD` with `LNK1104: msvcprtd.lib`. That is a
+Store runtime-library selection failure, not a missing XAML projection dependency.
+The focused gate now passes `SpectreMitigation=false`; the follow-up
+[run 36665332238](https://github.com/hoshiizumiya/microsoft-ui-xaml/actions/runs/36665332238)
+at `f6d7989` is still running at this documentation checkpoint.
+
+Passing the first compile stage does not establish late Pass2 compilation, final
+linking, incremental transitions, or static-library consumer success. The guide's
+[integration evidence](xamlc-cppwinrt-named-modules-implementation-guide.md#24-integration-evidence-and-open-validation)
+records those boundaries separately.
+
 Any next failure should be classified as one of:
 
-1. semantic dependency/reachability;
-2. generated C++ module ownership;
-3. native MSBuild/VC module graph/toolchain integration.
+1. XamlC generated dependency/reachability or ownership;
+2. C++/WinRT projection generation/module graph;
+3. authored fixture dependency/migration;
+4. MSBuild, restore or toolchain configuration.
 
 Do not reintroduce the application-owned forced-include workaround to bypass one of these
 layers.
