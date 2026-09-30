@@ -1,13 +1,13 @@
-# PR build (OSS). Product matrix, XamlCompiler unit tests, and named-module validation.
+﻿# PR build (OSS). Product matrix, XamlCompiler unit tests, and named-module validation.
 
 name: PR Build
 
 on:
   pull_request:
-    branches:
-      - main
-      - winui3/main
-      - feat/xamlccppmodule/phase1
+    branches-ignore:
+      - l10n_develop
+      - release
+      - dependabot/**
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
