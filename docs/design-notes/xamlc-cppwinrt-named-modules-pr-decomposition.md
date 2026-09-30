@@ -84,3 +84,13 @@ The independent phase-2 unit job restores test-project build contracts, runs
 without a filter on VS2022 and preserves discovery/TRX/binlog evidence.
 See [the validation expansion note](xamlc-cppwinrt-named-modules-validation.md)
 for the exact checkpoint, current limitations and subsequent acceptance checks.
+
+
+## Projection mode-switch follow-up
+
+[#35](https://github.com/hoshiizumiya/microsoft-ui-xaml/issues/35) records the
+CppWinRTPlus projection cache omission exposed by HeaderSwitch after the
+PageRemoved fix passed. Track the package correction independently. The interim
+mode stamp is scoped to regression build support and uses the provider's
+existing additional-input extension points; it changes neither XamlC's public
+module surface nor its projection dependency collector.

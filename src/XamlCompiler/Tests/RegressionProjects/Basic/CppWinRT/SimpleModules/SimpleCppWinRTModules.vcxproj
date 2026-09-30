@@ -186,6 +186,7 @@
   <ImportGroup Label="ExtensionTargets">
     <Import Project="..\..\..\..\..\..\..\packages\YexuanXiao.CppWinRTPlus.3.1.260928.1\build\native\YexuanXiao.CppWinRTPlus.targets" Condition="Exists('..\..\..\..\..\..\..\packages\YexuanXiao.CppWinRTPlus.3.1.260928.1\build\native\YexuanXiao.CppWinRTPlus.targets')" />
   </ImportGroup>
+  <Import Project="..\..\..\CppWinRTProjectionValidation.targets" />
   <Target Name="ConfigureCppWinRTModuleConsumerCompileItems"
           Condition="'$(CppWinRTBuildModule)' == 'true'"
           AfterTargets="XamlCppWinRTNormalizeModuleCompileItems"

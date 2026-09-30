@@ -75,3 +75,35 @@ The focused VS2026 job retains its module filter and reuses the same unit-test
 runner after its native integration tests. Neither job introduces a global
 projection preamble, PCH, generated dependency exceptions, or module ownership
 changes. Upstream C++/WinRT provider behavior remains a separate layer.
+
+
+## Subsequent CI failures
+
+[Phase-1 run 36695814818](https://github.com/hoshiizumiya/microsoft-ui-xaml/actions/runs/36695814818)
+passed all six product builds, Page removal/restoration and code-generation flag
+transitions. `5af2c5b` therefore cleared the recorded PageRemoved failure.
+The next failure was `HeaderSwitch`: the component-generated `module.g.cpp`
+still imported `winrt_base` after CppWinRTBuildModule switched to false.
+Phase-2 run 36697475726 failed at the same transition.
+
+The installed CppWinRTPlus targets do not include command-line module-mode
+changes in projection dependency caches. The regression-only
+`CppWinRTProjectionValidation.targets` supplies a mode stamp through the
+provider's existing `CustomAdditional*WinMDInputs` extension points for platform,
+reference and component projection. WriteOnlyWhenDifferent preserves no-change
+incrementality. This provider defect is tracked in
+[#35](https://github.com/hoshiizumiya/microsoft-ui-xaml/issues/35); XamlC does not
+own or regenerate the projection modules.
+
+The phase-2 unit job failed before compiling its first dependency with MSB1006,
+`Switch: win10-x64`. The runner passed a raw semicolon-delimited property value,
+which MSBuild parsed as multiple property assignments. Both validation entry
+points now escape the separators as `%3B`. A PowerShell-to-MSBuild 17.14 test
+reproduced the original error and verified that the corrected argument yields
+exactly `win;win10-x64;win10-x86;win10-arm64`.
+
+A separate MSBuild execution test verified the imported mode target over
+true → unchanged true → false → unchanged false → true. All three projection
+targets reran on mode transitions and skipped unchanged builds. These checks
+validate argument parsing and incremental target behavior; complete Windows
+fixture compilation and unit-suite results remain pending new CI.

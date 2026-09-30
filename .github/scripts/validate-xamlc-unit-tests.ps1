@@ -42,7 +42,7 @@ foreach ($relativeProject in $projects) {
         '/p:TargetPlatformMinVersion=10.0.17763.0',
         "/p:PublicMUXDir=$productDir\",
         '/p:BuildProjectReferences=false',
-        '/p:RuntimeIdentifiers=win;win10-x64;win10-x86;win10-arm64',
+        '/p:RuntimeIdentifiers=win%3Bwin10-x64%3Bwin10-x86%3Bwin10-arm64',
         '/p:DisableWarnForInvalidRestoreProjects=true', '/m:2', '/ds:false',
         "/binaryLogger:$binlogDir\$name.UnitValidation.binlog"
     )
