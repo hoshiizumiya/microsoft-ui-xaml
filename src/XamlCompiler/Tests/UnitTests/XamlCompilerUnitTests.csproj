@@ -98,8 +98,6 @@
       <Project>{42577057-854d-443d-ab59-f4e44c8f5207}</Project>
       <Name>GenXbf</Name>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-      <OutputItemType>Content</OutputItemType>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

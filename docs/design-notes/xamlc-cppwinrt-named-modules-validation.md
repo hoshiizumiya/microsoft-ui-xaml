@@ -122,3 +122,17 @@ The tests used GetNamespaces(Type, string), which existed in the compiler
 but was missing from CppWinRTProjectionDependency_P.cs. The proxy now forwards
 the two-argument overload through reflection. No test assertions were removed.
 These fixes have not yet passed Windows CI.
+
+The subsequent Windows logs confirm the static provider's normal full build now
+passes. Its NoTypeInfoCodeGen full build then compiled the prior
+XamlTypeInfo.Impl.g.cpp after the umbrella stopped exporting :XamlTypeInfo, causing
+C2065 for XamlTypeInfoProvider. The gate now checks this suppression contract in
+MarkupCompilePass1, restores normal TypeInfo generation, and rebuilds the provider
+before testing native cross-project consumption.
+
+The full unit assembly compiled successfully, then MSB3030 stopped its content
+copy: the GenXbf ProjectReference reported an obj-path DLL absent from the restored
+product artifacts. That reference remains a build dependency but no longer exports
+Content for copying. CopyPrebuiltArtifacts and the runner use the product's
+BuildOutput/bin/GenXBF/x64/GenXbf.dll instead; the runner still requires it to exist.
+The new changes have not yet passed Windows CI.
