@@ -60,7 +60,8 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             this.Write("namespace winrt::");
             this.Write(this.ToStringHelper.ToStringWithCulture(Colonize(Model.CodeInfo.ClassName.Namespace)));
             this.Write("::implementation\r\n{\r\n    template <typename D, typename ... Interfaces>\r\n    AppT" +
-                    "<D, Interfaces...>::~AppT() = default;\r\n\r\n");
+                    "<D, Interfaces...>::AppT() = default;\r\n\r\n    template <typename D, typename ... " +
+                    "Interfaces>\r\n    AppT<D, Interfaces...>::~AppT() = default;\r\n\r\n");
       if(!ProjectInfo.GenerateProviderCode) { 
             this.Write("    template <typename D, typename ... Interfaces>\r\n    void AppT<D, Interfaces.." +
                     ".>::AddOtherProvider(");

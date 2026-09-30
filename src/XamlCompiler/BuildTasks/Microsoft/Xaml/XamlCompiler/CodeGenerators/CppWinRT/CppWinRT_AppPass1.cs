@@ -84,7 +84,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             this.Write(this.ToStringHelper.ToStringWithCulture(Projection(KnownNamespaces.XamlMarkup)));
             this.Write("::IXamlType;\r\n");
   if (ProjectInfo.UseCppWinRTNamedModules) { 
-            this.Write("        ~AppT();\r\n");
+            this.Write("        AppT();\r\n        ~AppT();\r\n");
   } 
             this.Write("\r\n        void InitializeComponent()\r\n        {\r\n            if (_contentLoaded)\r" +
                     "\n                return;\r\n           \r\n            _contentLoaded = true;\r\n\r\n   " +
