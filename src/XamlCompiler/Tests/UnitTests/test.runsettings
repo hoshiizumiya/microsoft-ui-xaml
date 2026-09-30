@@ -2,5 +2,9 @@
 <RunSettings>
   <MSTest>
     <DeploymentEnabled>false</DeploymentEnabled>
+    <!-- The checked compiler writes about 1.75 million duplicate-type diagnostics during a
+         full run. Capturing them in the TRX adds no assertion coverage and can inflate the
+         results file to hundreds of megabytes, causing the CI job to hit its timeout. -->
+    <CaptureTraceOutput>false</CaptureTraceOutput>
   </MSTest>
 </RunSettings>
