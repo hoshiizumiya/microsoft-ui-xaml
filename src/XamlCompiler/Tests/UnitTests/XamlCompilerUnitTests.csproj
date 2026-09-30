@@ -59,14 +59,23 @@
     <ProjectReference Include="LibManagedDll\LibManagedDll.csproj">
       <Project>{5D3B1E5D-9995-4FBE-88E9-2A36B2970307}</Project>
       <Name>LibManagedDll</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <OutputItemType>Content</OutputItemType>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </ProjectReference>
     <ProjectReference Include="LibManagedDllSatellite\LibManagedDllSatellite.csproj">
       <Project>{0CA38FA1-0403-4576-9EDF-7B1E81F60857}</Project>
       <Name>LibManagedDllSatellite</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <OutputItemType>Content</OutputItemType>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </ProjectReference>
     <ProjectReference Include="LibManagedWinmd\LibManagedWinmd.csproj">
       <Project>{9E20EC9E-B908-4245-87EA-C642ECDF843C}</Project>
       <Name>LibManagedWinmd</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <OutputItemType>Content</OutputItemType>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </ProjectReference>
     <!-- TODO: mult-targeting mismatch causing build error:
     MSB4057: The target "GetTargetPathWithTargetPlatformMoniker" does not exist in the project.

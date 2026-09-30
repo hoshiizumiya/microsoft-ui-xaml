@@ -204,24 +204,55 @@ breakpoint should get hit at the point of failure.
 
 ### Regression and Unit Tests
 
-The XamlCompilerTests.sln contains 50 some projects that test various features
-of the Xaml Compiler in 3 distinct ways:
+`src/XamlCompiler/XamlCompilerTests.sln` is a regression-project inventory, not
+an indication that all tests currently execute in CI. At the phase-1 checkpoint
+`5af2c5b9b70d02f1d64aa99d01cd83e8413d5715`, it contains 72 build projects and
+18 solution folders.
 
-* *Unit Tests*: we have some 300 unit tests that ensure a limited number of
-featrures work in isolation. We always keep those clean and passing. These are
-useful for testing negative scenarios, too, like error cases.
+The compiler has three different validation surfaces:
 
-* *Testbed-type Tests*: Most of these are just complex projects for regression
-testing purposes. We test them manually when changing large chunks of code, or
-when adding new features.
+| Surface | Current source inventory | Execution contract |
+| --- | --- | --- |
+| Unit tests | `Tests/UnitTests/XamlCompilerUnitTests.csproj` explicitly compiles 327 `[TestMethod]` declarations, including 49 existing `[Ignore]` declarations. | Build the managed test dependencies and proxies, stage the freshly built compiler, then run VSTest. Runtime discovery and TRX results determine how many tests actually execute. |
+| Regression applications and libraries | Projects in `XamlCompilerTests.sln`, including C#, VB, C++/CX and C++/WinRT fixtures. | Building `UnitTests.dll` does not build this application suite. Each selected fixture must consume the intended compiler and product binaries and complete its own build. |
+| Generated-code comparisons | All 44 methods in `Tests/UnitTests/CodegenTests.cs` currently have `[Ignore]`. | These methods compare generated files with `TestMasters`; they require separately built regression fixtures. A green unit run cannot claim this surface is covered while those methods remain ignored. |
 
-* *Code-comparison-type Tests*: Under the test-references folder we have a copy of
-the generated code for all the above regression testbed projects. When we do
-any bug fix, no matter how small, Unit Tests will detect a missmatch in
-generated code and trigger a failure. If the change is intended, the developer
-updates the reference files using the reference-update script located in the root Xaml
-Compiler folder, then checks in the test references with their main fix. That way,
-reviewers can validate code changes in all 4 languages.
+The historical “some 300 unit tests” was an approximate source count. It did
+not mean that 300 tests ran in the named-module gate. The focused gate selects
+only the 10 methods in `UnitTests.CppWinRTModuleTests`, after the native module
+and incremental-build fixtures finish.
+
+The phase-2 validation entry point is:
+
+```powershell
+# From an initialized VS2022 x64 Debug developer environment, after building
+# or restoring XamlCompiler/WinUI product prerequisites:
+.\.github\scripts\validate-xamlc-unit-tests.ps1
+```
+
+With no `TestCaseFilter`, this runs the complete discoverable unit suite. The
+independent `xamlc-unit-tests` job in `.github/workflows/pr-build.yml` uses this
+entry point on VS2022. The VS2026 named-module job calls the same entry point
+with its focused filter. Discovery, execution logs and TRX results are saved
+under `BuildOutput/TestResults/XamlCompiler`; prerequisite binlogs are saved
+under `BuildOutput/binlogs`. Missing dependencies, failed builds, missing TRX
+results and zero executed tests fail validation. Existing ignored tests remain
+visible limitations; this change neither re-enables them without their fixture
+prerequisites nor updates their baselines automatically.
+
+Upstream [#11835](https://github.com/microsoft/microsoft-ui-xaml/issues/11835)
+is a tracking issue. Its linked product-only fix,
+[40436c1](https://github.com/microsoft/microsoft-ui-xaml/commit/40436c1b9b31c674dbdd880d848d32ee8c9910f8),
+was merged through [#11836](https://github.com/microsoft/microsoft-ui-xaml/pull/11836)
+and is already an ancestor of this branch. That commit does not establish that
+the remaining test infrastructure or the full regression suite passes.
+
+The next validation expansion is to build the legacy regression applications
+against a recorded compiler SHA, diagnose missing prerequisites separately from
+compiler failures, and restore generated-code comparisons with reviewed
+baselines. `copynewmasters.cmd` is a baseline-update tool, not a validation step;
+never use it to turn unexplained differences into a passing run. Packaged NuGet
+consumer validation and performance measurements remain separate checks.
 
 We require all Xaml Compiler fixes to be accompanied by a regression test.
 

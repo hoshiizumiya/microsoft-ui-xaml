@@ -71,4 +71,16 @@ The module fixtures and sample now pin `YexuanXiao.CppWinRTPlus 3.1.260928.1`, w
 
 ## Runtime payload follow-up
 
-[#31](https://github.com/hoshiizumiya/microsoft-ui-xaml/issues/31) is a focused gate configuration fix: pass `IncludeXamlDlls=true` when building against local product outputs. Run 36676884870 at `31443d2` compiled and linked SimpleModules, then failed AppX recipe validation because the WinUIDetails metadata registers WinUIEdit but the product runtime-copy target was not enabled. Keep this change with the CI validation work in #29. Verification of the payload fix and subsequent stages is pending.
+[#31](https://github.com/hoshiizumiya/microsoft-ui-xaml/issues/31) is a focused gate configuration fix: pass `IncludeXamlDlls=true` when building against local product outputs. Run 36676884870 at `31443d2` compiled and linked SimpleModules, then failed AppX recipe validation because the WinUIDetails metadata registers WinUIEdit but the product runtime-copy target was not enabled. Keep this change with the CI validation work in #29. Run [36685051922](https://github.com/hoshiizumiya/microsoft-ui-xaml/actions/runs/36685051922) at `f3f1cd3` passed initial module compilation, linking, AppX payload validation and two incremental builds. Its first subsequent error was a removed Page still entering the TypeInfo header map; [5af2c5b](https://github.com/hoshiizumiya/microsoft-ui-xaml/commit/5af2c5b9b70d02f1d64aa99d01cd83e8413d5715) fixes that current-input membership defect under #9. Full gate verification remains pending.
+
+
+## Broad validation follow-up
+
+[#32](https://github.com/hoshiizumiya/microsoft-ui-xaml/issues/32) records the
+unit-suite and generated-code comparison coverage gap. The compiled unit
+sources contain 327 test methods and 49 existing ignores; the module filter
+selects only 10 methods. All 44 code-comparison methods remain ignored.
+The independent phase-2 unit job restores test-project build contracts, runs
+without a filter on VS2022 and preserves discovery/TRX/binlog evidence.
+See [the validation expansion note](xamlc-cppwinrt-named-modules-validation.md)
+for the exact checkpoint, current limitations and subsequent acceptance checks.

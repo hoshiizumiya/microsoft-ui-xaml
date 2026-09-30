@@ -254,21 +254,4 @@ if ($duplicateConsumerModules.Count -ne 0) {
     throw "Static consumer regenerated projection modules already supplied by its provider: $($duplicateConsumerModules.FullName -join '; ')"
 }
 
-$unitTestProject = Join-Path $repoRoot 'src\XamlCompiler\Tests\UnitTests\XamlCompilerUnitTests.csproj'
-& msbuild.exe $unitTestProject /t:Build /restore /p:Configuration=Debug /p:Platform=x64 "/p:VisualStudioVersion=$ModuleVisualStudioVersion" "/p:WindowsSdkTargetPlatformVersion=$ModuleWindowsSdkVersion" '/p:RuntimeIdentifiers=win;win10-x64;win10-x86;win10-arm64' /p:DisableWarnForInvalidRestoreProjects=true /m:2 /ds:false "/binaryLogger:$binlogDir\XamlCompilerUnitTests.ModuleValidation.binlog"
-if ($LASTEXITCODE -ne 0) {
-    throw "XamlCompiler unit-test build failed with exit code $LASTEXITCODE."
-}
-
-if ($env:VSINSTALLDIR) {
-    $vsTest = Join-Path $env:VSINSTALLDIR 'Common7\IDE\Extensions\TestPlatform\vstest.console.exe'
-    if (Test-Path $vsTest) {
-        $env:VSTEST_CONSOLE = $vsTest
-    }
-}
-
-$runTests = Join-Path $repoRoot 'src\XamlCompiler\runtests.cmd'
-& cmd.exe /d /c ('call "{0}" /config:amd64chk /platform:x64 /flavor:chk "/TestCaseFilter:FullyQualifiedName~UnitTests.CppWinRTModuleTests"' -f $runTests)
-if ($LASTEXITCODE -ne 0) {
-    throw "CppWinRTModuleTests failed with exit code $LASTEXITCODE."
-}
+& (Join-Path $PSScriptRoot 'validate-xamlc-unit-tests.ps1') -VisualStudioVersion $ModuleVisualStudioVersion -WindowsSdkVersion $ModuleWindowsSdkVersion -TestCaseFilter 'FullyQualifiedName~UnitTests.CppWinRTModuleTests'

@@ -1,4 +1,4 @@
-# PR build (OSS). Product-only compile gate; tests and signing run in internal ADO.
+# PR build (OSS). Product matrix, XamlCompiler unit tests, and named-module validation.
 
 name: PR Build
 
@@ -7,6 +7,7 @@ on:
     branches:
       - main
       - winui3/main
+      - feat/xamlccppmodule/phase1
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
@@ -289,3 +290,61 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+
+  xamlc-unit-tests:
+    needs:
+      - sync-xamlc-t4
+      - build
+    if: needs.sync-xamlc-t4.outputs.generated_commit != 'true'
+    name: Validate full XamlCompiler unit suite
+    runs-on: windows-2022
+    timeout-minutes: 45
+    env:
+      NUGET_PACKAGES: ${{ github.workspace }}\packages
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      CL: '/MP2'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ needs.sync-xamlc-t4.outputs.checkout_sha }}
+          fetch-depth: 1
+          show-progress: false
+
+      - name: Restore VS2022-built XamlC and WinUI prerequisites
+        uses: actions/download-artifact@v6
+        with:
+          name: xaml-module-prereqs-x64chk
+          path: BuildOutput
+
+      - name: Initialize VS2022 and run the complete unit suite
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsInstall = & $vswhere -latest -version '[17.0,18.0)' -requires Microsoft.Component.MSBuild -property installationPath
+          if (-not $vsInstall) {
+              throw 'Visual Studio 2022 / MSBuild 17.x is required for XamlCompiler unit validation.'
+          }
+          $vsDevCmd = Join-Path $vsInstall 'Common7\Tools\VsDevCmd.bat'
+          $quote = [char]34
+          $chain = "call $quote$vsDevCmd$quote -no_logo -arch=amd64 -host_arch=amd64" +
+              " && init.cmd x64chk /nopgo" +
+              " && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-unit-tests.ps1"
+          cmd /d /c $chain
+          if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+          }
+
+      - name: Upload unit-test discovery, results, and binlogs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: xamlc-unit-tests-x64chk
+          path: |
+            BuildOutput/TestResults/XamlCompiler/**
+            BuildOutput/binlogs/*.UnitValidation.binlog
+          if-no-files-found: warn
+          retention-days: 7
