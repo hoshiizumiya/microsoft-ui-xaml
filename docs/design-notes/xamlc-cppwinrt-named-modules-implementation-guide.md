@@ -943,3 +943,26 @@ Next validation order:
 4. Extract independently reviewable fixes using the issue index. When the Microsoft
    package incorporates the required fixes, revalidate it explicitly before claiming
    compatibility with that upstream package.
+
+## 26. Full Build runtime payload
+
+[Run 36676884870 / job 109781951121](https://github.com/hoshiizumiya/microsoft-ui-xaml/actions/runs/36676884870/job/109781951121)
+at `31443d2` passed all six product jobs, compiled late generated XAML code with
+CppWinRTPlus and linked `SimpleCppWinRTModules.exe`. It then failed in
+`_GenerateAppxPackageRecipeFile` with APPX0703 for `WinUIEdit.dll`. This clears the
+observed PCH-free wrapper compile failure; it does not accept subsequent incremental
+or static-library stages.
+
+The WinUIDetails package declares `Implementation=WinUIEdit.dll` on its
+`Microsoft.UI.Text.winmd` reference. Repository `eng/winuidetails.targets` removes
+the package's runtime copy items so consuming tests use product outputs.
+`eng/consumebinaries.targets::_UpdateMUXFilesToCopyForApp` supplies those outputs
+before `_CopyFilesMarkedCopyLocal`, but requires `IncludeXamlDlls=true`. The focused
+script omitted the opt-in while invoking a full Build, so metadata-driven AppX
+registration and the actual payload disagreed.
+
+`Invoke-XamlModuleBuild` now passes `/p:IncludeXamlDlls=true` to use the existing
+runtime-copy path. Keep AppX recipe validation and all module regressions enabled.
+The follow-up CI must verify payload inclusion and the rest of the sequence.
+[Fork #31](https://github.com/hoshiizumiya/microsoft-ui-xaml/issues/31) records the source, binlog evidence and acceptance
+checks. APPX1707 messages remain separate non-fatal metadata warnings.

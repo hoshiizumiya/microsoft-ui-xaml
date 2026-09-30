@@ -794,26 +794,22 @@ The current progression of integration failures has exercised several layers:
 - the focused validation environment is explicitly VS2026/v145 and SDK26100.
 
 As of 2026-09-30, the latest completed full build is
-[run 36665332238](https://github.com/hoshiizumiya/microsoft-ui-xaml/actions/runs/36665332238)
-at `f6d7989`. All six product builds passed. The scoped
-`SpectreMitigation=false` override cleared the earlier `CreateWinMD` link failure.
-The module job then ran Pass2 and failed in `CompileXamlGeneratedFiles` with
-`C1083: pch.h` from generated `XamlMetaDataProvider.cpp`.
+[run 36676884870](https://github.com/hoshiizumiya/microsoft-ui-xaml/actions/runs/36676884870) at `31443d2`.
+All six product jobs passed. CppWinRTPlus 3.1.260928.1 cleared the observed
+PCH-free provider-wrapper compile failure in [#30](https://github.com/hoshiizumiya/microsoft-ui-xaml/issues/30), and
+SimpleModules completed late generated compilation and linked its executable.
 
-The log and embedded binlog project imports locate the wrapper emitter in
-C++/WinRT's `CppWinRTAddXamlMetaDataProviderCpp` target. It collects PCH filenames
-without excluding `PrecompiledHeader=NotUsing` items. This is a C++/WinRT MSBuild
-selection defect ([fork #30](https://github.com/hoshiizumiya/microsoft-ui-xaml/issues/30)),
-not evidence that XamlC needs additional projection imports. Keep the fixture PCH-free.
+The next failure is AppX recipe validation: `APPX0703: WinUIEdit.dll` is missing
+from the payload. The focused script now passes `IncludeXamlDlls=true` to enable
+`eng/consumebinaries.targets::_UpdateMUXFilesToCopyForApp`, which copies the
+repository product runtime dependencies. The WinUIDetails package supplies the
+WinUIEdit binary and its metadata registration; this is a runtime-copy configuration
+issue, recorded in [#31](https://github.com/hoshiizumiya/microsoft-ui-xaml/issues/31).
 
-The module fixtures and sample now pin `YexuanXiao.CppWinRTPlus 3.1.260928.1`.
-The downloaded package's wrapper target checks `PrecompiledHeader != NotUsing`;
-this addresses the observed selection mechanism in #30. Windows CI validation of
-the package switch is pending. The [implementation guide](xamlc-cppwinrt-named-modules-implementation-guide.md#25-cppwinrtplus-integration-validation)
-records the exact package boundary and next acceptance stages.
+The follow-up build must validate the payload fix and remaining regression stages.
 
-Passing the first compile stage does not establish late Pass2 compilation, final
-linking, incremental transitions, or static-library consumer success. The guide's
+Successful SimpleModules compilation and linking do not establish a complete Build,
+incremental transitions, or static-library consumer success. The guide's
 [integration evidence](xamlc-cppwinrt-named-modules-implementation-guide.md#24-integration-evidence-and-open-validation)
 records those boundaries separately.
 
