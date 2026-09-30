@@ -794,13 +794,17 @@ The current progression of integration failures has exercised several layers:
 - the focused validation environment is explicitly VS2026/v145 and SDK26100.
 
 As of 2026-09-30, the latest completed full build is
-[run 36654268434](https://github.com/hoshiizumiya/microsoft-ui-xaml/actions/runs/36654268434)
-at `5fdc435`. All six product builds passed. The module job passed its first C++
-compile stage and failed in `CreateWinMD` with `LNK1104: msvcprtd.lib`. That is a
-Store runtime-library selection failure, not a missing XAML projection dependency.
-The focused gate now passes `SpectreMitigation=false`; the follow-up
 [run 36665332238](https://github.com/hoshiizumiya/microsoft-ui-xaml/actions/runs/36665332238)
-at `f6d7989` is still running at this documentation checkpoint.
+at `f6d7989`. All six product builds passed. The scoped
+`SpectreMitigation=false` override cleared the earlier `CreateWinMD` link failure.
+The module job then ran Pass2 and failed in `CompileXamlGeneratedFiles` with
+`C1083: pch.h` from generated `XamlMetaDataProvider.cpp`.
+
+The log and embedded binlog project imports locate the wrapper emitter in
+C++/WinRT's `CppWinRTAddXamlMetaDataProviderCpp` target. It collects PCH filenames
+without excluding `PrecompiledHeader=NotUsing` items. This is a C++/WinRT MSBuild
+selection defect ([fork #30](https://github.com/hoshiizumiya/microsoft-ui-xaml/issues/30)),
+not evidence that XamlC needs additional projection imports. Keep the fixture PCH-free.
 
 Passing the first compile stage does not establish late Pass2 compilation, final
 linking, incremental transitions, or static-library consumer success. The guide's
@@ -836,6 +840,16 @@ WinRT metadata alone.
 That is a separate mapping problem: XamlC already knows the physical XAML item path and
 needs a contract that lets the C++/WinRT companion-header lookup consume that mapping.
 Do not hide that problem by changing the module naming contract.
+
+---
+
+## PR decomposition
+
+The [issue/commit/dependency index](xamlc-cppwinrt-named-modules-pr-decomposition.md)
+separates common compiler fixes, module implementation, native build integration,
+regression work and independently owned build defects. It records evidence and
+remaining acceptance boundaries for extracting reviewable PRs from the development
+branch.
 
 ---
 

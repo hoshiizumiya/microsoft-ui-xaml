@@ -744,6 +744,23 @@ now uses `PrecompiledHeader=NotUsing` and has no PCH files. A missing
 `Models.BindItem.g.h` versus `BindItem.g.h` is a component filename mismatch in
 authored code. Neither signature justifies adding imports to an XAML partition.
 
+### Missing pch.h in the generated provider wrapper
+
+Do not infer the emitter from the `generated\` output directory. In run 36665332238,
+`CppWinRTAddXamlMetaDataProviderCpp` in C++/WinRT 3.0.260818.1's
+`Microsoft.Windows.CppWinRT.targets` emitted `XamlMetaDataProvider.cpp`, which then
+includes `XamlMetaDataProvider.g.cpp`. The target's `_PCH` helper aggregates
+`PrecompiledHeaderFile` metadata from all `ClCompile` items and constructs
+`XamlMetaDataProviderPch` without checking `PrecompiledHeader=NotUsing`.
+
+The embedded binlog source and generated-wrapper string establish this emitter.
+Component projection's `-pch .` controls another generation path and does not clear
+this wrapper include. XamlC's `CppWinRT_XamlMetaDataProviderPass2.tt` consumes a
+separate scalar PCH input; changing only that input cannot fix this target's item
+aggregation. [Fork #30](https://github.com/hoshiizumiya/microsoft-ui-xaml/issues/30)
+records the package and upstream source pins, reproduction and PCH-enabled/disabled
+acceptance cases. The intended upstream owner is `microsoft/cppwinrt`.
+
 ### Credential-provider release discovery fails with 403
 
 `scripts/init/Initialize-Restore.ps1` calls `Initialize-NuGet.ps1` before dependency
@@ -840,8 +857,8 @@ The status below is a checkpoint, not a live CI dashboard.
 | --- | --- | --- |
 | [Run 36591969555 / job 109516642249](https://github.com/hoshiizumiya/microsoft-ui-xaml/actions/runs/36591969555/job/109516642249), `508d6e4` | Credential-provider release API returned 403; the build subsequently started | Bootstrap discovery and batch exit-code propagation; direct asset downloads and fail-fast initialization are now present |
 | [Run 36624346691 / job 109624041372](https://github.com/hoshiizumiya/microsoft-ui-xaml/actions/runs/36624346691/job/109624041372), `b90deb9` | C2027 from incomplete provider cleanup during App base construction | XamlC App special-member placement; fixed in [ea9956f](https://github.com/hoshiizumiya/microsoft-ui-xaml/commit/ea9956f5028d5cf5910d53e19e591bcf1bd7bf5e), T4 synchronized by [5fdc435](https://github.com/hoshiizumiya/microsoft-ui-xaml/commit/5fdc435cb476c5e334e52ba6b04014473e3f4ecc) |
-| [Run 36654268434 / job 109709975748](https://github.com/hoshiizumiya/microsoft-ui-xaml/actions/runs/36654268434/job/109709975748), `5fdc435` | Six product builds passed; first module compile stage reached CreateWinMD, then LNK1104 for msvcprtd.lib | Store/Spectre library selection; scoped validation override in f6d7989, follow-up result pending |
-| [Run 36665332238](https://github.com/hoshiizumiya/microsoft-ui-xaml/actions/runs/36665332238), `f6d7989` | In progress at this checkpoint | No end-to-end acceptance claim |
+| [Run 36654268434 / job 109709975748](https://github.com/hoshiizumiya/microsoft-ui-xaml/actions/runs/36654268434/job/109709975748), `5fdc435` | Six product builds passed; first module compile stage reached CreateWinMD, then LNK1104 for msvcprtd.lib | Store/Spectre library selection; scoped validation override in f6d7989 cleared this failure in the follow-up |
+| [Run 36665332238 / job 109742675435](https://github.com/hoshiizumiya/microsoft-ui-xaml/actions/runs/36665332238/job/109742675435), `f6d7989` | Six product builds passed; CreateWinMD succeeded; late generated compilation failed with C1083 for pch.h in XamlMetaDataProvider.cpp | C++/WinRT provider-wrapper target ignores NotUsing metadata; fork #30, no fix committed yet |
 
 `CreateWinMD` links the first-stage objects to produce the intermediate component
 metadata. XamlC Pass2 then consumes that metadata to resolve local types. Reaching
@@ -851,7 +868,7 @@ late generated implementation compilation.
 The focused script runs its stages sequentially and throws on the first failed build.
 The following work has coverage in source but remains unverified by the latest full run:
 
-- successful `CreateWinMD`, late Pass2 compilation and final SimpleModules link;
+- successful late Pass2 compilation and final SimpleModules link;
 - no-change/edit/remove/restore and `NoPageCodeGen` transitions;
 - module to header to module compilation and IFC cleanup;
 - static provider `NoTypeInfoCodeGen` and native cross-project BMI consumption;
@@ -872,6 +889,16 @@ from the named-module public contract and from upstream #11525:
 | [Fork #5](https://github.com/hoshiizumiya/microsoft-ui-xaml/issues/5) | Credential-provider installation should not require anonymous release JSON discovery |
 | [Fork #6](https://github.com/hoshiizumiya/microsoft-ui-xaml/issues/6) | Store/UWP validation must select supported runtime-library paths instead of inheriting the unsupported Spectre default |
 
-Generator defects already addressed inside upstream #11524 remain part of that patch.
-No C++/WinRT projection-module defect is asserted without a failing generated producer
-and a reproduction that isolates it from authored or XAML-generated code.
+### PR extraction and separately owned provider work
+
+The [PR decomposition index](xamlc-cppwinrt-named-modules-pr-decomposition.md)
+links #4–#30 to development commits, dependencies and review boundaries. Module
+hardening findings belong with their feature changes; common incremental fixes and
+bootstrap fixes can be reviewed independently. Validation tasks are explicitly
+identified rather than presented as demonstrated product defects.
+
+[Provider-wrapper PCH selection (#30)](https://github.com/hoshiizumiya/microsoft-ui-xaml/issues/30)
+is independently owned by C++/WinRT MSBuild. Its actual generated emitter is established
+by the failure log and embedded binlog imports. It does not establish a projection
+module ownership or reachability defect. No fix for it has been committed in this
+issue/documentation pass.
