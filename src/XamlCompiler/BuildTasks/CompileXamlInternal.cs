@@ -3051,6 +3051,10 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
                 return className2headerMap;  // empty
             }
 
+            var projectXamlPaths = new HashSet<string>(
+                SourceFileManager.ProjectXamlTaskItems.Select(item => Path.GetFullPath(item.SourceXamlFullPath)),
+                StringComparer.OrdinalIgnoreCase);
+
             // ClInclude is the '.h' files.  (the '.cpp' files are in ClCompile)
             foreach (var item in ClIncludeFiles)
             {
@@ -3073,6 +3077,12 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
                 if (!Path.IsPathRooted(dependentFilePath))
                 {
                     dependentFilePath = Path.Combine(this.ProjectFolderFullpath, dependentFilePath);
+                }
+
+                // DependentUpon can survive removal of the Page item while the file remains on disk.
+                if (!projectXamlPaths.Contains(Path.GetFullPath(dependentFilePath)))
+                {
+                    continue;
                 }
 
                 try
