@@ -59,6 +59,8 @@ function Invoke-XamlModuleBuild {
         "/p:WindowsTargetPlatformVersion=$ModuleWindowsSdkVersion",
         '/p:UseXamlCompiler=true',
         '/p:SkipXamlCompilerProjectReferences=true',
+        # UWP fixtures have no Spectre-mitigated runtime libraries.
+        '/p:SpectreMitigation=false',
         '/m:2',
         '/ds:false',
         "/binaryLogger:$binlogDir\$LogName.binlog"

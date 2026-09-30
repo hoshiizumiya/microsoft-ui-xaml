@@ -694,6 +694,21 @@ The focused module gate therefore overrides the installed target SDK to 26100. D
 change the repository-wide SDK package baseline merely to satisfy this hosted-runner
 capability check.
 
+### LNK1104: cannot open msvcprtd.lib during CreateWinMD
+
+The UWP fixtures use `VC_Target_Library_Platform=Store`. Repository
+`eng/common.props` defaults `SpectreMitigation` to `Spectre`, but VC's
+`Microsoft.Cpp.VCTools.Content.props` does not define Store library paths in its
+Spectre branch. The evaluated MSVC runtime library path is consequently empty even
+though projection and XAML module compilation can succeed.
+
+The focused native validation passes `/p:SpectreMitigation=false` to
+`Invoke-XamlModuleBuild`, including its ProjectReferences and header-mode transitions.
+This restores normal Store runtime library selection without changing product builds
+or generated imports. Do not compensate with desktop runtime paths or `/NODEFAULTLIB`.
+
+Microsoft documents that [Spectre-mitigated runtime libraries are unavailable for UWP](https://learn.microsoft.com/en-us/cpp/build/reference/qspectre?view=msvc-170).
+
 ## 20. Validation workflow caveat
 
 A `workflow_dispatch` workflow is only directly runnable from the GitHub Actions UI
