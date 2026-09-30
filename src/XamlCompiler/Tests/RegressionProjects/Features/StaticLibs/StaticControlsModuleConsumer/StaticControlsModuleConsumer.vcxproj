@@ -3,13 +3,10 @@
  Licensed under the MIT License. -->
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <CppWinRTBuildModule>true</CppWinRTBuildModule>
+    <!-- This project imports the static provider through the native module graph.
+         It has no component or XAML modules of its own to generate. -->
+    <CppWinRTBuildModule>false</CppWinRTBuildModule>
     <UseXamlCompiler>true</UseXamlCompiler>
-    <!-- Static-library BMIs propagate through MSBuild. The provider builds the
-         Windows platform, WinUI/WebView2 reference, and StaticControlsModuleLib
-         projection modules needed by its XAML module, so this pure consumer must not
-         generate duplicate IFCs for the same namespace prefixes. -->
-    <CppWinRTModuleExclude>Windows;Microsoft;StaticControlsModuleLib</CppWinRTModuleExclude>
   </PropertyGroup>
   <Import Project="..\..\..\..\..\..\..\packages\YexuanXiao.CppWinRTPlus.3.1.260928.1\build\native\YexuanXiao.CppWinRTPlus.props" Condition="Exists('..\..\..\..\..\..\..\packages\YexuanXiao.CppWinRTPlus.3.1.260928.1\build\native\YexuanXiao.CppWinRTPlus.props')" />
   <PropertyGroup Label="Globals">

@@ -136,3 +136,17 @@ product artifacts. That reference remains a build dependency but no longer expor
 Content for copying. CopyPrebuiltArtifacts and the runner use the product's
 BuildOutput/bin/GenXBF/x64/GenXbf.dll instead; the runner still requires it to exist.
 The new changes have not yet passed Windows CI.
+
+Runs 36736919593 and 36736972563 passed the product matrix and the static
+provider's TypeInfo suppression/restoration stages. Cross-project consumption then
+failed with C7684: winrt_numerics resolved to IFCs in both the consumer and provider.
+The pure consumer has no IDL or XAML of its own, so it now disables projection
+module production and imports the static provider through the native module graph.
+The gate rejects every unexpected consumer .ixx, including base/numerics, and checks
+no-XAML producer-mode cleanup separately before the full consumer build.
+
+The full unit job built its assemblies but stopped during staging because
+Win8Xaml.CompilerProxies.dll was missing. Directory.Build.props defaults library
+ProjectReferences to Private=false. The test project's proxy reference now sets
+Private=true so the existing output staging receives its runtime dependency.
+Windows results for these changes remain pending.
