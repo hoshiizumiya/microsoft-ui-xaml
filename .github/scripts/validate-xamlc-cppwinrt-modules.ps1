@@ -208,10 +208,10 @@ if ($moduleIfcsAfterSwitchBack.Count -eq 0) {
     throw 'Switching back to module mode did not regenerate XAML IFCs.'
 }
 
-# The provider is also built once with type-info code generation disabled. This validates
-# that the primary Application_Xaml interface does not retain a stale :XamlTypeInfo export.
+# Validate the NoTypeInfoCodeGen Pass1 surface before restoring the provider for compilation.
+# Its C++/WinRT component still requires the generated metadata-provider implementation.
 Invoke-XamlModuleBuild $staticProvider 'StaticControlsModuleLib.Module'
-Invoke-XamlModuleBuild $staticProvider 'StaticControlsModuleLib.NoTypeInfo' @('/p:XamlCodeGenerationControlFlags=NoTypeInfoCodeGen')
+Invoke-XamlModuleBuild -RelativeProject $staticProvider -LogName 'StaticControlsModuleLib.NoTypeInfoPass1' -Target 'MarkupCompilePass1' -ExtraProperties @('/p:XamlCodeGenerationControlFlags=NoTypeInfoCodeGen')
 
 $staticProviderObjRoot = Join-Path $repoRoot 'BuildOutput\obj\amd64chk\CompilerTests\Features\StaticLibs\StaticControlsModuleLib'
 $providerPrimaryHeaders = @(Get-ChildItem -Path $staticProviderObjRoot -Filter 'XamlBindingInfo.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
@@ -221,6 +221,13 @@ if ($providerPrimaryHeaders.Count -eq 0) {
 foreach ($header in $providerPrimaryHeaders) {
     if (Select-String -Path $header.FullName -SimpleMatch 'export import :XamlTypeInfo;' -Quiet) {
         throw "NoTypeInfoCodeGen left a stale :XamlTypeInfo export in $($header.FullName)."
+    }
+}
+
+Invoke-XamlModuleBuild $staticProvider 'StaticControlsModuleLib.TypeInfoRestored'
+foreach ($header in $providerPrimaryHeaders) {
+    if (-not (Select-String -Path $header.FullName -SimpleMatch 'export import :XamlTypeInfo;' -Quiet)) {
+        throw "Restoring TypeInfo code generation did not restore :XamlTypeInfo in $($header.FullName)."
     }
 }
 

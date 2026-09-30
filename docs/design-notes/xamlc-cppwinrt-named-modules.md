@@ -606,6 +606,11 @@ found through the C++/WinRT generated-header bridge.
 
 `NoTypeInfoCodeGen` removes the optional `:XamlTypeInfo` partition and the primary
 interface no longer exports it after the mode transition.
+The regression gate checks this contract with `MarkupCompilePass1`, then restores
+TypeInfo generation and performs a full provider build before the cross-project
+consumer test. The flag suppresses generated TypeInfo implementation; it does not
+supply a replacement for the metadata-provider runtimeclass that C++/WinRT still
+projects for this fixture.
 
 ---
 
