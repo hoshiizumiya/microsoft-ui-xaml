@@ -69,14 +69,16 @@ Copy-TestFile (Join-Path $productDir 'Microsoft.UI.Xaml.winmd') 'Microsoft.UI.Xa
 Copy-TestFile (Join-Path $productDir 'Microsoft.UI.winmd') 'Microsoft.UI.winmd'
 Copy-TestFile (Join-Path $repoRoot 'BuildOutput\bin\GenXbf\x64\GenXbf.dll') 'GenXbf.dll'
 Copy-TestFile (Join-Path $testsRoot 'UnitTests\test.runsettings') 'test.runsettings'
-foreach ($dependency in 'UnitTests.dll', 'Win8Xaml.CompilerProxies.dll', 'Microsoft.UI.Xaml.Markup.Compiler.dll') {
+foreach ($dependency in 'UnitTests.dll', 'Win8Xaml.CompilerProxies.dll', 'Microsoft.UI.Xaml.Markup.Compiler.dll', 'UnitTests.dll.config', 'System.Runtime.CompilerServices.Unsafe.dll') {
     if (-not (Test-Path (Join-Path $stageDir $dependency))) {
         throw "Unit-test staging did not produce $dependency."
     }
 }
 
+$previousTestSdkVersion = $env:XAML_TESTS_WINDOWS_SDK_VERSION
 Push-Location $stageDir
 try {
+    $env:XAML_TESTS_WINDOWS_SDK_VERSION = $WindowsSdkVersion
     & $vsTest 'UnitTests.dll' '/ListTests' '/Platform:x64' 2>&1 |
         Tee-Object -FilePath (Join-Path $resultsDir 'discovered-tests.txt')
     if ($LASTEXITCODE -ne 0) {
@@ -108,5 +110,6 @@ try {
     }
 }
 finally {
+    $env:XAML_TESTS_WINDOWS_SDK_VERSION = $previousTestSdkVersion
     Pop-Location
 }

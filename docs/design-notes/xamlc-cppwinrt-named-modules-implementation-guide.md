@@ -966,3 +966,40 @@ runtime-copy path. Keep AppX recipe validation and all module regressions enable
 The follow-up CI must verify payload inclusion and the rest of the sequence.
 [Fork #31](https://github.com/hoshiizumiya/microsoft-ui-xaml/issues/31) records the source, binlog evidence and acceptance
 checks. APPX1707 messages remain separate non-fatal metadata warnings.
+
+
+## 26. Native validation completed; unit runtime prerequisites (2026-09-30 UTC)
+
+[Phase-1 run 36751734821](https://github.com/hoshiizumiya/microsoft-ui-xaml/actions/runs/36751734821)
+and [phase-2 run 36751811896](https://github.com/hoshiizumiya/microsoft-ui-xaml/actions/runs/36751811896)
+passed all six product configurations and the native module stages: clean/no-change,
+page edit/removal/restoration, NoPage, header/module switching, static provider,
+NoTypeInfo Pass1/restoration, no-XAML cleanup and cross-project consumption. The
+pure consumer generated no duplicate projection `.ixx` files. These runs establish
+native static-library BMI propagation for the fixture; the complete focused gate
+still failed at its final unit-test stage.
+
+The focused suite executed 10 methods: 8 passed and 2 failed while loading schema
+metadata. `TestHelper.GetRuntimeAssemblyPaths` previously hardcoded SDK 22621
+although the native gate explicitly selected installed SDK 26100. Validation scripts
+now set `XAML_TESTS_WINDOWS_SDK_VERSION` for the test process and restore the prior
+value afterward. `FindWindowsSdkContract` resolves the newest available contract in
+that explicitly selected SDK, requires the existing minimum contract version, logs
+the chosen path and fails if it is missing. `KnownVersions` and test minimum-platform
+semantics are unchanged; callers without the override retain the original lookup.
+
+The phase-2 unfiltered TRX reports total=327, executed=278, passed=25, failed=253.
+There are still 49 source ignores. The first error is an Unsafe 4.0.4.1 binding
+request from System.Memory during metadata-reader initialization. The same-run
+product binplace folder contains only the compiler assembly; its packaged net472
+tools contain Unsafe 6.0.0.0, the other runtime dependencies, and a redirect from old
+Unsafe requests to 6.0.0.0. `CopyPrebuiltArtifacts` now supplies these packaged
+System.* / Bcl runtime DLLs and maps `XamlCompiler.exe.config` to
+`UnitTests.dll.config`. Required runtime files fail the build if absent. No test
+assertions, ignores, compiler templates or module dependency closures were changed.
+
+Local checks establish artifact contents, project XML, script syntax and staging
+contracts. The exact SDK resolver method also compiled under PowerShell Add-Type
+and passed isolated legacy-path, numeric-version selection, missing-contract and
+missing-SDK checks against synthetic directories. The next Windows runs must validate assembly binding, schema loading and
+actual focused/full test outcomes before either suite is described as passing.

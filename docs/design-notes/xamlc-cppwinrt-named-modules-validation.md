@@ -150,3 +150,23 @@ Win8Xaml.CompilerProxies.dll was missing. Directory.Build.props defaults library
 ProjectReferences to Private=false. The test project's proxy reference now sets
 Private=true so the existing output staging receives its runtime dependency.
 Windows results for these changes remain pending.
+
+
+Runs 36751734821 and 36751811896 passed all native module stages, including
+static-library cross-project consumption with no consumer-generated `.ixx`.
+The remaining focused failures are two schema-loading tests looking for the
+hardcoded 22621 SDK; 8 of the 10 module methods passed. The shared runner now
+passes its explicit SDK selection to TestHelper for contract-file lookup and
+restores the previous environment afterward. Test minimum-platform values are
+unchanged.
+
+The unfiltered TRX from 36751811896 reports total=327, executed=278, passed=25,
+failed=253. The first exception is a missing Unsafe 4.0.4.1 assembly request
+from System.Memory; subsequent failures repeatedly report the same initialized
+metadata-reader failure. The product's packaged net472 tools contain Unsafe 6.0
+and its binding redirect. Test CopyPrebuiltArtifacts now copies that same-run
+System.* / Bcl runtime closure and names the packaged compiler configuration
+UnitTests.dll.config, so VSTest can apply the redirects to the test assembly.
+The runner requires both the Unsafe DLL and test configuration during staging.
+No existing ignores or assertions were removed. Windows execution of the
+runtime/configuration and schema lookup fixes is pending the next CI runs.
