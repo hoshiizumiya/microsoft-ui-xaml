@@ -271,7 +271,14 @@ if ($env:VSINSTALLDIR) {
 }
 
 $runTests = Join-Path $repoRoot 'src\XamlCompiler\runtests.cmd'
-& cmd.exe /d /c ('call "{0}" /config:amd64chk /platform:x64 /flavor:chk "/TestCaseFilter:FullyQualifiedName~UnitTests.CppWinRTModuleTests"' -f $runTests)
-if ($LASTEXITCODE -ne 0) {
-    throw "CppWinRTModuleTests failed with exit code $LASTEXITCODE."
+$previousTestSdkVersion = $env:XAML_TESTS_WINDOWS_SDK_VERSION
+try {
+    $env:XAML_TESTS_WINDOWS_SDK_VERSION = $ModuleWindowsSdkVersion
+    & cmd.exe /d /c ('call "{0}" /config:amd64chk /platform:x64 /flavor:chk "/TestCaseFilter:FullyQualifiedName~UnitTests.CppWinRTModuleTests"' -f $runTests)
+    if ($LASTEXITCODE -ne 0) {
+        throw "CppWinRTModuleTests failed with exit code $LASTEXITCODE."
+    }
+}
+finally {
+    $env:XAML_TESTS_WINDOWS_SDK_VERSION = $previousTestSdkVersion
 }

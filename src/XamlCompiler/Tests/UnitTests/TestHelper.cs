@@ -569,15 +569,9 @@ namespace UnitTests
 
         private List<String> GetRuntimeAssemblyPaths(bool loadNativeRuntime)
         {
-            string referencesPath = $"Windows Kits\\10\\References\\{KnownVersions.Latest}\\";
-
             List<String> paths = new List<string>();
-            paths.Add(ProxyHelper.FindProgramFilesFile(
-                referencesPath + @"Windows.Foundation.FoundationContract\{0}\Windows.Foundation.FoundationContract.winmd",
-                KnownVersions.FoundationContractVersion));
-            paths.Add(ProxyHelper.FindProgramFilesFile(
-                referencesPath + @"Windows.Foundation.UniversalApiContract\{0}\Windows.Foundation.UniversalApiContract.winmd",
-                KnownVersions.UniversalApiContractVersion));
+            paths.Add(FindWindowsSdkContract("Windows.Foundation.FoundationContract", KnownVersions.FoundationContractVersion));
+            paths.Add(FindWindowsSdkContract("Windows.Foundation.UniversalApiContract", KnownVersions.UniversalApiContractVersion));
             // Load Microsoft.UI.winmd before Microsoft.UI.Xaml.winmd (dependency order)
             string winuiDir = Path.GetDirectoryName(ProxyHelper.WinUIWinmdPath);
             if (!String.IsNullOrEmpty(winuiDir))
@@ -600,6 +594,42 @@ namespace UnitTests
                 paths.AddRange(FrameworkAssemblyFilePaths);
             }
             return paths;
+        }
+
+        private string FindWindowsSdkContract(string contractName, string minimumContractVersion)
+        {
+            string sdkVersion = Environment.GetEnvironmentVariable("XAML_TESTS_WINDOWS_SDK_VERSION");
+            if (String.IsNullOrWhiteSpace(sdkVersion))
+            {
+                // Preserve the existing SDK/contract baseline for callers outside the validation scripts.
+                string path = $@"Windows Kits\10\References\{KnownVersions.Latest}\{contractName}\{{0}}\{contractName}.winmd";
+                return ProxyHelper.FindProgramFilesFile(path, minimumContractVersion);
+            }
+
+            // The build SDK selects the metadata location, not the tests' minimum platform semantics.
+            // Newer SDKs ship a newer UniversalApiContract directory, rather than every old version.
+            sdkVersion = new Version(sdkVersion).ToString();
+            string contractDirectory = ProxyHelper.FindProgramFilesDir($@"Windows Kits\10\References\{sdkVersion}\{contractName}");
+            Version selectedVersion = null;
+            string selectedPath = null;
+            Version minimumVersion = new Version(minimumContractVersion);
+            foreach (string directory in Directory.EnumerateDirectories(contractDirectory))
+            {
+                Version version;
+                string path = Path.Combine(directory, contractName + ".winmd");
+                if (Version.TryParse(Path.GetFileName(directory), out version) && version >= minimumVersion &&
+                    (selectedVersion == null || version > selectedVersion) && File.Exists(path))
+                {
+                    selectedVersion = version;
+                    selectedPath = path;
+                }
+            }
+            if (selectedPath == null)
+            {
+                throw new FileNotFoundException($"Windows SDK {sdkVersion} has no {contractName} metadata at contract version {minimumVersion} or later.", contractDirectory);
+            }
+            Console.WriteLine("XamlCompiler schema metadata: " + selectedPath);
+            return selectedPath;
         }
 
         private String GetUserAssemblyPath(bool useWinmd)

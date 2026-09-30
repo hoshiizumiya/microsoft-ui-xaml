@@ -130,6 +130,15 @@
       <ProductDir Condition="'$(ArtifactsBinDir)' != ''">$(ArtifactsBinDir)Product\</ProductDir>
       <ProductDir Condition="'$(ProductDir)' == '' or !Exists('$(ProductDir)')">$(ProjectRoot)BuildOutput\bin\$(_FallbackPlatform)$(_FallbackConfig)\Product\</ProductDir>
     </PropertyGroup>
+    <!-- The product binplace folder contains the compiler DLL only. The packaged net472
+         tools contain its runtime closure and the redirects needed by System.Memory/Unsafe. -->
+    <ItemGroup>
+      <_XamlCompilerTestRuntime Include="$(ToolsPackageLocation)\net472\System.*.dll;$(ToolsPackageLocation)\net472\Microsoft.Bcl.AsyncInterfaces.dll" />
+      <_RequiredXamlCompilerTestRuntime Include="System.Reflection.Metadata.dll;System.Collections.Immutable.dll;System.Memory.dll;System.Runtime.CompilerServices.Unsafe.dll;XamlCompiler.exe.config" />
+    </ItemGroup>
+    <Error Condition="!Exists('$(ToolsPackageLocation)\net472\%(_RequiredXamlCompilerTestRuntime.Identity)')" Text="Required XamlCompiler test runtime is missing: $(ToolsPackageLocation)\net472\%(_RequiredXamlCompilerTestRuntime.Identity). Build or restore the product packaging prerequisites first." />
+    <Copy SourceFiles="@(_XamlCompilerTestRuntime)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(ToolsPackageLocation)\net472\XamlCompiler.exe.config" DestinationFiles="$(OutDir)$(TargetFileName).config" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(GenXbfSourceDir)GenXbf.dll" DestinationFolder="$(OutDir)" ContinueOnError="true" Condition="Exists('$(GenXbfSourceDir)GenXbf.dll')" />
     <Copy SourceFiles="$(CompilerSourceDir)Microsoft.UI.Xaml.Markup.Compiler.dll" DestinationFolder="$(OutDir)" ContinueOnError="true" Condition="Exists('$(CompilerSourceDir)Microsoft.UI.Xaml.Markup.Compiler.dll')" />
     <Copy SourceFiles="$(ProductDir)Microsoft.UI.Xaml.winmd" DestinationFolder="$(OutDir)" ContinueOnError="true" Condition="Exists('$(ProductDir)Microsoft.UI.Xaml.winmd')" />
