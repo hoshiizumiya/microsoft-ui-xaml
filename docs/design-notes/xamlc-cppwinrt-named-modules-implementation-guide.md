@@ -849,8 +849,9 @@ XamlC a native participant in the C++/WinRT named-module build model.
 
 This checkpoint is dated 2026-09-30 and is based on feature commit
 [`f6d7989`](https://github.com/hoshiizumiya/microsoft-ui-xaml/commit/f6d7989fd921233f1d23a2214e5e8aeb6441eae4).
-Documentation is maintained on `docs/xamlc-cppwinrt-modules-hardening-20260930` so
-editing these notes does not move the implementation PR's head or cancel its Actions run.
+The integration-hardening and PR-decomposition notes were first maintained on
+`docs/xamlc-cppwinrt-modules-hardening-20260930`, then synchronized back to
+`feat/xamlccppmodule/phase1` with the package switch described below.
 The status below is a checkpoint, not a live CI dashboard.
 
 | Evidence | First blocking error or result | Owning layer and disposition |
@@ -900,5 +901,45 @@ identified rather than presented as demonstrated product defects.
 [Provider-wrapper PCH selection (#30)](https://github.com/hoshiizumiya/microsoft-ui-xaml/issues/30)
 is independently owned by C++/WinRT MSBuild. Its actual generated emitter is established
 by the failure log and embedded binlog imports. It does not establish a projection
-module ownership or reachability defect. No fix for it has been committed in this
-issue/documentation pass.
+module ownership or reachability defect. The Microsoft package failure remains a
+separate report; the validation projects now consume CppWinRTPlus as described below.
+
+## 25. CppWinRTPlus integration validation
+
+The three module regression projects and `Samples/XamlCppWinRTModules` now pin
+`YexuanXiao.CppWinRTPlus 3.1.260928.1`. Package manifests, native props/targets
+imports, missing-package checks and the focused restore script are switched together.
+The repository-wide product C++/WinRT dependency is unchanged.
+
+The actual NuGet archive contains `build/native/YexuanXiao.CppWinRTPlus.targets`.
+Its `CppWinRTAddXamlMetaDataProviderCpp` adds this condition:
+
+```xml
+<_PCH Condition="'%(CLCompile.PrecompiledHeader)' != 'NotUsing'">@(ClCompile->Metadata('PrecompiledHeaderFile')->Distinct())</_PCH>
+```
+
+For the PCH-free SimpleModules project, the guard prevents the unused default
+`PrecompiledHeaderFile` metadata from enabling an include. This is the relevant
+package-level change for #30. Package inspection establishes the guard, not a
+successful Windows build or every mixed-PCH/incremental edge case in that report.
+The [CppWinRTPlus source](https://github.com/YexuanXiao/cppwinrtplus/blob/c14749f2f378565acfbb2633fe34d1eadfc6b2f6/nuget/YexuanXiao.CppWinRTPlus.targets)
+contains the same condition.
+
+Module target names and properties remain the existing C++/WinRT contract. The
+package still registers projection producers through `CppWinRTAddModuleInterfaces`
+and uses `$(IntDir)Microsoft\cppwinrt\` for projection IFCs. XamlC continues to
+emit its own interfaces to `$(IntDir)XamlModules\`. No generator-specific package
+branch, extra projection import or fixture PCH is introduced.
+
+Next validation order:
+
+1. Confirm the CI log restores the pinned Plus package and the generated provider
+   wrapper no longer includes `pch.h`; then complete late Pass2 compilation and the
+   SimpleModules link.
+2. Run the existing no-change/edit/remove/restore, codegen-flag and module/header
+   transition stages. Classify any first error by its actual emitting layer.
+3. Run the static provider, `NoTypeInfoCodeGen`, native cross-project consumer and
+   final unit-test stage. Do not infer BMI propagation success from the Simple build.
+4. Extract independently reviewable fixes using the issue index. When the Microsoft
+   package incorporates the required fixes, revalidate it explicitly before claiming
+   compatibility with that upstream package.

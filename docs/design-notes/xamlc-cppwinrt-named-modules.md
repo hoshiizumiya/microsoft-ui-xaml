@@ -806,6 +806,12 @@ without excluding `PrecompiledHeader=NotUsing` items. This is a C++/WinRT MSBuil
 selection defect ([fork #30](https://github.com/hoshiizumiya/microsoft-ui-xaml/issues/30)),
 not evidence that XamlC needs additional projection imports. Keep the fixture PCH-free.
 
+The module fixtures and sample now pin `YexuanXiao.CppWinRTPlus 3.1.260928.1`.
+The downloaded package's wrapper target checks `PrecompiledHeader != NotUsing`;
+this addresses the observed selection mechanism in #30. Windows CI validation of
+the package switch is pending. The [implementation guide](xamlc-cppwinrt-named-modules-implementation-guide.md#25-cppwinrtplus-integration-validation)
+records the exact package boundary and next acceptance stages.
+
 Passing the first compile stage does not establish late Pass2 compilation, final
 linking, incremental transitions, or static-library consumer success. The guide's
 [integration evidence](xamlc-cppwinrt-named-modules-implementation-guide.md#24-integration-evidence-and-open-validation)

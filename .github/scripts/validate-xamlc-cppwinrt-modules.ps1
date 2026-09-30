@@ -24,10 +24,12 @@ New-Item -ItemType Directory -Force -Path $binlogDir | Out-Null
 
 $cppWinRTPackagesConfig = Join-Path $repoRoot 'src\XamlCompiler\Tests\RegressionProjects\Basic\CppWinRT\SimpleModules\packages.config'
 [xml]$packagesConfig = Get-Content $cppWinRTPackagesConfig
-$cppWinRTPackage = $packagesConfig.packages.package | Where-Object { $_.id -eq 'Microsoft.Windows.CppWinRT' }
+$cppWinRTPackage = $packagesConfig.packages.package | Where-Object { $_.id -eq 'YexuanXiao.CppWinRTPlus' }
 if (-not $cppWinRTPackage) {
-    throw 'Microsoft.Windows.CppWinRT was not found in the SimpleModules packages.config.'
+    throw 'YexuanXiao.CppWinRTPlus was not found in the SimpleModules packages.config.'
 }
+
+Write-Host "C++/WinRT projection package: $($cppWinRTPackage.id) $($cppWinRTPackage.version)"
 
 $cppWinRTPackageDir = Join-Path $repoRoot ("packages\{0}.{1}" -f $cppWinRTPackage.id, $cppWinRTPackage.version)
 if (-not (Test-Path $cppWinRTPackageDir)) {

@@ -15,6 +15,12 @@ For implementation ownership, exact source files, MSBuild ordering, failure sign
 phase-1 acceptance criteria, see
 [`xamlc-cppwinrt-named-modules-implementation-guide.md`](../../docs/design-notes/xamlc-cppwinrt-named-modules-implementation-guide.md).
 
+The sample currently uses `YexuanXiao.CppWinRTPlus 3.1.260928.1`, based on the
+C++/WinRT 3.x module implementation. Its provider-wrapper target checks whether PCH
+is enabled, addressing the missing `pch.h` failure in
+[fork #30](https://github.com/hoshiizumiya/microsoft-ui-xaml/issues/30).
+This package choice supports integration validation; the full gate still needs to pass.
+
 ## What the sample demonstrates
 
 - `CppWinRTBuildModule=true`.
@@ -67,7 +73,7 @@ this feature supplies its own XamlC.
 ```xml
 <PropertyGroup>
   <CppWinRTBuildModule>true</CppWinRTBuildModule>
-  <CppWinRTVersion>3.0.260818.1</CppWinRTVersion>
+  <CppWinRTPlusVersion>3.1.260928.1</CppWinRTPlusVersion>
   <CppWinRTEnabled>true</CppWinRTEnabled>
   <CppWinRTOptimized>true</CppWinRTOptimized>
 </PropertyGroup>
