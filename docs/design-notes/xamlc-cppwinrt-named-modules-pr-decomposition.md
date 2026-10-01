@@ -29,7 +29,7 @@ The old development tips remain available on
 | [#38 incremental](https://github.com/hoshiizumiya/microsoft-ui-xaml/pull/38) | #8, #9 | Independent | Two compiler files; merge before modules |
 | [#39 modules](https://github.com/hoshiizumiya/microsoft-ui-xaml/pull/39) | #10–#25 | #38 | 39 files relative to review/xamlc-incremental |
 | [#36 docs/sample](https://github.com/hoshiizumiya/microsoft-ui-xaml/pull/36) | #3 documentation | #39 | 19 files relative to review/xamlc-named-modules |
-| Product validation successor to #33 | #6, #26–#29, #31, #32, #35 workaround | Product | Fork CI/native fixtures; not an upstream product prerequisite |
+| [#40 validation](https://github.com/hoshiizumiya/microsoft-ui-xaml/pull/40), successor to #33 | #6, #26–#29, #31, #32, #35 workaround | Product | Fork CI/native fixtures; not an upstream product prerequisite |
 
 Do not submit each module-hardening issue as an independently mergeable patch.
 The primary interface, partition ownership, semantic dependency closure and native
@@ -90,7 +90,30 @@ Full execution builds the upstream test solution, including generated-code compa
 inputs, and has no filter. Both use upstream payload staging and runsettings; no second
 runtime-copy directory or replacement test csproj is introduced.
 
-Windows results for this branch and the rebased product remain pending. The original
+T4 synchronization passed in run 36839559979, job 110295124502, without a generated
+follow-up commit. Final Windows build/unit results for this branch remain pending. The original
 successful focused run does not validate the new tree. Interactive sample execution,
 other-architecture module compilation and the complete unfiltered suite are separate
 acceptance items.
+
+## Upstream publication handoff
+
+The user has authorized upstream issue and PR publication. GitHub App writes returned
+403; browser authentication could not yet be verified, so no upstream changes are claimed.
+The [submission draft payload](xamlc-upstream-submission-drafts.json) holds four
+main-based draft PR descriptions and nine updates to existing upstream issues.
+Do not create duplicate issues. Module/docs drafts disclose their prerequisite commits
+until the actual upstream merges permit rebasing to isolated diffs.
+
+| Fork report | Existing upstream report | Prepared update |
+| --- | --- | --- |
+| #4, #5, #7 | #12100, #12101, #12103 | Initialization evidence/reproduction and independent #37 scope |
+| #6 | #12102 | Fixture-only runtime mitigation; product defaults retained |
+| #8, #9 | #12104, #12105 | General incremental corrections and #38 scope |
+| #12 | #12106 | Importance/reproduction requested by maintainer; unmerged feature scope explicit |
+| #29 | #12107 | T4 verification proposal, preserving product baseline and fork safety |
+| #3 | #11524 | Current umbrella contract, dependencies and honest validation checkpoint |
+
+The remaining module-hardening reports stay grouped under the feature implementation,
+and fixture/CI reports stay outside product. Provider defects #30/#35 belong to C++/WinRT;
+their package-level resolution is not established by a WinUI fixture workaround.
