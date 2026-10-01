@@ -13,19 +13,16 @@ if (-not $PackagesDirectory) {
     $PackagesDirectory = Join-Path $repoRoot 'packages'
 }
 
-$versionsProps = Join-Path $repoRoot 'eng\Versions.props'
-[xml]$versions = Get-Content -LiteralPath $versionsProps
-$winUIVersionNode = @($versions.Project.PropertyGroup.WinUIVersion | Where-Object { $_.'#text' }) | Select-Object -First 1
-if (-not $winUIVersionNode) {
-    throw "Unable to determine WinUIVersion from '$versionsProps'."
+$packageId = 'Microsoft.WindowsAppSDK.WinUI'
+$available = @(Get-ChildItem -LiteralPath $PackageStore -Filter "$packageId.*.nupkg" -File -ErrorAction Stop)
+if ($available.Count -ne 1) {
+    throw "Expected exactly one $packageId validation package in '$PackageStore', found $($available.Count): $($available.Name -join ', ')"
 }
 
-$version = [string]$winUIVersionNode.'#text'
-$packageId = 'Microsoft.WindowsAppSDK.WinUI'
-$nupkg = Join-Path $PackageStore "$packageId.$version.nupkg"
-if (-not (Test-Path -LiteralPath $nupkg)) {
-    $available = @(Get-ChildItem -LiteralPath $PackageStore -Filter "$packageId.*.nupkg" -File -ErrorAction SilentlyContinue)
-    throw "Expected '$nupkg' was not found. Available WinUI packages: $($available.Name -join ', ')"
+$nupkg = $available[0]
+$version = $nupkg.BaseName.Substring($packageId.Length + 1)
+if ([string]::IsNullOrWhiteSpace($version)) {
+    throw "Unable to determine the WinUI package version from '$($nupkg.Name)'."
 }
 
 $destination = Join-Path $PackagesDirectory "$packageId.$version"
@@ -39,11 +36,11 @@ if (-not (Test-Path -LiteralPath $requiredProps) -or -not (Test-Path -LiteralPat
 
     New-Item -ItemType Directory -Force -Path $destination | Out-Null
     Add-Type -AssemblyName System.IO.Compression.FileSystem
-    [System.IO.Compression.ZipFile]::ExtractToDirectory($nupkg, $destination)
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($nupkg.FullName, $destination)
 }
 
 if (-not (Test-Path -LiteralPath $requiredProps) -or -not (Test-Path -LiteralPath $requiredTargets)) {
-    throw "WinUI validation package did not contain the expected native build imports under '$destination'."
+    throw "WinUI validation package '$($nupkg.FullName)' did not contain the expected native build imports under '$destination'."
 }
 
 Write-Host "Materialized $packageId $version at '$destination'."
