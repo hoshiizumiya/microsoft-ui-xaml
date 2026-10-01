@@ -359,7 +359,86 @@ namespace UnitTests
             return (schema.UserAssemblies.Count > 0) ? schema.UserAssemblies[0] : null;
         }
 
+        /// <summary>
+        /// A type universe and initialized <see cref="TypeResolver"/> cached for the test-process
+        /// lifetime by <see cref="SchemaMode"/>. Each mode has a stable runtime assembly set, while
+        /// callers receive a fresh <see cref="DirectUISchemaContext"/>.
+        /// </summary>
+        private sealed class UniverseEntry
+        {
+            public XamlTypeUniverse Universe;
+            public TypeResolver Resolver;
+            public List<Assembly> Assemblies;
+            public Assembly UserTypeAssembly;
+            public Assembly LocalAssembly;
+        }
+
+        private static readonly Dictionary<SchemaMode, UniverseEntry> s_universeCache =
+            new Dictionary<SchemaMode, UniverseEntry>();
+
         public DirectUISchemaContext LoadSchema(SchemaMode schemaMode)
+        {
+            // Clear process-wide per-compilation caches before building each schema. The universe is
+            // cached because it is immutable and expensive; assembly-classification caches must not
+            // leak between tests.
+            InstanceCacheManager.ClearCache();
+
+            UniverseEntry entry;
+            bool isNewUniverse = !s_universeCache.TryGetValue(schemaMode, out entry);
+            if (isNewUniverse)
+            {
+                entry = BuildUniverse(schemaMode);
+            }
+
+            // Create a fresh schema context and assembly-list copy so schema state and downstream
+            // mutations remain isolated per test.
+            var schema = new DirectUISchemaContext(new List<Assembly>(entry.Assemblies), null, null, null, true);
+
+            if (isNewUniverse)
+            {
+                // Built after the first schema, which is the order this code has always used.
+                // InitializeTypeNameMap asserts if called twice, so it happens once per mode.
+                entry.Resolver = new TypeResolver(entry.Universe);
+                entry.Resolver.InitializeTypeNameMap();
+                s_universeCache.Add(schemaMode, entry);
+            }
+
+            schema.TypeResolver = entry.Resolver;
+
+            if (entry.LocalAssembly != null)
+            {
+                schema.LocalAssembly = entry.LocalAssembly;
+            }
+            if (entry.UserTypeAssembly != null)
+            {
+                schema.UserAssemblies.Add(entry.UserTypeAssembly);
+            }
+
+            return schema;
+        }
+
+        /// <summary>
+        /// Disposes every cached universe and drops the compiler statics that reference them. Called
+        /// from the assembly-level cleanup; the equivalent in the product is
+        /// CompileXamlInternal.UnloadReferences.
+        /// </summary>
+        internal static void ReleaseCachedUniverses()
+        {
+            foreach (UniverseEntry entry in s_universeCache.Values)
+            {
+                entry.Resolver = null;
+                entry.Universe.Dispose();
+            }
+            s_universeCache.Clear();
+
+            InstanceCacheManager.ClearCache();
+
+            // Not an InstanceCache<,>, so ClearCache above does not reach it. Its CustomAttributeData
+            // values reference Types from the universes just disposed.
+            ReflectionHelper.Release();
+        }
+
+        private UniverseEntry BuildUniverse(SchemaMode schemaMode)
         {
             // Find the Run Time assemblies.
             bool loadNativeRuntime = (schemaMode & SchemaMode.NativeRuntime) == SchemaMode.NativeRuntime;
@@ -410,22 +489,13 @@ namespace UnitTests
                 assemblies.Add(mscorlib);
             }
 
-            var schema = new DirectUISchemaContext(assemblies, null, null, null, true);
-
-            TypeResolver typeResolver = new TypeResolver(typeUniverse);
-            typeResolver.InitializeTypeNameMap();
-            schema.TypeResolver = typeResolver;
-
-            if (localAsm != null)
+            return new UniverseEntry
             {
-                schema.LocalAssembly = localAsm;
-            }
-            if (userTypeAssembly != null)
-            {
-                schema.UserAssemblies.Add(userTypeAssembly);
-            }
-
-            return schema;
+                Universe = typeUniverse,
+                Assemblies = assemblies,
+                UserTypeAssembly = userTypeAssembly,
+                LocalAssembly = localAsm,
+            };
         }
 
         public void XamlRewrite(string xamlFileName, XamlClassCodeInfo classInfo, XamlFileCodeInfo fileInfo)

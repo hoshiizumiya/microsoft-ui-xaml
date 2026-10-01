@@ -90,7 +90,9 @@ try {
         Remove-Item -LiteralPath $trxPath
     }
     $arguments = @('UnitTests.dll', '/Settings:test.runsettings', '/Platform:x64',
-        "/ResultsDirectory:$resultsDir", '/Logger:trx;LogFileName=XamlCompiler.trx')
+        "/ResultsDirectory:$resultsDir", '/Logger:trx;LogFileName=XamlCompiler.trx',
+        '/Blame:CollectHangDump;TestTimeout=5m;HangDumpType=mini',
+        "/Diag:$(Join-Path $resultsDir 'vstest-diag.log');tracelevel=info")
     if ($TestCaseFilter) {
         $arguments += "/TestCaseFilter:$TestCaseFilter"
     }

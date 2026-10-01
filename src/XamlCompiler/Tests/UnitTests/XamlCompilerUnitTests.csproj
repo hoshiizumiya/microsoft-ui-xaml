@@ -49,6 +49,7 @@
     <Compile Include="MultipleViewTests.cs" />
     <Compile Include="StaticResourceTests.cs" />
     <Compile Include="TestHelper.cs" />
+    <Compile Include="TestRunSetup.cs" />
     <Compile Include="SchemaTests.cs" />
     <Compile Include="TypeCollectorTests.cs" />
     <Compile Include="UnitTests.cs" />
