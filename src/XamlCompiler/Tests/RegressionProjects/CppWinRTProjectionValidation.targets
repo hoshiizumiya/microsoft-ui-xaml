@@ -1,6 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Copyright (c) Microsoft Corporation. Licensed under the MIT License. -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!--
+    These dedicated C++/WinRT 3.x fixtures intentionally bypass the common native test
+    preamble so they can use the VS2026 module-capable projection package. The common
+    preamble normally supplies the local WinUI metadata references. Reintroduce the
+    public metadata produced by the prerequisite product build explicitly so MIDL and
+    cppwinrt resolve Microsoft.UI.Xaml types from the same build under validation.
+  -->
+  <PropertyGroup>
+    <_XamlCppWinRTValidationWinMDRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\..\..\BuildOutput\packaging\$(Configuration)\lib\uap10.0'))</_XamlCppWinRTValidationWinMDRoot>
+  </PropertyGroup>
+  <ItemGroup Condition="Exists('$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.UI.Xaml.winmd')">
+    <CppWinRTDirectWinMDReferences Include="$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.Foundation.winmd"
+                                  Condition="Exists('$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.Foundation.winmd')" />
+    <CppWinRTDirectWinMDReferences Include="$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.Graphics.winmd"
+                                  Condition="Exists('$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.Graphics.winmd')" />
+    <CppWinRTDirectWinMDReferences Include="$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.UI.winmd"
+                                  Condition="Exists('$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.UI.winmd')" />
+    <CppWinRTDirectWinMDReferences Include="$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.UI.Xaml.winmd" />
+    <CppWinRTDirectWinMDReferences Include="$(NugetPackageDirectory)\Microsoft.Web.WebView2.$(WebView2PackageVersion)\lib\Microsoft.Web.WebView2.Core.winmd"
+                                  Condition="Exists('$(NugetPackageDirectory)\Microsoft.Web.WebView2.$(WebView2PackageVersion)\lib\Microsoft.Web.WebView2.Core.winmd')" />
+    <CppWinRTDirectWinMDReferences Include="$(NugetPackageDirectory)\Microsoft.WindowsAppSDK.Foundation.$(FoundationPackageVersion)\metadata\Microsoft.Windows.ApplicationModel.Resources.winmd"
+                                  Condition="Exists('$(NugetPackageDirectory)\Microsoft.WindowsAppSDK.Foundation.$(FoundationPackageVersion)\metadata\Microsoft.Windows.ApplicationModel.Resources.winmd')" />
+  </ItemGroup>
+
   <!-- C++/WinRT's projection cache does not track command-line module-mode changes. -->
   <Target Name="TrackCppWinRTProjectionModuleMode"
           BeforeTargets="CppWinRTMakePlatformProjection;CppWinRTMakeReferenceProjection;CppWinRTMakeComponentProjection">

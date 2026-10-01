@@ -62,6 +62,11 @@ jobs:
               exit $LASTEXITCODE
           }
 
+          gh run download $runId --repo $env:GITHUB_REPOSITORY --name winui-nuget-x64chk --dir PackageStore
+          if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+          }
+
           "run_id=$runId" >> $env:GITHUB_OUTPUT
 
       - name: Initialize VS2026 environment and rebuild current XamlCompiler
