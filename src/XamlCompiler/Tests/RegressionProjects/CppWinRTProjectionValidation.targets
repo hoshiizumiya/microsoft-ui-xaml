@@ -20,17 +20,13 @@
     <Error Condition="!Exists('$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.UI.Xaml.winmd')"
            Text="Named-module validation requires the x64chk WinUI metadata payload at '$(_XamlCppWinRTValidationWinMDRoot)'." />
     <ItemGroup>
-      <_XamlCppWinRTValidationWinMD Include="$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.Foundation.winmd"
-                                    Condition="Exists('$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.Foundation.winmd')" />
-      <_XamlCppWinRTValidationWinMD Include="$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.Graphics.winmd"
-                                    Condition="Exists('$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.Graphics.winmd')" />
-      <_XamlCppWinRTValidationWinMD Include="$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.UI.winmd"
-                                    Condition="Exists('$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.UI.winmd')" />
-      <_XamlCppWinRTValidationWinMD Include="$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.UI.Xaml.winmd" />
+      <!-- Consume the complete public WinRT metadata surface staged for the validation
+           package instead of reconstructing transitive package paths. In particular,
+           Microsoft.UI.Xaml.winmd references Microsoft.Windows.ApplicationModel.Resources,
+           whose WinMD is staged beside the other public metadata. -->
+      <_XamlCppWinRTValidationWinMD Include="$(_XamlCppWinRTValidationWinMDRoot)\*.winmd" />
       <_XamlCppWinRTValidationWinMD Include="$(NugetPackageDirectory)\Microsoft.Web.WebView2.$(WebView2PackageVersion)\lib\Microsoft.Web.WebView2.Core.winmd"
                                     Condition="Exists('$(NugetPackageDirectory)\Microsoft.Web.WebView2.$(WebView2PackageVersion)\lib\Microsoft.Web.WebView2.Core.winmd')" />
-      <_XamlCppWinRTValidationWinMD Include="$(NugetPackageDirectory)\Microsoft.WindowsAppSDK.Foundation.$(FoundationPackageVersion)\metadata\Microsoft.Windows.ApplicationModel.Resources.winmd"
-                                    Condition="Exists('$(NugetPackageDirectory)\Microsoft.WindowsAppSDK.Foundation.$(FoundationPackageVersion)\metadata\Microsoft.Windows.ApplicationModel.Resources.winmd')" />
 
       <ReferencePath Include="@(_XamlCppWinRTValidationWinMD)">
         <WinMDFile>true</WinMDFile>
