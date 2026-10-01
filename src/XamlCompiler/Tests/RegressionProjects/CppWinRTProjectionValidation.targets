@@ -2,28 +2,47 @@
 <!-- Copyright (c) Microsoft Corporation. Licensed under the MIT License. -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <!--
-    These dedicated C++/WinRT 3.x fixtures intentionally bypass the common native test
-    preamble so they can use the VS2026 module-capable projection package. The common
-    preamble normally supplies the local WinUI metadata references. Reintroduce the
-    public metadata produced by the prerequisite product build explicitly so MIDL and
-    cppwinrt resolve Microsoft.UI.Xaml types from the same build under validation.
+    The module-only fixtures deliberately use the VS2026/C++/WinRT 3.x projection package
+    instead of the common native test preamble. The preamble normally contributes WinUI's
+    local WinMD references. Inject the same product metadata after RAR has populated
+    @(ReferencePath), then let C++/WinRT's normal GetCppWinRTDirectWinMDReferences target
+    consume those entries. Writing @(CppWinRTDirectWinMDReferences) directly is ineffective
+    because that target clears and rebuilds the item from @(ReferencePath).
   -->
   <PropertyGroup>
     <_XamlCppWinRTValidationWinMDRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\..\..\BuildOutput\packaging\$(Configuration)\lib\uap10.0'))</_XamlCppWinRTValidationWinMDRoot>
+    <GetCppWinRTDirectWinMDReferencesDependsOn>$(GetCppWinRTDirectWinMDReferencesDependsOn);AddXamlCppWinRTValidationWinMDReferences</GetCppWinRTDirectWinMDReferencesDependsOn>
   </PropertyGroup>
-  <ItemGroup Condition="Exists('$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.UI.Xaml.winmd')">
-    <CppWinRTDirectWinMDReferences Include="$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.Foundation.winmd"
-                                  Condition="Exists('$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.Foundation.winmd')" />
-    <CppWinRTDirectWinMDReferences Include="$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.Graphics.winmd"
-                                  Condition="Exists('$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.Graphics.winmd')" />
-    <CppWinRTDirectWinMDReferences Include="$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.UI.winmd"
-                                  Condition="Exists('$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.UI.winmd')" />
-    <CppWinRTDirectWinMDReferences Include="$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.UI.Xaml.winmd" />
-    <CppWinRTDirectWinMDReferences Include="$(NugetPackageDirectory)\Microsoft.Web.WebView2.$(WebView2PackageVersion)\lib\Microsoft.Web.WebView2.Core.winmd"
-                                  Condition="Exists('$(NugetPackageDirectory)\Microsoft.Web.WebView2.$(WebView2PackageVersion)\lib\Microsoft.Web.WebView2.Core.winmd')" />
-    <CppWinRTDirectWinMDReferences Include="$(NugetPackageDirectory)\Microsoft.WindowsAppSDK.Foundation.$(FoundationPackageVersion)\metadata\Microsoft.Windows.ApplicationModel.Resources.winmd"
-                                  Condition="Exists('$(NugetPackageDirectory)\Microsoft.WindowsAppSDK.Foundation.$(FoundationPackageVersion)\metadata\Microsoft.Windows.ApplicationModel.Resources.winmd')" />
-  </ItemGroup>
+
+  <Target Name="AddXamlCppWinRTValidationWinMDReferences"
+          AfterTargets="ResolveAssemblyReferences"
+          BeforeTargets="GetCppWinRTDirectWinMDReferences">
+    <Error Condition="!Exists('$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.UI.Xaml.winmd')"
+           Text="Named-module validation requires the x64chk WinUI metadata payload at '$(_XamlCppWinRTValidationWinMDRoot)'." />
+    <ItemGroup>
+      <_XamlCppWinRTValidationWinMD Include="$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.Foundation.winmd"
+                                    Condition="Exists('$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.Foundation.winmd')" />
+      <_XamlCppWinRTValidationWinMD Include="$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.Graphics.winmd"
+                                    Condition="Exists('$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.Graphics.winmd')" />
+      <_XamlCppWinRTValidationWinMD Include="$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.UI.winmd"
+                                    Condition="Exists('$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.UI.winmd')" />
+      <_XamlCppWinRTValidationWinMD Include="$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.UI.Xaml.winmd" />
+      <_XamlCppWinRTValidationWinMD Include="$(NugetPackageDirectory)\Microsoft.Web.WebView2.$(WebView2PackageVersion)\lib\Microsoft.Web.WebView2.Core.winmd"
+                                    Condition="Exists('$(NugetPackageDirectory)\Microsoft.Web.WebView2.$(WebView2PackageVersion)\lib\Microsoft.Web.WebView2.Core.winmd')" />
+      <_XamlCppWinRTValidationWinMD Include="$(NugetPackageDirectory)\Microsoft.WindowsAppSDK.Foundation.$(FoundationPackageVersion)\metadata\Microsoft.Windows.ApplicationModel.Resources.winmd"
+                                    Condition="Exists('$(NugetPackageDirectory)\Microsoft.WindowsAppSDK.Foundation.$(FoundationPackageVersion)\metadata\Microsoft.Windows.ApplicationModel.Resources.winmd')" />
+
+      <ReferencePath Include="@(_XamlCppWinRTValidationWinMD)">
+        <WinMDFile>true</WinMDFile>
+        <IsWinMDFile>true</IsWinMDFile>
+        <IsSystemReference>false</IsSystemReference>
+        <ReferenceSourceTarget>ResolveAssemblyReference</ReferenceSourceTarget>
+        <Private>false</Private>
+      </ReferencePath>
+    </ItemGroup>
+    <Message Text="Named-module validation WinMD references: @(_XamlCppWinRTValidationWinMD)"
+             Importance="high" />
+  </Target>
 
   <!-- C++/WinRT's projection cache does not track command-line module-mode changes. -->
   <Target Name="TrackCppWinRTProjectionModuleMode"

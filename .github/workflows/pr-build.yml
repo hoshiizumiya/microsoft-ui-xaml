@@ -275,6 +275,10 @@ jobs:
           name: winui-nuget-x64chk
           path: PackageStore
 
+      - name: Materialize WinUI package for native tests
+        shell: pwsh
+        run: .github/scripts/materialize-winui-validation-package.ps1
+
       - name: Initialize VS2026 module environment and validate
         shell: pwsh
         run: |
@@ -341,6 +345,10 @@ jobs:
         with:
           name: winui-nuget-x64chk
           path: PackageStore
+
+      - name: Materialize WinUI package for native tests
+        shell: pwsh
+        run: .github/scripts/materialize-winui-validation-package.ps1
 
       - name: Initialize VS2022 and run the complete unit suite
         shell: pwsh

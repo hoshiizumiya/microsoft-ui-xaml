@@ -69,6 +69,10 @@ jobs:
 
           "run_id=$runId" >> $env:GITHUB_OUTPUT
 
+      - name: Materialize WinUI package for native tests
+        shell: pwsh
+        run: .github/scripts/materialize-winui-validation-package.ps1
+
       - name: Initialize VS2026 environment and rebuild current XamlCompiler
         shell: pwsh
         run: |
