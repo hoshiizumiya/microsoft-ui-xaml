@@ -85,8 +85,9 @@ $staticConsumer = 'src\XamlCompiler\Tests\RegressionProjects\Features\StaticLibs
 Invoke-XamlModuleBuild $simpleModules 'SimpleCppWinRTModules.CleanModule'
 
 $simpleGeneratedRoot = Join-Path $repoRoot 'BuildOutput\obj\amd64chk\CompilerTests\Basic\CppWinRT\SimpleModules'
-# ConsumeBinaries keeps generated code and XAML IFCs under the shortened test root.
-$simpleIntRoot = Join-Path $repoRoot 'BuildOutput\obj\amd64chk\CompilerTests\Basic\CppWinRT\SimpleModules\SimpleCppWinRTModules'
+# The upstream test-payload rebase shortened IntDir from <test-root>\<ProjectName>\ to
+# <test-root>\. Scan from the stable test root so this validation follows either layout.
+$simpleIntRoot = $simpleGeneratedRoot
 $mainPageModuleHeaders = @(Get-ChildItem -Path $simpleGeneratedRoot -Filter 'MainPage.xaml.g.h' -File -Recurse -ErrorAction SilentlyContinue)
 if ($mainPageModuleHeaders.Count -eq 0) {
     throw 'SimpleModules did not generate MainPage.xaml.g.h.'
@@ -234,8 +235,10 @@ foreach ($header in $providerPrimaryHeaders) {
 # Seed the consumer's real default XAML-module output directory. Do not override
 # XamlCppWinRTModuleIfcDir as a global property here: global MSBuild properties flow to
 # ProjectReferences and would redirect the static provider's real Application_Xaml IFCs
-# into the consumer's sentinel directory as well.
-$inactiveConsumerXamlModuleDir = Join-Path $repoRoot 'BuildOutput\obj\amd64chk\CompilerTests\Features\StaticLibs\StaticControlsModuleConsumer\StaticControlsModuleConsumer\XamlModules'
+# into the consumer's sentinel directory as well. The upstream payload shortens IntDir to
+# the stable test root, so derive the sentinel from that root rather than ProjectName nesting.
+$staticConsumerGeneratedRoot = Join-Path $repoRoot 'BuildOutput\obj\amd64chk\CompilerTests\Features\StaticLibs\StaticControlsModuleConsumer'
+$inactiveConsumerXamlModuleDir = Join-Path $staticConsumerGeneratedRoot 'XamlModules'
 New-Item -ItemType Directory -Force -Path $inactiveConsumerXamlModuleDir | Out-Null
 Set-Content -Path (Join-Path $inactiveConsumerXamlModuleDir 'stale.ifc') -Value 'stale'
 
@@ -248,7 +251,6 @@ if (Test-Path $inactiveConsumerXamlModuleDir) {
 
 Invoke-XamlModuleBuild $staticConsumer 'StaticControlsModuleConsumer.CrossProject'
 
-$staticConsumerGeneratedRoot = Join-Path $repoRoot 'BuildOutput\obj\amd64chk\CompilerTests\Features\StaticLibs\StaticControlsModuleConsumer'
 if (-not (Test-Path $staticConsumerGeneratedRoot)) {
     throw "Static consumer generated-files root was not created: $staticConsumerGeneratedRoot"
 }
