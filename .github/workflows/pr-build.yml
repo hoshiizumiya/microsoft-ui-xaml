@@ -218,6 +218,15 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+      - name: Upload consumable WinUI NuGet package
+        if: env.DISABLE_PR_BUILD_MATRIX_VALIDATION != 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: winui-nuget-${{ matrix.flavor }}
+          path: PackageStore/*.nupkg
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Upload named-module validation prerequisites
         if: matrix.flavor == 'x64chk' && env.DISABLE_PR_BUILD_MATRIX_VALIDATION != 'true'
         uses: actions/upload-artifact@v6
