@@ -20,6 +20,22 @@ if (-not (Test-Path $vsTest)) {
     throw "VSTest was not found at '$vsTest'."
 }
 
+function Restore-XamlCompilerNativeDependencies {
+    # The rebased upstream native fixtures import WinAppSDK component props/targets by
+    # raw $(NugetPackageDirectory) paths. XamlCompilerTests.sln restore only sees each
+    # project's packages.config, while normal repo initialization restores this shared
+    # component closure separately via eng/RestoreComponentDependencies.csproj.
+    $componentDependencies = Join-Path $repoRoot 'eng\RestoreComponentDependencies.csproj'
+    $packagesDirectory = Join-Path $repoRoot 'packages'
+    $nugetConfig = Join-Path $repoRoot 'nuget.config'
+    $nuget = Get-Command nuget.exe -ErrorAction Stop
+
+    & $nuget.Source restore $componentDependencies -ConfigFile $nugetConfig -PackagesDirectory $packagesDirectory -NonInteractive
+    if ($LASTEXITCODE -ne 0) {
+        throw "Component dependency restore failed with exit code $LASTEXITCODE."
+    }
+}
+
 function Invoke-TestBuild([string]$RelativeProject, [string[]]$ExtraProperties = @()) {
     $project = Join-Path $repoRoot $RelativeProject
     $name = [IO.Path]::GetFileNameWithoutExtension($project)
@@ -58,6 +74,9 @@ if ($SkipRegressionBuild) {
 else {
     # Upstream #11837 re-enabled generated-code comparisons. Build their inputs too;
     # executing the full suite without the regression output would invalidate those tests.
+    # Mirror PostInit.ps1's component restore first so the native fixtures' raw package
+    # imports resolve even though this CI job starts from downloaded build artifacts.
+    Restore-XamlCompilerNativeDependencies
     Invoke-TestBuild 'src\XamlCompiler\XamlCompilerTests.sln' @('/p:PlatformToolset=v143')
 }
 
