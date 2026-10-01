@@ -3,42 +3,19 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <!--
     The module-only fixtures deliberately use the VS2026/C++/WinRT 3.x projection package
-    instead of the common native test preamble. The preamble normally contributes WinUI's
-    local WinMD references. Inject the same product metadata after RAR has populated
-    @(ReferencePath), then let C++/WinRT's normal GetCppWinRTDirectWinMDReferences target
-    consume those entries. Writing @(CppWinRTDirectWinMDReferences) directly is ineffective
-    because that target clears and rebuilds the item from @(ReferencePath).
+    instead of the common native test preamble. Before the upstream test-payload rebase,
+    Tests/Directory.Build.props imported consumebinaries.props, whose Reference items supplied
+    the repo's canonical WinUI metadata closure to ResolveAssemblyReferences.
+
+    Restore only that reference contract here. Importing the whole legacy props file would also
+    restore its v142 toolset and output-path overrides, while injecting packaging WinMDs directly
+    into ReferencePath bypasses RAR and can duplicate metadata already supplied by WinUIDetails.
   -->
-  <PropertyGroup>
-    <_XamlCppWinRTValidationWinMDRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\..\..\BuildOutput\packaging\$(Configuration)\lib\uap10.0'))</_XamlCppWinRTValidationWinMDRoot>
-    <GetCppWinRTDirectWinMDReferencesDependsOn>$(GetCppWinRTDirectWinMDReferencesDependsOn);AddXamlCppWinRTValidationWinMDReferences</GetCppWinRTDirectWinMDReferencesDependsOn>
-  </PropertyGroup>
-
-  <Target Name="AddXamlCppWinRTValidationWinMDReferences"
-          AfterTargets="ResolveAssemblyReferences"
-          BeforeTargets="GetCppWinRTDirectWinMDReferences">
-    <Error Condition="!Exists('$(_XamlCppWinRTValidationWinMDRoot)\Microsoft.UI.Xaml.winmd')"
-           Text="Named-module validation requires the x64chk WinUI metadata payload at '$(_XamlCppWinRTValidationWinMDRoot)'." />
-    <ItemGroup>
-      <!-- Consume the complete public WinRT metadata surface staged for the validation
-           package instead of reconstructing transitive package paths. In particular,
-           Microsoft.UI.Xaml.winmd references Microsoft.Windows.ApplicationModel.Resources,
-           whose WinMD is staged beside the other public metadata. -->
-      <_XamlCppWinRTValidationWinMD Include="$(_XamlCppWinRTValidationWinMDRoot)\*.winmd" />
-      <_XamlCppWinRTValidationWinMD Include="$(NugetPackageDirectory)\Microsoft.Web.WebView2.$(WebView2PackageVersion)\lib\Microsoft.Web.WebView2.Core.winmd"
-                                    Condition="Exists('$(NugetPackageDirectory)\Microsoft.Web.WebView2.$(WebView2PackageVersion)\lib\Microsoft.Web.WebView2.Core.winmd')" />
-
-      <ReferencePath Include="@(_XamlCppWinRTValidationWinMD)">
-        <WinMDFile>true</WinMDFile>
-        <IsWinMDFile>true</IsWinMDFile>
-        <IsSystemReference>false</IsSystemReference>
-        <ReferenceSourceTarget>ResolveAssemblyReference</ReferenceSourceTarget>
-        <Private>false</Private>
-      </ReferencePath>
-    </ItemGroup>
-    <Message Text="Named-module validation WinMD references: @(_XamlCppWinRTValidationWinMD)"
-             Importance="high" />
-  </Target>
+  <ItemGroup>
+    <Reference Include="@(WinUIWinMDReferences)" />
+    <Reference Include="$(NugetPackageDirectory)\$(WebView2PackageName).$(WebView2Version)\lib\Microsoft.Web.WebView2.Core.winmd"
+               Condition="Exists('$(NugetPackageDirectory)\$(WebView2PackageName).$(WebView2Version)\lib\Microsoft.Web.WebView2.Core.winmd')" />
+  </ItemGroup>
 
   <!-- C++/WinRT's projection cache does not track command-line module-mode changes. -->
   <Target Name="TrackCppWinRTProjectionModuleMode"
