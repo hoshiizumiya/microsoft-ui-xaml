@@ -88,6 +88,40 @@ function Restore-XamlCompilerNativeDependencies {
     }
 
     Write-Host "Materialized $materialized component package(s) into legacy packages.config layout."
+
+    # RuntimeComponent/AppPreamble also raw-import the public test-app component packages.
+    # They are not the same closure as RestoreComponentDependencies (notably IXP uses the
+    # app pin, and Base is an independent pin), so restore all three authoritative OSS pins
+    # directly into NuGet's legacy Id.Version layout.
+    [xml]$versions = Get-Content -LiteralPath (Join-Path $repoRoot 'eng\Versions.props')
+    function Get-OssPackageVersion([string]$PropertyName) {
+        $nodes = @($versions.SelectNodes("//$PropertyName[@Condition]") |
+            Where-Object { $_.Condition -like '*IsInternalWinUIBuild*' })
+        if ($nodes.Count -eq 0) {
+            throw "Could not resolve OSS package version property '$PropertyName' from eng\Versions.props."
+        }
+        return $nodes[-1].InnerText
+    }
+
+    $legacyComponentPackages = @(
+        @{ Id = 'Microsoft.WindowsAppSDK.Base'; Version = Get-OssPackageVersion 'BasePackageVersion' },
+        @{ Id = 'Microsoft.WindowsAppSDK.InteractiveExperiences'; Version = Get-OssPackageVersion 'IXPPackageVersion' },
+        @{ Id = 'Microsoft.WindowsAppSDK.Foundation'; Version = Get-OssPackageVersion 'FoundationPackageVersion' }
+    )
+    foreach ($package in $legacyComponentPackages) {
+        $legacyPath = Join-Path $packagesDirectory "$($package.Id).$($package.Version)"
+        if (Test-Path $legacyPath -PathType Container) {
+            continue
+        }
+
+        & $nuget.Source install $package.Id -Version $package.Version -OutputDirectory $packagesDirectory -ConfigFile $nugetConfig -NonInteractive
+        if ($LASTEXITCODE -ne 0) {
+            throw "Legacy restore for $($package.Id) $($package.Version) failed with exit code $LASTEXITCODE."
+        }
+        if (-not (Test-Path $legacyPath -PathType Container)) {
+            throw "Legacy restore for $($package.Id) $($package.Version) did not materialize '$legacyPath'."
+        }
+    }
 }
 
 function Invoke-TestBuild([string]$RelativeProject, [string[]]$ExtraProperties = @()) {
