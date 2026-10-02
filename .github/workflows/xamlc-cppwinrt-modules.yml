@@ -1,0 +1,106 @@
+# Focused C++/WinRT 3.x named-module validation for XamlC.
+# Reuses the latest x64chk product/metadata payload from PR Build and rebuilds
+# only the XamlCompiler prerequisites from the selected ref.
+
+name: XamlC C++/WinRT Modules
+
+on:
+  workflow_dispatch:
+    inputs:
+      prereq_run_id:
+        description: 'Optional PR Build run ID containing xaml-module-prereqs-x64chk. Leave empty to use the latest artifact from this branch.'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  modules:
+    name: Validate C++/WinRT named modules
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 60
+    env:
+      NUGET_PACKAGES: ${{ github.workspace }}\packages
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      CL: '/MP2'
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout selected ref
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          show-progress: false
+
+      - name: Restore latest x64chk module prerequisites
+        id: prereqs
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $runId = '${{ inputs.prereq_run_id }}'
+
+          if (-not $runId) {
+              $response = gh api "repos/$env:GITHUB_REPOSITORY/actions/artifacts?name=xaml-module-prereqs-x64chk&per_page=100" | ConvertFrom-Json
+              $artifact = @($response.artifacts | Where-Object {
+                  -not $_.expired -and
+                  $_.workflow_run.head_branch -eq $env:GITHUB_REF_NAME
+              } | Sort-Object created_at -Descending | Select-Object -First 1)
+
+              if ($artifact.Count -eq 0) {
+                  throw "No non-expired xaml-module-prereqs-x64chk artifact was found for branch '$env:GITHUB_REF_NAME'. Run PR Build x64chk once, or pass prereq_run_id explicitly."
+              }
+
+              $runId = [string]$artifact[0].workflow_run.id
+          }
+
+          Write-Host "Using xaml-module-prereqs-x64chk from workflow run $runId."
+          gh run download $runId --repo $env:GITHUB_REPOSITORY --name xaml-module-prereqs-x64chk --dir BuildOutput
+          if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+          }
+
+          gh run download $runId --repo $env:GITHUB_REPOSITORY --name winui-nuget-x64chk --dir PackageStore
+          if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+          }
+
+          "run_id=$runId" >> $env:GITHUB_OUTPUT
+
+      - name: Materialize WinUI package for native tests
+        shell: pwsh
+        run: .github/scripts/materialize-winui-validation-package.ps1
+
+      - name: Initialize VS2026 environment and rebuild current XamlCompiler
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $programFilesX86 = [Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFilesX86)
+          $vswhere = Join-Path $programFilesX86 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $vsInstall = & $vswhere -latest -version '[18.0,19.0)' -requires Microsoft.Component.MSBuild -property installationPath
+          if (-not $vsInstall) {
+              throw 'Visual Studio 2026 / MSBuild 18.x is required for C++/WinRT 3.x named-module validation.'
+          }
+
+          $vsDevCmd = Join-Path $vsInstall 'Common7\Tools\VsDevCmd.bat'
+          $quote = [char]34
+          $chain = "call $quote$vsDevCmd$quote -no_logo -arch=amd64 -host_arch=amd64" +
+              " && init.cmd x64chk /nopgo" +
+              " && msbuild XamlCompilerPrerequisites.sln /restore /m:2 /ds:false /p:Platform=x64 /p:Configuration=Debug /p:VisualStudioVersion=18.0 /p:PlatformToolset=v145 /p:WindowsSdkTargetPlatformVersion=10.0.26100.0 /p:TargetPlatformVersion=10.0.26100.0 /p:WindowsTargetPlatformVersion=10.0.26100.0 /binaryLogger:BuildOutput\binlogs\XamlCompilerPrerequisites.ModulesOnly.binlog" +
+              " && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-cppwinrt-modules.ps1 -ModuleVisualStudioVersion 18.0 -ModulePlatformToolset v145 -ModuleWindowsSdkVersion 10.0.26100.0"
+
+          cmd /d /c $chain
+          if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+          }
+
+      - name: Upload named-module binlogs
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: binlogs-cppwinrt-modules-focused
+          path: BuildOutput/binlogs/*.binlog
+          if-no-files-found: ignore
+          retention-days: 7
