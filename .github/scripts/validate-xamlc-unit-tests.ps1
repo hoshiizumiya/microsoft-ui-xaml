@@ -21,10 +21,11 @@ if (-not (Test-Path $vsTest)) {
 }
 
 function Restore-XamlCompilerNativeDependencies {
-    # The rebased upstream native fixtures import WinAppSDK component props/targets by
-    # raw $(NugetPackageDirectory) paths. XamlCompilerTests.sln restore only sees each
-    # project's packages.config, while normal repo initialization restores this shared
-    # component closure separately via eng/RestoreComponentDependencies.csproj.
+    # The rebased upstream native fixtures import WinAppSDK component props/targets through
+    # legacy packages.config-style paths (packages\Id.Version\...). The component restore
+    # project is PackageReference-based, so NuGet materializes its direct and transitive
+    # closure as packages\id\version\... instead. Restore once, then mirror that resolved
+    # closure into the legacy layout expected by the native test preamble/postamble.
     $componentDependencies = Join-Path $repoRoot 'eng\RestoreComponentDependencies.csproj'
     $packagesDirectory = Join-Path $repoRoot 'packages'
     $nugetConfig = Join-Path $repoRoot 'nuget.config'
@@ -34,6 +35,59 @@ function Restore-XamlCompilerNativeDependencies {
     if ($LASTEXITCODE -ne 0) {
         throw "Component dependency restore failed with exit code $LASTEXITCODE."
     }
+
+    $assetsPath = Join-Path (Split-Path $componentDependencies) 'obj\project.assets.json'
+    if (-not (Test-Path $assetsPath -PathType Leaf)) {
+        throw "Component dependency restore did not produce '$assetsPath'."
+    }
+
+    $assets = Get-Content -LiteralPath $assetsPath -Raw | ConvertFrom-Json
+    $packageRoots = @($assets.packageFolders.PSObject.Properties.Name)
+    if ($packageRoots.Count -eq 0) {
+        throw 'Component dependency assets did not declare any package folders.'
+    }
+
+    $materialized = 0
+    foreach ($libraryProperty in $assets.libraries.PSObject.Properties) {
+        $library = $libraryProperty.Value
+        if ($library.type -ne 'package') {
+            continue
+        }
+
+        $identity = $libraryProperty.Name
+        $separator = $identity.LastIndexOf('/')
+        if ($separator -le 0 -or $separator -eq $identity.Length - 1) {
+            throw "Unexpected package identity '$identity' in component dependency assets."
+        }
+
+        $packageId = $identity.Substring(0, $separator)
+        $packageVersion = $identity.Substring($separator + 1)
+        $relativePath = $library.path
+        if (-not $relativePath) {
+            $relativePath = "$($packageId.ToLowerInvariant())/$($packageVersion.ToLowerInvariant())"
+        }
+
+        $sourcePath = $null
+        foreach ($packageRoot in $packageRoots) {
+            $candidate = Join-Path $packageRoot ($relativePath -replace '/', '\')
+            if (Test-Path $candidate -PathType Container) {
+                $sourcePath = $candidate
+                break
+            }
+        }
+        if (-not $sourcePath) {
+            throw "Resolved component package '$identity' was not found under: $($packageRoots -join '; ')"
+        }
+
+        $legacyPath = Join-Path $packagesDirectory "$packageId.$packageVersion"
+        if (-not (Test-Path $legacyPath -PathType Container)) {
+            New-Item -ItemType Directory -Force -Path $legacyPath | Out-Null
+            Copy-Item -Path (Join-Path $sourcePath '*') -Destination $legacyPath -Recurse -Force
+            $materialized++
+        }
+    }
+
+    Write-Host "Materialized $materialized component package(s) into legacy packages.config layout."
 }
 
 function Invoke-TestBuild([string]$RelativeProject, [string[]]$ExtraProperties = @()) {
@@ -56,11 +110,14 @@ function Invoke-TestBuild([string]$RelativeProject, [string[]]$ExtraProperties =
     }
 }
 
+Restore-XamlCompilerNativeDependencies
+
 if ($SkipRegressionBuild) {
-    # The focused filter needs metadata fixtures and the upstream payload, not codegen masters.
-    # Project references resolve to independent output directories, so build dependencies in order.
+    # The focused filter consumes the already-built x64chk WinUI product projection. Rebuilding
+    # Microsoft.WinUI.csproj here would re-enter WinUI's source-generation graph even though this
+    # validation job only restores product artifacts, not the full intermediate MIDL tree.
+    $productDir = Join-Path $env:BuildOutputRoot "$flavor\Product"
     $projects = @(
-        'src\projection\Microsoft.WinUI.csproj',
         'src\XamlCompiler\Tests\UnitTests\LibManagedDllSatellite\LibManagedDllSatellite.csproj',
         'src\XamlCompiler\Tests\UnitTests\LibManagedDll\LibManagedDll.csproj',
         'src\XamlCompiler\Tests\UnitTests\LibManagedWinmd\LibManagedWinmd.csproj',
@@ -68,15 +125,12 @@ if ($SkipRegressionBuild) {
         'src\XamlCompiler\Tests\UnitTests\XamlCompilerUnitTests.csproj'
     )
     foreach ($project in $projects) {
-        Invoke-TestBuild $project @('/p:BuildProjectReferences=false')
+        Invoke-TestBuild $project @('/p:BuildProjectReferences=false', "/p:PublicMUXDir=$productDir\")
     }
 }
 else {
     # Upstream #11837 re-enabled generated-code comparisons. Build their inputs too;
     # executing the full suite without the regression output would invalidate those tests.
-    # Mirror PostInit.ps1's component restore first so the native fixtures' raw package
-    # imports resolve even though this CI job starts from downloaded build artifacts.
-    Restore-XamlCompilerNativeDependencies
     Invoke-TestBuild 'src\XamlCompiler\XamlCompilerTests.sln' @('/p:PlatformToolset=v143')
 }
 
