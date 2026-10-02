@@ -156,7 +156,6 @@ if ($SkipRegressionBuild) {
     # The focused filter consumes the already-built x64chk WinUI product projection. Rebuilding
     # Microsoft.WinUI.csproj here would re-enter WinUI's source-generation graph even though this
     # validation job only restores product artifacts, not the full intermediate MIDL tree.
-    $productDir = Join-Path $env:BuildOutputRoot "$flavor\Product"
     $projects = @(
         'src\XamlCompiler\Tests\UnitTests\LibManagedDllSatellite\LibManagedDllSatellite.csproj',
         'src\XamlCompiler\Tests\UnitTests\LibManagedDll\LibManagedDll.csproj',
@@ -165,7 +164,7 @@ if ($SkipRegressionBuild) {
         'src\XamlCompiler\Tests\UnitTests\XamlCompilerUnitTests.csproj'
     )
     foreach ($project in $projects) {
-        Invoke-TestBuild $project @('/p:BuildProjectReferences=false', "/p:XamlCompilerValidationProjectionDir=$productDir\")
+        Invoke-TestBuild $project @('/p:BuildProjectReferences=false', '/p:UseXamlCompilerValidationProjection=true')
     }
 }
 else {
