@@ -36,7 +36,23 @@ function Restore-XamlCompilerNativeDependencies {
         throw "Component dependency restore failed with exit code $LASTEXITCODE."
     }
 
-    $assetsPath = Join-Path (Split-Path $componentDependencies) 'obj\project.assets.json'
+    # eng\folderpaths.props redirects NuGet intermediates into the initialized flavor's
+    # BuildOutput tree. Query the evaluated project instead of assuming SDK-default obj\.
+    # Resolve native fixture pins in the same evaluation so conditional overrides apply.
+    $restoreProperties = @('ProjectAssetsFile', 'BasePackageVersion', 'IXPPackageVersion', 'FoundationPackageVersion')
+    $propertyOutput = & msbuild.exe $componentDependencies /nologo /verbosity:quiet "-getProperty:$($restoreProperties -join ',')"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Component dependency property evaluation failed with exit code $LASTEXITCODE."
+    }
+    $evaluatedProperties = ($propertyOutput -join [Environment]::NewLine | ConvertFrom-Json).Properties
+    foreach ($propertyName in $restoreProperties) {
+        if (-not $evaluatedProperties.$propertyName) {
+            throw "Component dependency evaluation did not resolve '$propertyName'."
+        }
+    }
+
+    $assetsPath = $evaluatedProperties.ProjectAssetsFile
+    Write-Host "Component dependency assets: $assetsPath"
     if (-not (Test-Path $assetsPath -PathType Leaf)) {
         throw "Component dependency restore did not produce '$assetsPath'."
     }
@@ -91,22 +107,12 @@ function Restore-XamlCompilerNativeDependencies {
 
     # RuntimeComponent/AppPreamble also raw-import the public test-app component packages.
     # They are not the same closure as RestoreComponentDependencies (notably IXP uses the
-    # app pin, and Base is an independent pin), so restore all three authoritative OSS pins
+    # app pin, and Base is an independent pin), so restore the three evaluated fixture pins
     # directly into NuGet's legacy Id.Version layout.
-    [xml]$versions = Get-Content -LiteralPath (Join-Path $repoRoot 'eng\Versions.props')
-    function Get-OssPackageVersion([string]$PropertyName) {
-        $nodes = @($versions.SelectNodes("//$PropertyName[@Condition]") |
-            Where-Object { $_.Condition -like '*IsInternalWinUIBuild*' })
-        if ($nodes.Count -eq 0) {
-            throw "Could not resolve OSS package version property '$PropertyName' from eng\Versions.props."
-        }
-        return $nodes[-1].InnerText
-    }
-
     $legacyComponentPackages = @(
-        @{ Id = 'Microsoft.WindowsAppSDK.Base'; Version = Get-OssPackageVersion 'BasePackageVersion' },
-        @{ Id = 'Microsoft.WindowsAppSDK.InteractiveExperiences'; Version = Get-OssPackageVersion 'IXPPackageVersion' },
-        @{ Id = 'Microsoft.WindowsAppSDK.Foundation'; Version = Get-OssPackageVersion 'FoundationPackageVersion' }
+        @{ Id = 'Microsoft.WindowsAppSDK.Base'; Version = $evaluatedProperties.BasePackageVersion },
+        @{ Id = 'Microsoft.WindowsAppSDK.InteractiveExperiences'; Version = $evaluatedProperties.IXPPackageVersion },
+        @{ Id = 'Microsoft.WindowsAppSDK.Foundation'; Version = $evaluatedProperties.FoundationPackageVersion }
     )
     foreach ($package in $legacyComponentPackages) {
         $legacyPath = Join-Path $packagesDirectory "$($package.Id).$($package.Version)"
