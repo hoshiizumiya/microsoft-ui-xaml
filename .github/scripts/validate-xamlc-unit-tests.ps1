@@ -165,7 +165,7 @@ if ($SkipRegressionBuild) {
         'src\XamlCompiler\Tests\UnitTests\XamlCompilerUnitTests.csproj'
     )
     foreach ($project in $projects) {
-        Invoke-TestBuild $project @('/p:BuildProjectReferences=false', "/p:PublicMUXDir=$productDir\")
+        Invoke-TestBuild $project @('/p:BuildProjectReferences=false', "/p:XamlCompilerValidationProjectionDir=$productDir\")
     }
 }
 else {
@@ -219,5 +219,6 @@ $summary = "total=$($counters.total) executed=$($counters.executed) passed=$($co
 $summary | Set-Content -Path (Join-Path $resultsDir 'summary.txt')
 Write-Host $summary
 if ($testExit -ne 0 -or [int]$counters.failed -gt 0) {
+    & (Join-Path $PSScriptRoot 'export-xamlc-test-failures.ps1') -Trx $trx -ResultsDirectory $resultsDir
     throw "XamlCompiler unit suite failed: $summary"
 }
