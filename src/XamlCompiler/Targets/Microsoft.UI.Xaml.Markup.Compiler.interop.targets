@@ -657,109 +657,76 @@ Licensed under the MIT License. See LICENSE in the project root for license info
       does not introduce a second ProjectReference protocol.
     -->
     <PropertyGroup>
+        <_XamlModuleGeneratedDir>$([MSBuild]::NormalizeDirectory($(MSBuildProjectDirectory), $(XamlGeneratedOutputPath)))</_XamlModuleGeneratedDir>
         <XamlCppWinRTModuleIfcDir Condition="'$(XamlCppWinRTModuleIfcDir)' == ''">$(IntDir)XamlModules\</XamlCppWinRTModuleIfcDir>
     </PropertyGroup>
 
-    <!--
-      XAML named-module output is active only while the project is both in C++/WinRT
-      module mode and still contains XAML. Switching to header mode or removing the
-      final XAML item must delete the previous Application_Xaml IFCs; otherwise the
-      intermediate tree advertises a module that the current project no longer produces.
-    -->
+    <!-- Dedicated sources are discovered before the normal VC module scanner. -->
     <Target Name="XamlCppWinRTRemoveInactiveModuleOutputs"
-            Condition="'$(XamlLanguage)' == 'CppWinRT'
-                       and ('$(CppWinRTBuildModule)' != 'true' or ('@(Page)' == '' and '@(ApplicationDefinition)' == ''))
-                       and Exists('$(XamlCppWinRTModuleIfcDir)')"
+            Condition="'$(XamlLanguage)' == 'CppWinRT' and ('$(CppWinRTBuildModule)' != 'true' or ('@(Page)' == '' and '@(ApplicationDefinition)' == ''))"
             BeforeTargets="MarkupCompilePass1;FixupCLCompileOptions">
         <ItemGroup>
-            <_XamlCppWinRTInactiveModuleOutputs Include="$(XamlCppWinRTModuleIfcDir)**\*" />
+            <_XamlInactiveModuleOutputs Include="$(XamlCppWinRTModuleIfcDir)**\*;$(_XamlModuleGeneratedDir)**\*.xaml.g.ixx;$(_XamlModuleGeneratedDir)XamlSupport.g.ixx;$(_XamlModuleGeneratedDir)Application_Xaml.g.ixx;$(_XamlModuleGeneratedDir)XamlModules.list" />
+            <_XamlInactiveModuleOutputs Include="$(_XamlModuleGeneratedDir)**\*.xaml.g.h;$(_XamlModuleGeneratedDir)**\*.xaml.g.hpp;$(_XamlModuleGeneratedDir)**\*.xaml.g.hpp.backup"
+                Condition="'@(Page)' == '' and '@(ApplicationDefinition)' == ''" />
         </ItemGroup>
-        <Delete Files="@(_XamlCppWinRTInactiveModuleOutputs)" />
-        <RemoveDir Directories="$(XamlCppWinRTModuleIfcDir)" />
-        <ItemGroup>
-            <_XamlCppWinRTInactiveModuleOutputs Remove="@(_XamlCppWinRTInactiveModuleOutputs)" />
-        </ItemGroup>
+        <Delete Files="@(_XamlInactiveModuleOutputs)" />
+        <RemoveDir Directories="$(XamlCppWinRTModuleIfcDir)" Condition="Exists('$(XamlCppWinRTModuleIfcDir)')" />
+        <ItemGroup><_XamlInactiveModuleOutputs Remove="@(_XamlInactiveModuleOutputs)" /></ItemGroup>
     </Target>
 
-    <!--
-      Add the existing Pass1 *.xaml.g.h outputs as C++ module interface units.
-      Resolve referenced module providers first, then run XamlC Pass1 and add its
-      generated interfaces before C++/WinRT's own module-interface discovery and
-      FixupCLCompileOptions. This keeps Pass1 behind reference resolution while still
-      making every XAML partition visible to the MSVC module dependency scanner.
-    -->
     <Target Name="XamlCppWinRTAddModuleInterfaces"
             Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true' and ('@(Page)' != '' or '@(ApplicationDefinition)' != '')"
             DependsOnTargets="CppWinRTResolveModuleReferences;MarkupCompilePass1"
             BeforeTargets="CppWinRTAddModuleInterfaces;FixupCLCompileOptions">
         <MakeDir Directories="$(XamlCppWinRTModuleIfcDir)" />
         <ItemGroup>
-            <_XamlGeneratedModuleInterfaces Include="@(_GeneratedCodeFiles)"
-                Condition="$([System.String]::Copy('%(_GeneratedCodeFiles.Identity)').EndsWith('.xaml.g.h'))" />
-            <!--
-              XamlBindingInfo.xaml.g.h is the always-generated primary interface for
-              <RootNamespace>.Application_Xaml. App/Page and XamlTypeInfo headers are
-              interface partitions discovered by the normal VC module dependency scanner.
-            -->
-            <_XamlPrimaryModuleInterface Include="@(_XamlGeneratedModuleInterfaces)"
-                Condition="$([System.String]::Copy('%(_XamlGeneratedModuleInterfaces.Identity)').EndsWith('XamlBindingInfo.xaml.g.h'))" />
+            <_XamlGeneratedInterfaces Include="@(_GeneratedCodeFiles->'%(FullPath)')"
+                Condition="$([System.String]::Copy('%(_GeneratedCodeFiles.Identity)').EndsWith('.g.ixx'))">
+                <XamlModuleRelativePath>$([MSBuild]::MakeRelative($(_XamlModuleGeneratedDir), %(_GeneratedCodeFiles.FullPath)))</XamlModuleRelativePath>
+                <XamlModuleObjectDir>$([System.IO.Path]::GetDirectoryName('$(XamlCppWinRTModuleIfcDir)$([MSBuild]::MakeRelative($(_XamlModuleGeneratedDir), %(_GeneratedCodeFiles.FullPath))).obj'))</XamlModuleObjectDir>
+            </_XamlGeneratedInterfaces>
         </ItemGroup>
-
-        <Error Condition="'@(_XamlPrimaryModuleInterface)' == ''"
-               Text="C++/WinRT named-module XAML compilation expected XamlBindingInfo.xaml.g.h to provide the Application_Xaml primary module interface, but Pass1 did not report that generated file." />
-
+        <RemoveDuplicates Inputs="@(_XamlGeneratedInterfaces)">
+            <Output TaskParameter="Filtered" ItemName="_XamlUniqueInterfaces" />
+        </RemoveDuplicates>
         <ItemGroup>
-            <ClCompile Remove="@(_XamlGeneratedModuleInterfaces)" />
-            <ClCompile Include="@(_XamlGeneratedModuleInterfaces)">
+            <_XamlModuleObjectDirs Include="@(_XamlUniqueInterfaces->'%(XamlModuleObjectDir)'->Distinct())" />
+            <ClCompile Include="@(_XamlUniqueInterfaces)" Exclude="@(ClCompile)">
                 <CompileAs>CompileAsCppModule</CompileAs>
                 <ModulesSupported>true</ModulesSupported>
                 <PrecompiledHeader>NotUsing</PrecompiledHeader>
-                <PreprocessorDefinitions>WINRT_XAML_MODULE_INTERFACE;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
                 <ModuleOutputFile>$(XamlCppWinRTModuleIfcDir)</ModuleOutputFile>
+                <ObjectFileName>$(XamlCppWinRTModuleIfcDir)%(_XamlUniqueInterfaces.XamlModuleRelativePath).obj</ObjectFileName>
                 <AdditionalBMIDirectories Condition="'$(_CppWinRTModuleIfcSearchDirs)' != ''">$(_CppWinRTModuleIfcSearchDirs);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
                 <CompilerIteration>XamlGeneratedModule</CompilerIteration>
             </ClCompile>
-            <_XamlPrimaryModuleInterface Remove="@(_XamlPrimaryModuleInterface)" />
         </ItemGroup>
-    </Target>
-
-    <!--
-      SetModuleDependencies consumes module interface sources through MultiToolTask,
-      which keys work items by a canonical source rooting marker. C++/WinRT and XamlC
-      discover their interfaces independently, so canonicalize the combined module
-      interface set by physical path after both registration targets have run.
-
-      The FullPath transform preserves the source item's metadata. RemoveDuplicates
-      then keeps the first item for each case-insensitive physical path, avoiding
-      duplicate work-item keys without changing ordinary C++ translation units.
-    -->
-    <Target Name="XamlCppWinRTNormalizeModuleCompileItems"
-            Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true' and ('@(Page)' != '' or '@(ApplicationDefinition)' != '')"
-            DependsOnTargets="CppWinRTAddModuleInterfaces"
-            BeforeTargets="FixupCLCompileOptions">
+        <MakeDir Directories="@(_XamlModuleObjectDirs)" />
+        <!-- The manifest controls IFC lifetime even when a class is renamed in place. -->
+        <ItemGroup Condition="!Exists('$(XamlCppWinRTModuleIfcDir)modules.list')">
+            <_XamlStaleIfc Include="$(XamlCppWinRTModuleIfcDir)*.ifc" />
+        </ItemGroup>
+        <ReadLinesFromFile File="$(XamlCppWinRTModuleIfcDir)modules.list" Condition="Exists('$(XamlCppWinRTModuleIfcDir)modules.list')">
+            <Output TaskParameter="Lines" ItemName="_XamlPreviousModules" />
+        </ReadLinesFromFile>
+        <ReadLinesFromFile File="$(_XamlModuleGeneratedDir)XamlModules.list">
+            <Output TaskParameter="Lines" ItemName="_XamlCurrentModules" />
+        </ReadLinesFromFile>
         <ItemGroup>
-            <_XamlCppWinRTModuleCompileCandidates Include="@(ClCompile->'%(FullPath)')"
-                Condition="'%(ClCompile.CompileAs)' == 'CompileAsCppModule'" />
+            <_XamlPreviousModules Remove="@(_XamlCurrentModules)" />
+            <_XamlStaleIfc Include="@(_XamlPreviousModules->'$(XamlCppWinRTModuleIfcDir)%(Identity).ifc')" />
         </ItemGroup>
-
-        <RemoveDuplicates Inputs="@(_XamlCppWinRTModuleCompileCandidates)">
-            <Output TaskParameter="Filtered" ItemName="_XamlCppWinRTUniqueModuleCompileItems" />
-            <Output TaskParameter="HadAnyDuplicates" PropertyName="_XamlCppWinRTModuleCompileItemsHadDuplicates" />
-        </RemoveDuplicates>
-
-        <ItemGroup Condition="'$(_XamlCppWinRTModuleCompileItemsHadDuplicates)' == 'true'">
-            <ClCompile Remove="@(ClCompile)"
-                Condition="'%(ClCompile.CompileAs)' == 'CompileAsCppModule'" />
-            <ClCompile Include="@(_XamlCppWinRTUniqueModuleCompileItems)" />
-        </ItemGroup>
-
-        <Message Condition="'$(_XamlCppWinRTModuleCompileItemsHadDuplicates)' == 'true'"
-                 Importance="High"
-                 Text="XamlC: normalized duplicate C++ module compile items by physical path before SetModuleDependencies." />
-
+        <Delete Files="@(_XamlStaleIfc)" />
+        <Copy SourceFiles="$(_XamlModuleGeneratedDir)XamlModules.list" DestinationFiles="$(XamlCppWinRTModuleIfcDir)modules.list" SkipUnchangedFiles="true" />
         <ItemGroup>
-            <_XamlCppWinRTModuleCompileCandidates Remove="@(_XamlCppWinRTModuleCompileCandidates)" />
-            <_XamlCppWinRTUniqueModuleCompileItems Remove="@(_XamlCppWinRTUniqueModuleCompileItems)" />
+            <FileWrites Include="$(XamlCppWinRTModuleIfcDir)modules.list" />
+            <_XamlGeneratedInterfaces Remove="@(_XamlGeneratedInterfaces)" />
+            <_XamlUniqueInterfaces Remove="@(_XamlUniqueInterfaces)" />
+            <_XamlModuleObjectDirs Remove="@(_XamlModuleObjectDirs)" />
+            <_XamlPreviousModules Remove="@(_XamlPreviousModules)" />
+            <_XamlCurrentModules Remove="@(_XamlCurrentModules)" />
+            <_XamlStaleIfc Remove="@(_XamlStaleIfc)" />
         </ItemGroup>
     </Target>
 
@@ -987,6 +954,8 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <ClCompile Update="@(ClCompile)"
                        Condition="'$(CppWinRTBuildModule)' == 'true' and '%(ClCompile.CompilerIteration)' == 'XamlGenerated'">
                 <AdditionalBMIDirectories>$(IntDir);$(XamlCppWinRTModuleIfcDir);$(_XamlGeneratedAdditionalBMIDirectories);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
+                <PrecompiledHeader>NotUsing</PrecompiledHeader>
+                <PreprocessorDefinitions>XAML_USE_MODULE;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
             </ClCompile>
             <_XamlPass1PreprocessorSource Remove="@(_XamlPass1PreprocessorSource)" />
         </ItemGroup>
@@ -1006,7 +975,8 @@ Licensed under the MIT License. See LICENSE in the project root for license info
         <ItemGroup>
             <ClCompile Update="@(XamlGFiles);@(GeneratedXamlPagesFiles)">
                 <AdditionalBMIDirectories>$(IntDir);$(XamlCppWinRTModuleIfcDir);$(_XamlGeneratedAdditionalBMIDirectories);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
-                <PreprocessorDefinitions Condition="'$(_XamlGeneratedPreprocessorDefinitions)' != ''">$(_XamlGeneratedPreprocessorDefinitions);%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+                <PrecompiledHeader>NotUsing</PrecompiledHeader>
+                <PreprocessorDefinitions>XAML_USE_MODULE;$(_XamlGeneratedPreprocessorDefinitions);%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
             </ClCompile>
 
             <!--
@@ -1017,7 +987,8 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <ClCompile Update="@(ClCompile)"
                        Condition="'%(ClCompile.CompilerIteration)' == 'XamlGenerated'">
                 <AdditionalBMIDirectories>$(IntDir);$(XamlCppWinRTModuleIfcDir);$(_XamlGeneratedAdditionalBMIDirectories);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
-                <PreprocessorDefinitions Condition="'$(_XamlGeneratedPreprocessorDefinitions)' != ''">$(_XamlGeneratedPreprocessorDefinitions);%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+                <PrecompiledHeader>NotUsing</PrecompiledHeader>
+                <PreprocessorDefinitions>XAML_USE_MODULE;$(_XamlGeneratedPreprocessorDefinitions);%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
             </ClCompile>
         </ItemGroup>
     </Target>

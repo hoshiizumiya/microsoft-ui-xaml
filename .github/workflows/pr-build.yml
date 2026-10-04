@@ -293,7 +293,8 @@ jobs:
           $quote = [char]34
           $chain = "call $quote$vsDevCmd$quote -no_logo -arch=amd64 -host_arch=amd64" +
               " && init.cmd x64chk /nopgo" +
-              " && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-cppwinrt-modules.ps1 -ModuleVisualStudioVersion 18.0 -ModulePlatformToolset v145"
+              " && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-cppwinrt-modules.ps1 -ModuleVisualStudioVersion 18.0 -ModulePlatformToolset v145" +
+              " && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-module-sample.ps1"
 
           cmd /d /c $chain
           if ($LASTEXITCODE -ne 0) {
@@ -306,7 +307,7 @@ jobs:
         with:
           name: binlogs-cppwinrt-modules
           path: |
-            BuildOutput/binlogs/*.binlog
+            BuildOutput/binlogs/**
             BuildOutput/TestResults/XamlCompiler/**
           if-no-files-found: ignore
           retention-days: 7
@@ -317,7 +318,11 @@ jobs:
       - sync-xamlc-t4
       - build
     if: needs.sync-xamlc-t4.outputs.generated_commit != 'true'
-    name: Validate full XamlCompiler unit suite
+    strategy:
+      fail-fast: false
+      matrix:
+        source: [feature, predecessor, upstream]
+    name: XamlCompiler full suite (${{ matrix.source }})
     runs-on: windows-2022
     timeout-minutes: 120
     env:
@@ -331,7 +336,7 @@ jobs:
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ needs.sync-xamlc-t4.outputs.checkout_sha }}
-          fetch-depth: 1
+          fetch-depth: 0
           show-progress: false
 
       - name: Restore VS2022-built XamlC and WinUI prerequisites
@@ -350,6 +355,19 @@ jobs:
         shell: pwsh
         run: .github/scripts/materialize-winui-validation-package.ps1
 
+      - name: Select compiler and test baseline
+        if: matrix.source != 'feature'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $baseline = if ('${{ matrix.source }}' -eq 'predecessor') { '9acf3ba0388a09701b8397353141884facabdc31' } else { '586676fd489598dd55aa48d1f0e8e964ab82dab0' }
+          $props = [IO.File]::ReadAllBytes('src/XamlCompiler/Tests/UnitTests/Directory.Build.props')
+          git restore --source=$baseline --worktree -- src/XamlCompiler/BuildTasks src/XamlCompiler/Targets src/XamlCompiler/Tests/UnitTests
+          if ($LASTEXITCODE -ne 0) { throw 'Baseline source restore failed.' }
+          [IO.File]::WriteAllBytes('src/XamlCompiler/Tests/UnitTests/Directory.Build.props', $props)
+          New-Item -ItemType Directory -Force BuildOutput/TestResults/XamlCompiler | Out-Null
+          Set-Content BuildOutput/TestResults/XamlCompiler/baseline.txt "${{ matrix.source }} $baseline"
+
       - name: Initialize VS2022 and run the complete unit suite
         shell: pwsh
         run: |
@@ -363,6 +381,7 @@ jobs:
           $quote = [char]34
           $chain = "call $quote$vsDevCmd$quote -no_logo -arch=amd64 -host_arch=amd64" +
               " && init.cmd x64chk /nopgo" +
+              " && msbuild src\XamlCompiler\Microsoft.UI.Xaml.Markup.Compiler.csproj /restore /t:Build /p:Configuration=Debug /p:Platform=x64 /m:2 /ds:false /binaryLogger:BuildOutput\binlogs\Compiler.FullSuite.binlog" +
               " && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-unit-tests.ps1"
           cmd /d /c $chain
           if ($LASTEXITCODE -ne 0) {
@@ -373,9 +392,10 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: xamlc-unit-tests-x64chk
+          name: xamlc-unit-tests-x64chk-${{ matrix.source }}
           path: |
             BuildOutput/TestResults/XamlCompiler/**
             BuildOutput/binlogs/*.UnitValidation.binlog
+            BuildOutput/binlogs/Compiler.FullSuite.binlog
           if-no-files-found: warn
           retention-days: 7

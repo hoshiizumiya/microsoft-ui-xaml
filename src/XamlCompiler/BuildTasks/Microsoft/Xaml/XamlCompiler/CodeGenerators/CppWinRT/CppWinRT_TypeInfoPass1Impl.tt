@@ -9,29 +9,34 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 <#  if(!String.IsNullOrEmpty(ProjectInfo.PrecompiledHeaderFile)) { #>
+#ifndef XAML_USE_MODULE
 #include "<#=ProjectInfo.PrecompiledHeaderFile#>"
+#endif
 <#  }#>
+<#=GetCppWinRTConsumerPreamble()#>
 
+#if !defined(XAML_USE_MODULE) && !defined(WINRT_IMPORT_MODULE)
 #include <unknwn.h>
 #include <memory>
 #include <string>
 #include <regex>
 #include <mutex>
 #include <cstdint>
+#endif
 
 // Undefine GetCurrentTime macro to prevent
 // conflict with Storyboard::GetCurrentTime
 #undef GetCurrentTime
 
-<#  if (ProjectInfo.UseCppWinRTNamedModules) { #>
-<#=GetCppWinRTModuleCompatibilityDefinition()#>
-<#  } else { #>
 <#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsFoundation)#>
 <#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsXamlInterop)#>
 <#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlMarkup)#>
-<#  } #>
+
 #include "XamlTypeInfo.xaml.g.h"
 #include "XamlMetaDataProvider.h"
+#ifdef XAML_USE_MODULE
+import <#=CppWinRTProjectionDependency.GetXamlPrimaryModuleName(ProjectInfo.RootNamespace)#>;
+#endif
 
 namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation
 {

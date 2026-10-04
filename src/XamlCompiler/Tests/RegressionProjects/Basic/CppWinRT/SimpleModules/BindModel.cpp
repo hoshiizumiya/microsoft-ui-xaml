@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 #include "BindModel.h"
-#include "Models.BindModel.g.cpp"
+#include "Models/BindModel.g.cpp"
 
 namespace winrt::Simple::Models::implementation
 {

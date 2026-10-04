@@ -601,7 +601,7 @@ namespace UnitTests
                 sharedCodeInfo.AddXamlFileInfo(fileInfo);
             }
 
-            if (!cpx.IsPass1 && lang == CodeGenLanguage.Cpp)
+            if (!cpx.IsPass1 && (lang == CodeGenLanguage.Cpp || lang == CodeGenLanguage.CppWinRT))
             {
                 cpx.ProjectInfo.ClassToHeaderFileMap = new Dictionary<string, string>();
                 cpx.ProjectInfo.ClassToHeaderFileMap.Add(sharedCodeInfo.ClassName.FullName, sharedCodeInfo.ClassName.ShortName + ".h");
@@ -635,6 +635,9 @@ namespace UnitTests
 
                 case CodeGenLanguage.VisualBasic:
                     return Language.Parse("VB");
+
+                case CodeGenLanguage.CppWinRT:
+                    return Language.Parse("CppWinRT");
 
                 case CodeGenLanguage.Cpp:
                     return Language.Parse("C++");

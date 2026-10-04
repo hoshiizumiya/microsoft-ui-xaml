@@ -1,0 +1,7 @@
+namespace Simple.Controls
+{
+    runtimeclass PanelPage : Microsoft.UI.Xaml.Controls.Page
+    {
+        PanelPage();
+    };
+}

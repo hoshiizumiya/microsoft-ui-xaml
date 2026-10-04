@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 #pragma once
 
-#include "Models.BindItem.g.h"
+#include "Models/BindItem.g.h"
 
 namespace winrt::Simple::Models::implementation
 {

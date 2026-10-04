@@ -13,23 +13,25 @@
 //     the code is regenerated.
 //------------------------------------------------------------------------------
 <#  if(!String.IsNullOrEmpty(ProjectInfo.PrecompiledHeaderFile)) { #>
+#ifndef XAML_USE_MODULE
 #include "<#=ProjectInfo.PrecompiledHeaderFile#>"
+#endif
 <#  }#>
+<#=GetCppWinRTConsumerPreamble()#>
 
+#if !defined(XAML_USE_MODULE) && !defined(WINRT_IMPORT_MODULE)
 #include <cstdint>
 #include <memory>
 #include <type_traits>
 #include <utility>
+#endif
 
-<#  if (ProjectInfo.UseCppWinRTNamedModules) { #>
-<#=GetCppWinRTModuleCompatibilityDefinition()#>
-<#  } #>
-<#  foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { #>
-<#=GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)#>
-<#  } #>
 <#  foreach (var includeFile in Model.NeededLocalXamlHeaderFiles) { #>
 #include "<#=includeFile#>"
 <#  }#>
+<#  foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { #>
+<#=GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)#>
+<#  } #>
 
 #pragma warning(push)
 #pragma warning(disable: 4100) // unreferenced formal parameter

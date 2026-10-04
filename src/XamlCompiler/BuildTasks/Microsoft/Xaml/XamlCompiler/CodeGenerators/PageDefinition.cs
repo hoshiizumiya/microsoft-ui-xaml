@@ -85,6 +85,35 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             }
         }
 
+        public IEnumerable<string> DeclarationCppWinRTProjectionNamespaces
+        {
+            get
+            {
+                var namespaces = new HashSet<string>(StringComparer.Ordinal)
+                {
+                    KnownNamespaces.WindowsFoundation, KnownNamespaces.Xaml, KnownNamespaces.XamlMarkup
+                };
+                string baseTypeName = CodeInfo.BaseTypeName;
+                int separator = baseTypeName.LastIndexOf('.');
+                if (separator > 0)
+                {
+                    namespaces.Add(baseTypeName.Substring(0, separator));
+                }
+                foreach (var field in CodeInfo.FieldDeclarations)
+                {
+                    foreach (var ns in CppWinRTProjectionDependency.GetNamespaces(field.FieldXamlType?.UnderlyingType, field.FieldTypePath))
+                    {
+                        namespaces.Add(ns);
+                    }
+                }
+                if (CodeInfo.IsApplication)
+                {
+                    namespaces.Add(KnownNamespaces.WindowsXamlInterop);
+                }
+                return namespaces.OrderBy(ns => ns, StringComparer.Ordinal);
+            }
+        }
+
         public IEnumerable<string> NeededCppWinRTProjectionNamespaces
         {
             get

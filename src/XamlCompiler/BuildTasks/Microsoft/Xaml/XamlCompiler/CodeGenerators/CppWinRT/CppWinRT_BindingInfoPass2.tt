@@ -9,14 +9,18 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 <#  if(!String.IsNullOrEmpty(ProjectInfo.PrecompiledHeaderFile)) { #>
+#ifndef XAML_USE_MODULE
 #include "<#=ProjectInfo.PrecompiledHeaderFile#>"
+#endif
 <#  }#>
+<#=GetCppWinRTConsumerPreamble()#>
 
+#if !defined(XAML_USE_MODULE) && !defined(WINRT_IMPORT_MODULE)
 #include <cstdint>
 #include <memory>
 #include <utility>
+#endif
 
-<#=GetCppWinRTModuleCompatibilityDefinition()#>
 #include "XamlBindingInfo.xaml.g.h"
 
 namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation

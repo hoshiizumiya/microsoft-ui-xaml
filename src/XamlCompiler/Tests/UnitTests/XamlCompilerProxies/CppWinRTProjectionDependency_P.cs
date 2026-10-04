@@ -16,8 +16,9 @@ namespace Win8Xaml.CompilerProxies
         static readonly MethodInfo _getNamespaces;
         static readonly MethodInfo _getNamespacesWithFallback;
         static readonly MethodInfo _getXamlPrimaryModuleName;
-        static readonly MethodInfo _getXamlPartitionName;
-        static readonly MethodInfo _getXamlPartitionModuleName;
+        static readonly MethodInfo _getXamlClassModuleName;
+        static readonly MethodInfo _writeInterface;
+        static readonly MethodInfo _writeAggregator;
 
         static CppWinRTProjectionDependency()
         {
@@ -27,8 +28,9 @@ namespace Win8Xaml.CompilerProxies
             _getNamespaces = _projectionDependencyType.GetStaticMethod("GetNamespaces", 1);
             _getNamespacesWithFallback = _projectionDependencyType.GetStaticMethod("GetNamespaces", 2);
             _getXamlPrimaryModuleName = _projectionDependencyType.GetStaticMethod("GetXamlPrimaryModuleName", 1);
-            _getXamlPartitionName = _projectionDependencyType.GetStaticMethod("GetXamlPartitionName", 1);
-            _getXamlPartitionModuleName = _projectionDependencyType.GetStaticMethod("GetXamlPartitionModuleName", 2);
+            _getXamlClassModuleName = _projectionDependencyType.GetStaticMethod("GetXamlClassModuleName", 2);
+            _writeInterface = _projectionDependencyType.GetStaticMethod("WriteInterface", 4);
+            _writeAggregator = _projectionDependencyType.GetStaticMethod("WriteAggregator", 2);
         }
 
         public static string GetHeaderFile(string projectionNamespace)
@@ -56,15 +58,19 @@ namespace Win8Xaml.CompilerProxies
             return (string)_getXamlPrimaryModuleName.Invoke(null, new object[] { rootNamespace });
         }
 
-        public static string GetXamlPartitionName(string runtimeClassName)
+        public static string GetXamlClassModuleName(string rootNamespace, string runtimeClassName)
         {
-            return (string)_getXamlPartitionName.Invoke(null, new object[] { runtimeClassName });
+            return (string)_getXamlClassModuleName.Invoke(null, new object[] { rootNamespace, runtimeClassName });
         }
 
-        public static string GetXamlPartitionModuleName(string rootNamespace, string partitionName)
+        public static string WriteInterface(string name, IEnumerable<string> namespaces, IEnumerable<string> headers, string supportModule = null)
         {
-            return (string)_getXamlPartitionModuleName.Invoke(null, new object[] { rootNamespace, partitionName });
+            return (string)_writeInterface.Invoke(null, new object[] { name, namespaces, headers, supportModule });
         }
 
+        public static string WriteAggregator(string rootNamespace, IEnumerable<string> classes)
+        {
+            return (string)_writeAggregator.Invoke(null, new object[] { rootNamespace, classes });
+        }
     }
 }

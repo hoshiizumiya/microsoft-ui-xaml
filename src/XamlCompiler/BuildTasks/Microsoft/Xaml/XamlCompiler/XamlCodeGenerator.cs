@@ -53,6 +53,13 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             string codeFileName = codeInfo.BaseFileName + (_isPass1 ? _language.Pass1Extension : _language.Pass2Extension);
             var retList = new List<FileNameAndContentPair>();
             retList.Add(new FileNameAndContentPair(codeFileName, code));
+            if (_isPass1 && _language.Name == ProgrammingLanguage.CppWinRT && _projectInfo.BuildXamlModules)
+            {
+                string moduleName = CppWinRTProjectionDependency.GetXamlClassModuleName(_projectInfo.RootNamespace, codeInfo.ClassName.FullName);
+                string supportModule = codeInfo.BindStatus == BindStatus.None ? null : CppWinRTProjectionDependency.GetXamlPrimaryModuleName(_projectInfo.RootNamespace) + ".Support";
+                string module = CppWinRTProjectionDependency.WriteInterface(moduleName, model.DeclarationCppWinRTProjectionNamespaces, new[] { codeFileName }, supportModule);
+                retList.Add(new FileNameAndContentPair(codeInfo.BaseFileName + ".xaml.g.ixx", module));
+            }
             return retList;
         }
 

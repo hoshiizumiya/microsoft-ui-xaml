@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Xaml;
 
 namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
@@ -12,7 +13,11 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
     {
         public static string GetNamespace(Type type)
         {
-            Type adjustedType = ((type != null) && type.IsArray) ? type.GetElementType() : type;
+            Type adjustedType = type;
+            while (adjustedType != null && adjustedType.IsArray)
+            {
+                adjustedType = adjustedType.GetElementType();
+            }
 
             if (adjustedType == null || XamlSchemaCodeInfo.IsProjectedPrimitiveCppType(adjustedType.FullName))
             {
@@ -24,7 +29,11 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 
         public static IEnumerable<string> GetNamespaces(Type type)
         {
-            Type adjustedType = ((type != null) && type.IsArray) ? type.GetElementType() : type;
+            Type adjustedType = type;
+            while (adjustedType != null && adjustedType.IsArray)
+            {
+                adjustedType = adjustedType.GetElementType();
+            }
             string projectionNamespace = GetNamespace(adjustedType);
 
             if (projectionNamespace == null)
@@ -80,14 +89,66 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                 : $"{rootNamespace}.Application_Xaml";
         }
 
-        public static string GetXamlPartitionName(string runtimeClassName)
+        public static string GetXamlClassModuleName(string rootNamespace, string runtimeClassName)
         {
-            return runtimeClassName.Replace("::", ".");
+            // Encode each segment independently: namespace boundaries, underscores and
+            // keyword identifiers must not collapse to the same module identifier.
+            var segments = runtimeClassName.Replace("::", ".").Split('.').Select(segment => "C_" + segment);
+            return $"{GetXamlPrimaryModuleName(rootNamespace)}.Class.{String.Join(".", segments)}";
         }
 
-        public static string GetXamlPartitionModuleName(string rootNamespace, string partitionName)
+        public static IEnumerable<string> BindingSupportNamespaces => new[]
         {
-            return $"{GetXamlPrimaryModuleName(rootNamespace)}:{GetXamlPartitionName(partitionName)}";
+            KnownNamespaces.WindowsFoundation, KnownNamespaces.WindowsFoundationCollections,
+            KnownNamespaces.Xaml, KnownNamespaces.XamlControls, KnownNamespaces.XamlData,
+            KnownNamespaces.XamlMarkup, KnownNamespaces.XamlInterop
+        };
+
+        public static IEnumerable<string> TypeInfoSupportNamespaces => new[]
+        {
+            KnownNamespaces.WindowsFoundation, KnownNamespaces.XamlMarkup, KnownNamespaces.WindowsXamlInterop
+        };
+
+        public static string WriteInterface(string moduleName, IEnumerable<string> namespaces,
+            IEnumerable<string> headers, string supportModule = null)
+        {
+            var text = new StringBuilder();
+            text.AppendLine("// Generated XAML declaration module.");
+            text.AppendLine("module;");
+            text.AppendLine("#include <unknwn.h>");
+            text.AppendLine("#include <winrt/base_macros.h>");
+            text.AppendLine("#undef GetCurrentTime");
+            text.AppendLine($"export module {moduleName};");
+            text.AppendLine("import std;");
+            foreach (var ns in namespaces.Distinct(StringComparer.Ordinal).OrderBy(ns => ns, StringComparer.Ordinal))
+            {
+                text.AppendLine($"export import {GetModuleName(ns)};");
+            }
+            if (supportModule != null)
+            {
+                text.AppendLine($"export import {supportModule};");
+            }
+            text.AppendLine("#define XAML_IMPL_MODULE");
+            foreach (var header in headers)
+            {
+                text.AppendLine($"#include \"{header}\"");
+            }
+            text.AppendLine("#undef XAML_IMPL_MODULE");
+            return text.ToString();
+        }
+
+        public static string WriteAggregator(string rootNamespace, IEnumerable<string> classNames)
+        {
+            string moduleName = GetXamlPrimaryModuleName(rootNamespace);
+            var text = new StringBuilder();
+            text.AppendLine("// Generated project XAML module. Declarations belong to the individual interfaces.");
+            text.AppendLine($"export module {moduleName};");
+            text.AppendLine($"export import {moduleName}.Support;");
+            foreach (var name in classNames.Distinct(StringComparer.Ordinal).OrderBy(name => name, StringComparer.Ordinal))
+            {
+                text.AppendLine($"export import {GetXamlClassModuleName(rootNamespace, name)};");
+            }
+            return text.ToString();
         }
 
     }
@@ -106,36 +167,15 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 
         public string GetCppWinRTProjectionDependencyDirective(string projectionNamespace, bool optionalHeader = false)
         {
-            string headerFile = CppWinRTProjectionDependency.GetHeaderFile(projectionNamespace);
-
-            if (ProjectInfo.UseCppWinRTNamedModules)
-            {
-                return $"import {CppWinRTProjectionDependency.GetModuleName(projectionNamespace)};";
-            }
-
-            if (optionalHeader)
-            {
-                return $"#if __has_include(<{headerFile}>)\n#include <{headerFile}>\n#endif";
-            }
-
-            return $"#include <{headerFile}>";
+            string header = CppWinRTProjectionDependency.GetHeaderFile(projectionNamespace);
+            string directive = $"#if defined(XAML_USE_MODULE) || defined(WINRT_IMPORT_MODULE)\nimport {CppWinRTProjectionDependency.GetModuleName(projectionNamespace)};\n#else\n#include <{header}>\n#endif";
+            return optionalHeader ? $"#if __has_include(<{header}>)\n{directive}\n#endif" : directive;
         }
 
-        public string GetCppWinRTNamedModuleImportDirective(string projectionNamespace)
+        public string GetCppWinRTConsumerPreamble()
         {
-            return ProjectInfo.UseCppWinRTNamedModules
-                ? $"import {CppWinRTProjectionDependency.GetModuleName(projectionNamespace)};"
-                : String.Empty;
-        }
-
-        public string GetCppWinRTModuleCompatibilityDefinition()
-        {
-            if (!ProjectInfo.UseCppWinRTNamedModules)
-            {
-                return String.Empty;
-            }
-
-            return "#ifndef WINRT_IMPORT_MODULE\n#define WINRT_IMPORT_MODULE\n#endif";
+            // Generated consumers own their native preamble; no application /FI is needed.
+            return "#ifdef XAML_USE_MODULE\n#include <windows.h>\n#include <unknwn.h>\n#include <algorithm>\n#include <cstddef>\n#include <cstdint>\n#include <functional>\n#include <map>\n#include <memory>\n#include <mutex>\n#include <regex>\n#include <string>\n#include <type_traits>\n#include <utility>\n#include <vector>\n#include <winrt/base_macros.h>\n#undef GetCurrentTime\n#ifndef WINRT_IMPORT_MODULE\n#define WINRT_IMPORT_MODULE\n#endif\n#endif";
         }
 
         public static String Projection(string typeName)

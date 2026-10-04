@@ -4,6 +4,7 @@
 <Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <CppWinRTBuildModule>true</CppWinRTBuildModule>
+    <CppWinRTUsePrefixes>false</CppWinRTUsePrefixes>
     <UseXamlCompiler>true</UseXamlCompiler>
   </PropertyGroup>
   <Import Project="..\..\..\..\..\..\..\packages\YexuanXiao.CppWinRTPlus.3.1.260928.1\build\native\YexuanXiao.CppWinRTPlus.props" Condition="Exists('..\..\..\..\..\..\..\packages\YexuanXiao.CppWinRTPlus.3.1.260928.1\build\native\YexuanXiao.CppWinRTPlus.props')" />
@@ -115,6 +116,18 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
+    <Page Include="Views\PanelPage.xaml" />
+    <Midl Include="Views\PanelPage.idl"><WinMetadataFile>$(IntDir)Views.PanelPage.winmd</WinMetadataFile><HeaderFileName>$(IntDir)Views.PanelPage.h</HeaderFileName><DependentUpon>Views\PanelPage.xaml</DependentUpon></Midl>
+    <ClInclude Include="Views\PanelPage.h"><DependentUpon>Views\PanelPage.xaml</DependentUpon></ClInclude>
+    <ClCompile Include="Views\PanelPage.cpp"><DependentUpon>Views\PanelPage.xaml</DependentUpon></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Include="Controls\PanelPage.xaml" />
+    <Midl Include="Controls\PanelPage.idl"><WinMetadataFile>$(IntDir)Controls.PanelPage.winmd</WinMetadataFile><HeaderFileName>$(IntDir)Controls.PanelPage.h</HeaderFileName><DependentUpon>Controls\PanelPage.xaml</DependentUpon></Midl>
+    <ClInclude Include="Controls\PanelPage.h"><DependentUpon>Controls\PanelPage.xaml</DependentUpon></ClInclude>
+    <ClCompile Include="Controls\PanelPage.cpp"><DependentUpon>Controls\PanelPage.xaml</DependentUpon></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
     <ApplicationDefinition Include="App.xaml">
       <SubType>Designer</SubType>
     </ApplicationDefinition>
@@ -144,6 +157,12 @@
       <DependentUpon>App.xaml</DependentUpon>
     </ClCompile>
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
+    <ClCompile Include="XamlHeaderImportSmoke.cpp" Condition="'$(CppWinRTBuildModule)' == 'true'" />
+    <ClCompile Include="XamlMultipleHeaderImportSmoke.cpp" Condition="'$(CppWinRTBuildModule)' == 'true' and '$(IncludeIncrementalEmptyPage)' != 'false'" />
+    <ClCompile Include="HandwrittenMainPage.ixx" Condition="'$(CppWinRTBuildModule)' == 'true'" />
+    <ClCompile Include="HandwrittenClassConsumer.cpp" Condition="'$(CppWinRTBuildModule)' == 'true'" />
+    <ClCompile Include="CustomEmptyPage.ixx" Condition="'$(CppWinRTBuildModule)' == 'true' and '$(IncludeIncrementalEmptyPage)' != 'false'" />
+    <ClCompile Include="CustomXamlModuleConsumer.cpp" Condition="'$(CppWinRTBuildModule)' == 'true' and '$(IncludeIncrementalEmptyPage)' != 'false'" />
     <ClCompile Include="XamlModuleSmoke.cpp" Condition="'$(CppWinRTBuildModule)' == 'true'" />
     <ClCompile Include="EmptyPage.cpp">
       <DependentUpon>EmptyPage.xaml</DependentUpon>
@@ -189,7 +208,7 @@
   <Import Project="..\..\..\CppWinRTProjectionValidation.targets" />
   <Target Name="ConfigureCppWinRTModuleConsumerCompileItems"
           Condition="'$(CppWinRTBuildModule)' == 'true'"
-          AfterTargets="XamlCppWinRTNormalizeModuleCompileItems"
+          AfterTargets="CppWinRTAddModuleInterfaces;XamlCppWinRTAddModuleInterfaces"
           BeforeTargets="FixupCLCompileOptions">
     <ItemGroup>
       <ClCompile Update="@(ClCompile)" Condition="'%(ClCompile.CompileAs)' != 'CompileAsCppModule'">
@@ -202,10 +221,19 @@
           AfterTargets="XamlCppWinRTApplyGeneratedModuleReferences">
     <ItemGroup>
       <_XamlConsumersWithModuleInterfaceDefinitions Include="@(ClCompile)"
-          Condition="'%(ClCompile.CompilerIteration)' == 'XamlGenerated' and $([System.String]::Copy(';%(ClCompile.PreprocessorDefinitions);').Contains(';WINRT_XAML_MODULE_INTERFACE;'))" />
+          Condition="'%(ClCompile.CompilerIteration)' == 'XamlGenerated' and $([System.String]::Copy(';%(ClCompile.PreprocessorDefinitions);').Contains(';XAML_IMPL_MODULE;'))" />
     </ItemGroup>
     <Error Condition="'@(_XamlConsumersWithModuleInterfaceDefinitions)' != ''"
            Text="XAML Pass2 consumers inherited module-interface producer definitions: @(_XamlConsumersWithModuleInterfaceDefinitions)" />
+  </Target>
+  <Target Name="CompileOnlyGeneratedXamlInterfaces"
+          Condition="'$(ValidateXamlInterfacesOnly)' == 'true'"
+          DependsOnTargets="CppWinRTAddModuleInterfaces;XamlCppWinRTAddModuleInterfaces"
+          BeforeTargets="FixupCLCompileOptions">
+    <ItemGroup>
+      <ClCompile Remove="@(ClCompile)" Condition="'%(ClCompile.CompileAs)' != 'CompileAsCppModule'" />
+      <ClCompile Remove="CustomEmptyPage.ixx;HandwrittenMainPage.ixx" />
+    </ItemGroup>
   </Target>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>

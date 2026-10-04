@@ -1,4 +1,5 @@
-﻿// Copyright (c) Microsoft Corporation.
+﻿#include <unknwn.h>
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 #ifdef WINRT_IMPORT_MODULE

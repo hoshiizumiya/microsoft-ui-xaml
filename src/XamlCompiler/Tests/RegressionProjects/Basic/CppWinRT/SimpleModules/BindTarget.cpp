@@ -2,4 +2,4 @@
 // Licensed under the MIT License.
 
 #include "BindTarget.h"
-#include "Targets.BindTarget.g.cpp"
+#include "Targets/BindTarget.g.cpp"

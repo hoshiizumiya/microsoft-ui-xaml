@@ -44,7 +44,9 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="ConsumeXamlModule.cpp" />
+    <ClCompile Include="ConsumeXamlModule.cpp">
+      <PreprocessorDefinitions Condition="'$(ValidateHeaderMode)' == 'true'">XAML_FIXTURE_HEADER_MODE;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

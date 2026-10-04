@@ -13,8 +13,12 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 <#  if(!String.IsNullOrEmpty(ProjectInfo.PrecompiledHeaderFile)) { #>
+#ifndef XAML_USE_MODULE
 #include "<#=ProjectInfo.PrecompiledHeaderFile#>"
+#endif
 <#  }#>
+<#=GetCppWinRTConsumerPreamble()#>
+#if !defined(XAML_USE_MODULE) && !defined(WINRT_IMPORT_MODULE)
 #include <unknwn.h>
 #include <algorithm>
 #include <cstddef>
@@ -23,35 +27,38 @@
 #include <mutex>
 #include <type_traits>
 #include <vector>
+#include <functional>
+#include <map>
+#include <regex>
+#include <string>
+#include <utility>
+#endif
 
 // Undefine GetCurrentTime macro to prevent
 // conflict with Storyboard::GetCurrentTime
 #undef GetCurrentTime
-
-<#  if (ProjectInfo.UseCppWinRTNamedModules) { #>
-<#=GetCppWinRTModuleCompatibilityDefinition()#>
-<#  } else { #>
-<#      foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { #>
-<#=GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)#>
-<#      }#>
-<#  } #>
-
-<#  if (ProjectInfo.GenerateIncrementalTypeInfo) { #>
-#ifdef XAML_TYPE_INFO_INC
-#include XAML_TYPE_INFO_INC
-#endif
-<#  } #>
-#include "XamlTypeInfo.xaml.g.h"
 
 <#  if (!ProjectInfo.GenerateIncrementalTypeInfo) { #>
 <#      foreach(string includeFile in Model.AllLocalXamlHeaderFiles) { #>
 #include "<#=includeFile#>"
 <#      } #>
 <#  } #>
+<#  if (ProjectInfo.GenerateIncrementalTypeInfo) { #>
+#ifdef XAML_TYPE_INFO_INC
+#include XAML_TYPE_INFO_INC
+#endif
+<#  } #>
+<#  foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { #>
+<#=GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)#>
+<#  } #>
+#include "XamlTypeInfo.xaml.g.h"
+#include "XamlBindingInfo.xaml.g.h"
+#ifdef XAML_USE_MODULE
+import <#=CppWinRTProjectionDependency.GetXamlPrimaryModuleName(ProjectInfo.RootNamespace)#>;
+#endif
 #include "XamlBindingInfo.xaml.g.hpp"
 <#  if (!ProjectInfo.GenerateIncrementalTypeInfo) { #>
-<#      foreach(string includeFile in Model.AllLocalHppGeneratedFiles) #>
-<#      { #>
+<#      foreach(string includeFile in Model.AllLocalHppGeneratedFiles) { #>
 #include "<#=includeFile.Replace(".g.hpp", ".xaml.g.hpp")#>"
 <#      } #>
 <#  } #>

@@ -10,23 +10,16 @@
 //------------------------------------------------------------------------------
 #pragma once
 
-<#  if (ProjectInfo.UseCppWinRTNamedModules) { #>
+#include <unknwn.h>
+#undef GetCurrentTime
+#if defined(XAML_USE_MODULE) || defined(WINRT_IMPORT_MODULE)
 import std;
-<#=GetCppWinRTNamedModuleImportDirective(ProjectInfo.RootNamespace)#>
-<#=GetCppWinRTNamedModuleImportDirective(KnownNamespaces.XamlMarkup)#>
-<#=GetCppWinRTNamedModuleImportDirective(KnownNamespaces.WindowsXamlInterop)#>
-<#=GetCppWinRTModuleCompatibilityDefinition()#>
-<#  } else { #>
+#else
 #include <functional>
 #include <map>
 #include <memory>
 #include <vector>
-#include <unknwn.h>
-
-// Undefine GetCurrentTime macro to prevent
-// conflict with Storyboard::GetCurrentTime
-#undef GetCurrentTime
-<#  } #>
+#endif
 #include "XamlTypeInfo.xaml.g.h"
 #include "XamlMetaDataProvider.g.h"
 

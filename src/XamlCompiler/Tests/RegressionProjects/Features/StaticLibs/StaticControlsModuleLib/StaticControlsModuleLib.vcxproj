@@ -56,10 +56,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BlankUserControl.cpp">
+      <PreprocessorDefinitions Condition="'$(CppWinRTBuildModule)' == 'true'">XAML_FIXTURE_MODULES;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
       <DependentUpon>BlankUserControl.xaml</DependentUpon>
     </ClCompile>
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
-    <ClCompile Include="XamlModuleSmoke.cpp">
+    <ClCompile Include="XamlModuleSmoke.cpp" Condition="'$(CppWinRTBuildModule)' == 'true'">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="pch.cpp">
@@ -84,6 +85,14 @@
     <Import Project="..\..\..\..\..\..\..\packages\YexuanXiao.CppWinRTPlus.3.1.260928.1\build\native\YexuanXiao.CppWinRTPlus.targets" Condition="Exists('..\..\..\..\..\..\..\packages\YexuanXiao.CppWinRTPlus.3.1.260928.1\build\native\YexuanXiao.CppWinRTPlus.targets')" />
   </ImportGroup>
   <Import Project="..\..\..\CppWinRTProjectionValidation.targets" />
+  <Target Name="CompileOnlyGeneratedXamlInterfaces"
+          Condition="'$(ValidateXamlInterfacesOnly)' == 'true'"
+          DependsOnTargets="CppWinRTAddModuleInterfaces;XamlCppWinRTAddModuleInterfaces"
+          BeforeTargets="FixupCLCompileOptions">
+    <ItemGroup>
+      <ClCompile Remove="@(ClCompile)" Condition="'%(ClCompile.CompileAs)' != 'CompileAsCppModule'" />
+    </ItemGroup>
+  </Target>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them. The missing file is {0}.</ErrorText>
