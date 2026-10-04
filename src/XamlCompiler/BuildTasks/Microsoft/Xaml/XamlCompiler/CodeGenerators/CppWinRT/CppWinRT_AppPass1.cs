@@ -22,8 +22,8 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
         /// </summary>
         public override string TransformText()
         {
-            this.Write("#pragma once\r\n#ifndef XAML_IMPL_MODULE\r\n#include <unknwn.h>\r\n#undef GetCurrentTim" +
-                    "e\r\n");
+            this.Write("#pragma once\r\n#ifndef XAML_IMPL_MODULE\r\n#if !defined(XAML_USE_MODULE) && !defined" +
+                    "(WINRT_IMPORT_MODULE)\r\n#include <unknwn.h>\r\n#endif\r\n#undef GetCurrentTime\r\n");
   foreach (var projectionNamespace in Model.DeclarationCppWinRTProjectionNamespaces) { 
             this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(projectionNamespace)));
             this.Write("\r\n");
