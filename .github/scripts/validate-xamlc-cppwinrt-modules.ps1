@@ -145,12 +145,16 @@ $mainXaml = Join-Path $fixtureRoot 'MainPage.xaml'
 $mainOriginal = [IO.File]::ReadAllBytes($mainXaml)
 $mainIfc = Get-OneGeneratedFile $simpleGeneratedRoot 'Simple.Application_Xaml.Class.C__0053imple.C__004dain_0050age.ifc'
 $mainIfcTime = $mainIfc.LastWriteTimeUtc
+$rootSource = Get-OneGeneratedFile $simpleGeneratedRoot 'Application_Xaml.g.ixx'
+$rootSourceTime = $rootSource.LastWriteTimeUtc
+$rootSourceContent = [IO.File]::ReadAllText($rootSource.FullName)
 try {
     $changedXaml = [Text.Encoding]::UTF8.GetString($mainOriginal).Replace('<targets:BindTarget', '<TextBlock x:Name="IncrementalField" Text="Changed declaration" /><targets:BindTarget')
     [IO.File]::WriteAllText($mainXaml, $changedXaml)
     Invoke-XamlModuleBuild $simpleModules 'SimpleModules.OnePageChanged'
     if (-not (Get-Content (Get-OneGeneratedFile $simpleGeneratedRoot 'MainPage.xaml.g.h').FullName -Raw).Contains('_IncrementalField')) { throw 'Changing XAML did not regenerate its declaration.' }
     if ((Get-Item $mainIfc.FullName).LastWriteTimeUtc -eq $mainIfcTime) { throw 'Changing the declaration did not rebuild its class IFC.' }
+    if ((Get-Item $rootSource.FullName).LastWriteTimeUtc -ne $rootSourceTime -or [IO.File]::ReadAllText($rootSource.FullName) -ne $rootSourceContent) { throw 'Editing one class rewrote the unchanged root source.' }
     if ((Get-Item $emptySource.FullName).LastWriteTimeUtc -ne $emptySourceTime -or (Get-Item $emptyIfc.FullName).LastWriteTimeUtc -ne $emptyIfcTime) { throw 'Changing MainPage rebuilt the sibling EmptyPage interface.' }
 } finally {
     [IO.File]::WriteAllBytes($mainXaml, $mainOriginal)

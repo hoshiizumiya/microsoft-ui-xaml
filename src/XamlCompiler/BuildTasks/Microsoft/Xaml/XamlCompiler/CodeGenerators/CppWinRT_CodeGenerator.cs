@@ -82,22 +82,58 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             return $"winrt.{projectionNamespace}";
         }
 
+        private static string EncodeModuleSegment(string segment)
+        {
+            // UTF-16 escaping is injective, culture independent and safe for Windows IFC paths.
+            // Escaping the underscore also makes literal "_hhhh" distinct from an escaped character.
+            return "C_" + String.Concat(segment.Select(character =>
+                character >= 'a' && character <= 'z' || character >= '0' && character <= '9'
+                    ? character.ToString()
+                    : "_" + ((int)character).ToString("x4", System.Globalization.CultureInfo.InvariantCulture)));
+        }
+
+        private static bool IsModuleIdentifier(string value)
+        {
+            if (String.IsNullOrEmpty(value) || !(value[0] == '_' || Char.IsLetter(value[0])))
+            {
+                return false;
+            }
+            foreach (char character in value.Skip(1))
+            {
+                var category = Char.GetUnicodeCategory(character);
+                if (character != '_' && !Char.IsLetterOrDigit(character) &&
+                    category != System.Globalization.UnicodeCategory.NonSpacingMark &&
+                    category != System.Globalization.UnicodeCategory.SpacingCombiningMark)
+                {
+                    return false;
+                }
+            }
+            // Contextual module keywords are not accepted as generated module-name segments.
+            const string keywords = " alignas alignof and and_eq asm auto bitand bitor bool break case catch char char8_t char16_t char32_t class compl concept const consteval constexpr constinit const_cast continue co_await co_return co_yield decltype default delete do double dynamic_cast else enum explicit export extern false float for friend goto if inline int long module import mutable namespace new noexcept not not_eq nullptr operator or or_eq private protected public register reinterpret_cast requires return short signed sizeof static static_assert static_cast struct switch template this thread_local throw true try typedef typeid typename union unsigned using virtual void volatile wchar_t while xor xor_eq ";
+            return keywords.IndexOf(" " + value + " ", StringComparison.Ordinal) < 0;
+        }
+
         public static string GetXamlPrimaryModuleName(string rootNamespace)
         {
-            return string.IsNullOrWhiteSpace(rootNamespace)
-                ? "Application_Xaml"
-                : $"{rootNamespace}.Application_Xaml";
+            if (String.IsNullOrWhiteSpace(rootNamespace))
+            {
+                return "Application_Xaml";
+            }
+            // Valid project namespaces keep the public <RootNamespace>.Application_Xaml contract.
+            // Malformed project input gets a deterministic, valid fallback rather than invalid C++.
+            string moduleRoot = rootNamespace.Split('.').All(IsModuleIdentifier)
+                ? rootNamespace
+                : "XamlProject." + EncodeModuleSegment(rootNamespace);
+            return moduleRoot + ".Application_Xaml";
         }
 
         public static string GetXamlClassModuleName(string rootNamespace, string runtimeClassName)
         {
-            // Escape uppercase/underscore/non-ASCII characters so module identities stay
-            // distinct even when their IFC filenames live on a case-insensitive filesystem.
-            var segments = runtimeClassName.Replace("::", ".").Split('.').Select(segment =>
-                "C_" + String.Concat(segment.Select(character =>
-                    character >= 'a' && character <= 'z' || character >= '0' && character <= '9'
-                        ? character.ToString()
-                        : "_" + ((int)character).ToString("x4", System.Globalization.CultureInfo.InvariantCulture))));
+            if (String.IsNullOrWhiteSpace(runtimeClassName))
+            {
+                throw new ArgumentException("A harvested x:Class runtime name is required.", nameof(runtimeClassName));
+            }
+            var segments = runtimeClassName.Replace("::", ".").Split('.').Select(EncodeModuleSegment);
             return $"{GetXamlPrimaryModuleName(rootNamespace)}.Class.{String.Join(".", segments)}";
         }
 

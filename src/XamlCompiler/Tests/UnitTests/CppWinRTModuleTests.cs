@@ -84,6 +84,77 @@ namespace UnitTests
         }
 
         [TestMethod]
+        public void ClassModuleIdentity_HandlesUnicodeNestedNamespacesAndDifferentProjectRoot()
+        {
+            var classes = new[] { "Views.MainPage", "Controls.MainPage", "A_B.C", "A.B_C", "export.module", "应用.视图.主页", "Other.Nested.Views.MainPage", "Other.App", "Other._0056iews.MainPage" };
+            var identities = classes.Select(name => CppWinRTProjectionDependency.GetXamlClassModuleName("Project", name)).ToArray();
+            Assert.AreEqual(classes.Length, identities.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+            foreach (var identity in identities)
+            {
+                StringAssert.StartsWith(identity, "Project.Application_Xaml.Class.");
+            }
+            Assert.AreEqual("应用.Application_Xaml", CppWinRTProjectionDependency.GetXamlPrimaryModuleName("应用"));
+            Assert.AreEqual(CppWinRTProjectionDependency.GetXamlClassModuleName("Project", "应用.视图.主页"), CppWinRTProjectionDependency.GetXamlClassModuleName("Project", "应用::视图::主页"));
+        }
+
+        [TestMethod]
+        public void RootModuleIdentity_UsesDeterministicFallbackForInvalidProjectNamespace()
+        {
+            foreach (var empty in new[] { null, "", " " })
+            {
+                Assert.AreEqual("Application_Xaml", CppWinRTProjectionDependency.GetXamlPrimaryModuleName(empty));
+            }
+            var invalid = new[] { "1Project", "Bad-Root", "A..B", "export.module", ".Root", "Root." };
+            var identities = invalid.Select(CppWinRTProjectionDependency.GetXamlPrimaryModuleName).ToArray();
+            Assert.AreEqual(invalid.Length, identities.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+            for (int i = 0; i < invalid.Length; i++)
+            {
+                StringAssert.StartsWith(identities[i], "XamlProject.C_");
+                Assert.AreEqual(identities[i], CppWinRTProjectionDependency.GetXamlPrimaryModuleName(invalid[i]));
+            }
+        }
+
+        [TestMethod]
+        public void EarlyModuleGraph_DoesNotReadUninitializedProjectInfo()
+        {
+            CollectionAssert.AreEqual(new[] { false, false }, CppWinRTProjectionDependency.GetCodeGenerationDecisionsBeforeProjectInfo("Nothing"));
+            CollectionAssert.AreEqual(new[] { true, false }, CppWinRTProjectionDependency.GetCodeGenerationDecisionsBeforeProjectInfo("NoPageCodeGen"));
+            CollectionAssert.AreEqual(new[] { false, true }, CppWinRTProjectionDependency.GetCodeGenerationDecisionsBeforeProjectInfo("NoTypeInfoCodeGen"));
+        }
+
+        [TestMethod]
+        public void DeclarationDependencies_DoNotTreatUnharvestedModelAsEmpty()
+        {
+            var definition = new PageDefinition(new XamlProjectInfo(), new XamlSchemaCodeInfo())
+            {
+                CodeInfo = new XamlClassCodeInfo("Test.NotHarvested", false)
+            };
+            var exception = Assert.ThrowsException<System.Reflection.TargetInvocationException>(() => { var namespaces = definition.DeclarationCppWinRTProjectionNamespaces; });
+            Assert.IsInstanceOfType(exception.InnerException, typeof(InvalidOperationException));
+            StringAssert.Contains(exception.InnerException.ToString(), "must be harvested");
+        }
+
+        [TestMethod]
+        public void EmptyDeclarations_AreHarvestedBeforeDependencyCollection()
+        {
+            var helper = new TestHelper();
+            var schema = helper.LoadSchema(SchemaMode.ManagedRuntime);
+            foreach (var element in new[] { "Application", "Page", "UserControl", "ResourceDictionary" })
+            {
+                var context = new CodeGeneratorProjectContext(new Version(KnownVersions.Latest), "Test")
+                {
+                    RootNamespace = "Project", IsPass1 = true, IsApplication = element == "Application", BuildXamlModules = true
+                };
+                string xaml = "<" + element + " xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml' x:Class='DifferentRoot.Empty" + element + "' />";
+                var files = helper.GenerateCodeBehind(context, new List<string> { xaml }, schema, CodeGenLanguage.CppWinRT);
+                string module = files.Single(file => file.FileName.EndsWith(".ixx")).Contents;
+                StringAssert.Contains(module, "export module " + CppWinRTProjectionDependency.GetXamlClassModuleName("Project", "DifferentRoot.Empty" + element) + ";");
+                StringAssert.Contains(module, "export import winrt.Microsoft.UI.Xaml;");
+                StringAssert.Contains(module, "export import winrt.Windows.Foundation;");
+            }
+        }
+
+        [TestMethod]
         public void Interface_PackagesAnOrdinaryHeaderWithSemanticReExports()
         {
             string text = CppWinRTProjectionDependency.WriteInterface("Test.Page", new[] { "Microsoft.UI.Xaml", "Windows.Foundation", "Microsoft.UI.Xaml" }, new[] { "Page.xaml.g.h" });

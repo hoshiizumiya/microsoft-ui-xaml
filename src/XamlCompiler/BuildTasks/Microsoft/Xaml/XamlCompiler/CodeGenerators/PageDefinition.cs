@@ -95,11 +95,17 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                     {
                         KnownNamespaces.WindowsFoundation, KnownNamespaces.Xaml, KnownNamespaces.XamlMarkup
                     };
+                    if (CodeInfo == null || String.IsNullOrWhiteSpace(CodeInfo.BaseTypeName))
+                    {
+                        // A missing class/base is an unharvested model, not an empty declaration.
+                        throw new InvalidOperationException("XAML class and base type must be harvested before collecting declaration dependencies.");
+                    }
                     string baseTypeName = CodeInfo.BaseTypeName;
                     int separator = baseTypeName.LastIndexOf('.');
-                    if (separator > 0)
+                    string baseNamespace = separator > 0 ? baseTypeName.Substring(0, separator) : null;
+                    foreach (var ns in CppWinRTProjectionDependency.GetNamespaces(CodeInfo.BaseType?.UnderlyingType, baseNamespace))
                     {
-                        namespaces.Add(baseTypeName.Substring(0, separator));
+                        namespaces.Add(ns);
                     }
                     foreach (var field in CodeInfo.FieldDeclarations)
                     {
@@ -117,7 +123,8 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                 catch (Exception exception)
                 {
                     // Temporary package-consumer diagnostic; remove after the lifecycle regression is identified.
-                    string details = $"x:Class={CodeInfo?.ClassName?.FullName}; IsApplication={CodeInfo?.IsApplication}; BaseTypeName={CodeInfo?.BaseTypeName ?? "<null>"}; FieldDeclarations={CodeInfo?.FieldDeclarations?.Count()}; BindStatus={CodeInfo?.BindStatus}";
+                    string baseFileName = CodeInfo?.PerXamlFileInfo?.Count > 0 ? CodeInfo.BaseFileName : "<unharvested>";
+                    string details = $"x:Class={CodeInfo?.ClassName?.FullName}; BaseFileName={baseFileName}; IsApplication={CodeInfo?.IsApplication}; BaseTypeName={CodeInfo?.BaseTypeName ?? "<null>"}; FieldDeclarations={CodeInfo?.FieldDeclarations?.Count()}; BindStatus={CodeInfo?.BindStatus}";
                     throw new InvalidOperationException("XAML declaration dependency collection failed: " + details + Environment.NewLine + exception, exception);
                 }
             }

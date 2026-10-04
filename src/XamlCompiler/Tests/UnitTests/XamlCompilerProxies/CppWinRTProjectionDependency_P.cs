@@ -33,6 +33,20 @@ namespace Win8Xaml.CompilerProxies
             _writeAggregator = _projectionDependencyType.GetStaticMethod("WriteAggregator", 2);
         }
 
+        public static bool[] GetCodeGenerationDecisionsBeforeProjectInfo(string flags)
+        {
+            var core = new ProxyHelper("Microsoft.UI.Xaml.Markup.Compiler.CompileXamlInternal");
+            object instance = core.CreateInstance();
+            var flagProperty = core.GetProperty("CodeGenerationControlFlags");
+            flagProperty.SetValue(instance, Enum.Parse(flagProperty.PropertyType, flags));
+            var bindingFlags = BindingFlags.Instance | BindingFlags.NonPublic;
+            return new[]
+            {
+                (bool)core.GetMethod("ShouldSuppressPageCodeGen", bindingFlags).Invoke(instance, null),
+                (bool)core.GetMethod("ShouldSuppressTypeInfoCodeGen", bindingFlags).Invoke(instance, null)
+            };
+        }
+
         public static string GetHeaderFile(string projectionNamespace)
         {
             return (string)_getHeaderFile.Invoke(null, new object[] { projectionNamespace });

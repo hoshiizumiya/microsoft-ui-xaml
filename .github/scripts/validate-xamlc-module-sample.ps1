@@ -30,7 +30,7 @@ $config = Join-Path $SampleRoot 'nuget.validation.config'
 "@ | Set-Content $config
 foreach ($configuration in @('Debug', 'Release')) {
     $intermediate = Join-Path $SampleRoot "obj\$configuration\"
-    & msbuild.exe $project /restore /t:Build /m:2 /ds:false "/p:Configuration=$configuration" /p:Platform=x64 /p:VisualStudioVersion=18.0 /p:PlatformToolset=v145 /p:WindowsTargetPlatformVersion=10.0.26100.0 /p:WindowsPackageType=None "/p:RestoreConfigFile=$config" "/p:RestorePackagesPath=$SampleRoot\packages" "/p:IntDir=$intermediate" "/p:OutDir=$SampleRoot\bin\$configuration\" "/binaryLogger:$repoRoot\BuildOutput\binlogs\ProductSample.$configuration.binlog"
+    & msbuild.exe $project /restore /t:Build /m:2 /ds:false "/p:Configuration=$configuration" /p:Platform=x64 /p:VisualStudioVersion=18.0 /p:PlatformToolset=v145 /p:WindowsTargetPlatformVersion=10.0.26100.0 /p:WindowsPackageType=None /p:AppxPackage=false "/p:RestoreConfigFile=$config" "/p:RestorePackagesPath=$SampleRoot\packages" "/p:IntDir=$intermediate" "/p:OutDir=$SampleRoot\bin\$configuration\" "/binaryLogger:$repoRoot\BuildOutput\binlogs\ProductSample.$configuration.binlog"
     if ($LASTEXITCODE -ne 0) { throw "Sample $configuration failed: $LASTEXITCODE" }
     $root = @(Get-ChildItem $intermediate -Filter 'Application_Xaml.g.ixx' -Recurse -File)
     if ($root.Count -ne 1) { throw 'Sample did not receive an automatic root aggregator.' }
