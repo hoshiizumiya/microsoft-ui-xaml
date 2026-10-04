@@ -1,401 +1,67 @@
-# PR build (OSS). Product-only compile gate; tests and signing run in internal ADO.
-
-name: PR Build
-
+name: XamlC early native verification
 on:
-  pull_request:
-    branches-ignore:
-      - l10n_develop
-      - release
-      - dependabot/**
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-      - '.github/ISSUE_TEMPLATE/**'
-      - '.github/PULL_REQUEST_TEMPLATE.md'
-      - '.github/policies/**'
-      - 'LICENSE'
-      - 'NOTICE.md'
-      - 'PRIVACY.md'
-      - 'privacy.md'
-      - 'SECURITY.md'
-      - 'CODE_OF_CONDUCT.md'
-      - 'CONTRIBUTING.md'
-      - 'CONTRIBUTING_feedback_and_requests.md'
+  push:
+    branches: [validation/xamlc-header-ixx-fast-20261004]
   workflow_dispatch: {}
-
-concurrency:
-  group: pr-build-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
 permissions:
   contents: read
-
-env:
-  DISABLE_PR_BUILD_MATRIX_VALIDATION: 'false'
-
+  actions: read
 jobs:
-  sync-xamlc-t4:
-    name: Sync XamlC T4 outputs
-    runs-on: windows-2025
-    permissions:
-      actions: write
-      contents: write
-    outputs:
-      checkout_sha: ${{ steps.sync.outputs.checkout_sha }}
-      generated_commit: ${{ steps.sync.outputs.generated_commit }}
-    steps:
-      - name: Checkout PR head
-        uses: actions/checkout@v5
-        with:
-          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-          ref: ${{ github.event.pull_request.head.ref || github.ref }}
-          fetch-depth: 0
-          show-progress: false
-
-      - name: Locate MSBuild for T4 generation
-        uses: microsoft/setup-msbuild@v2
-
-      - name: Locate NuGet
-        uses: NuGet/setup-nuget@v2
-
-      - name: Restore MSBuild cache package required for project evaluation
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          [xml]$packagesConfig = Get-Content packages.config
-          $cachePackage = $packagesConfig.packages.package | Where-Object { $_.id -eq 'Microsoft.MSBuildCache.Local' }
-          if (-not $cachePackage) {
-              throw 'Microsoft.MSBuildCache.Local was not found in packages.config.'
-          }
-
-          nuget install $cachePackage.id `
-            -Version $cachePackage.version `
-            -OutputDirectory packages `
-            -Source https://api.nuget.org/v3/index.json `
-            -NonInteractive
-          if ($LASTEXITCODE -ne 0) {
-              exit $LASTEXITCODE
-          }
-
-      - name: Regenerate checked-in T4 classes
-        id: sync
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          msbuild src\XamlCompiler\Microsoft.UI.Xaml.Markup.Compiler.csproj /t:TransformAll /p:TransformOnBuild=true /p:TransformOutOfDateOnly=false /p:BuildingInsideVisualStudio=true /m:1 /v:minimal
-          if ($LASTEXITCODE -ne 0) {
-              exit $LASTEXITCODE
-          }
-
-          git -c core.whitespace=-blank-at-eol,-blank-at-eof diff --check
-          $trackedChanges = @(git diff --name-only)
-          $untrackedChanges = @(git ls-files --others --exclude-standard)
-          $changed = @($trackedChanges + $untrackedChanges | Sort-Object -Unique)
-          $unexpected = @()
-          foreach ($file in $changed) {
-              if ($file -notmatch '^src/XamlCompiler/BuildTasks/Microsoft/Xaml/XamlCompiler/CodeGenerators/.+\.cs$') {
-                  $unexpected += $file
-                  continue
-              }
-
-              $template = [System.IO.Path]::ChangeExtension($file, '.tt')
-              if (-not (Test-Path $template)) {
-                  $unexpected += $file
-              }
-          }
-          if ($unexpected.Count -ne 0) {
-              throw "TransformAll changed non-generated files: $($unexpected -join ', ')"
-          }
-
-          if ($changed.Count -eq 0) {
-              "checkout_sha=$(git rev-parse HEAD)" >> $env:GITHUB_OUTPUT
-              "generated_commit=false" >> $env:GITHUB_OUTPUT
-              exit 0
-          }
-
-          $isSameRepoPr = "${{ github.event_name }}" -eq "pull_request" -and
-              "${{ github.event.pull_request.head.repo.full_name }}" -eq "${{ github.repository }}"
-
-          if (-not $isSameRepoPr) {
-              throw "XamlC T4 outputs are stale. Regenerate them with TransformAll and push the generated .cs files."
-          }
-
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- src/XamlCompiler/BuildTasks/Microsoft/Xaml/XamlCompiler/CodeGenerators
-          git diff --cached --check
-          git commit -m 'Regenerate XamlC T4 templates'
-          $generatedSha = git rev-parse HEAD
-          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
-          "checkout_sha=$generatedSha" >> $env:GITHUB_OUTPUT
-          "generated_commit=true" >> $env:GITHUB_OUTPUT
-
-          # GITHUB_TOKEN pushes do not recursively trigger the PR workflow.
-          # Dispatch a fresh run explicitly so checks are attached to the new HEAD.
-          $env:GH_TOKEN = "${{ github.token }}"
-          gh workflow run pr-build.yml --repo "${{ github.repository }}" --ref "${{ github.event.pull_request.head.ref }}"
-
-  build:
-    needs: sync-xamlc-t4
-    if: needs.sync-xamlc-t4.outputs.generated_commit != 'true'
-    name: Build (${{ matrix.flavor }})
-    runs-on: windows-2022
-    timeout-minutes: 120
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - flavor: x86chk
-            platform: x86
-            configuration: Debug
-          - flavor: x86fre
-            platform: x86
-            configuration: Release
-          - flavor: x64chk
-            platform: x64
-            configuration: Debug
-          - flavor: x64fre
-            platform: x64
-            configuration: Release
-          - flavor: arm64chk
-            platform: arm64
-            configuration: Debug
-          - flavor: arm64fre
-            platform: arm64
-            configuration: Release
-    env:
-      WINUI_INIT_FLAVOR: ${{ matrix.flavor }}
-      WINUI_BUILD_PLATFORM: ${{ matrix.platform }}
-      WINUI_BUILD_CONFIGURATION: ${{ matrix.configuration }}
-      BuildPlatform: ${{ matrix.platform }}
-      NUGET_PACKAGES: ${{ github.workspace }}\packages
-      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
-      DOTNET_NOLOGO: '1'
-      # Cap CL.exe parallelism: hosted runner has 2 vCPUs; default /m:4 OOMs (C1076).
-      CL: '/MP2'
-
-    steps:
-      - name: Skip disabled PR Build validation
-        if: env.DISABLE_PR_BUILD_MATRIX_VALIDATION == 'true'
-        shell: pwsh
-        run: Write-Host "PR Build matrix validation is disabled by DISABLE_PR_BUILD_MATRIX_VALIDATION."
-
-      - name: Checkout
-        if: env.DISABLE_PR_BUILD_MATRIX_VALIDATION != 'true'
-        uses: actions/checkout@v5
-        with:
-          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-          ref: ${{ needs.sync-xamlc-t4.outputs.checkout_sha }}
-          fetch-depth: 1
-          show-progress: false
-
-      - name: Initialize build environment and build
-        if: env.DISABLE_PR_BUILD_MATRIX_VALIDATION != 'true'
-        shell: pwsh
-        run: |
-          & "${{ github.workspace }}/.github/scripts/build-pr.ps1" `
-            -Flavor $env:WINUI_INIT_FLAVOR `
-            -Platform $env:WINUI_BUILD_PLATFORM `
-            -Configuration $env:WINUI_BUILD_CONFIGURATION
-
-      - name: Upload MSBuild binlogs
-        if: failure() && env.DISABLE_PR_BUILD_MATRIX_VALIDATION != 'true'
-        uses: actions/upload-artifact@v6
-        with:
-          name: binlogs-${{ matrix.flavor }}
-          path: BuildOutput/**/*.binlog
-          if-no-files-found: ignore
-          retention-days: 7
-
-      - name: Upload product runtime payload
-        if: env.DISABLE_PR_BUILD_MATRIX_VALIDATION != 'true'
-        uses: actions/upload-artifact@v6
-        with:
-          name: winui-product-${{ matrix.flavor }}
-          path: |
-            BuildOutput/packaging/${{ matrix.configuration }}/runtimes-framework/win-${{ matrix.platform }}/**
-          if-no-files-found: warn
-          retention-days: 7
-
-      - name: Upload consumable WinUI NuGet package
-        if: env.DISABLE_PR_BUILD_MATRIX_VALIDATION != 'true'
-        uses: actions/upload-artifact@v6
-        with:
-          name: winui-nuget-${{ matrix.flavor }}
-          path: PackageStore/*.nupkg
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Upload named-module validation prerequisites
-        if: matrix.flavor == 'x64chk' && env.DISABLE_PR_BUILD_MATRIX_VALIDATION != 'true'
-        uses: actions/upload-artifact@v6
-        with:
-          name: xaml-module-prereqs-x64chk
-          path: |
-            BuildOutput/packaging/Debug/**
-            BuildOutput/bin/amd64chk/Product/**
-            BuildOutput/bin/GenXbf/**
-            BuildOutput/obj/amd64chk/MergedWinMD/**
-          if-no-files-found: error
-          retention-days: 7
-
-  cppwinrt-modules:
-    needs:
-      - sync-xamlc-t4
-      - build
-    if: needs.sync-xamlc-t4.outputs.generated_commit != 'true'
-    name: Validate C++/WinRT named modules
+  fast-native:
     runs-on: windows-2025-vs2026
     timeout-minutes: 90
     env:
       NUGET_PACKAGES: ${{ github.workspace }}\packages
-      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
-      DOTNET_NOLOGO: '1'
       CL: '/MP2'
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
         with:
-          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-          ref: ${{ needs.sync-xamlc-t4.outputs.checkout_sha }}
           fetch-depth: 1
           show-progress: false
-
-      - name: Restore VS2022-built XamlC and WinUI prerequisites
-        uses: actions/download-artifact@v6
+      - uses: NuGet/setup-nuget@v2
+      - uses: actions/download-artifact@v6
         with:
           name: xaml-module-prereqs-x64chk
           path: BuildOutput
-
-      - name: Restore x64chk WinUI NuGet package
-        uses: actions/download-artifact@v6
+          run-id: 37013844961
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v6
         with:
           name: winui-nuget-x64chk
           path: PackageStore
-
-      - name: Materialize WinUI package for native tests
+          run-id: 37013844961
+          github-token: ${{ github.token }}
+      - name: Restore evaluation prerequisites
         shell: pwsh
-        run: .github/scripts/materialize-winui-validation-package.ps1
-
-      - name: Initialize VS2026 module environment and validate
+        run: |
+          [xml]$packagesConfig = Get-Content packages.config
+          $cache = $packagesConfig.packages.package | Where-Object { $_.id -eq 'Microsoft.MSBuildCache.Local' }
+          nuget install $cache.id -Version $cache.version -OutputDirectory packages -Source https://api.nuget.org/v3/index.json -NonInteractive
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .github/scripts/materialize-winui-validation-package.ps1
+      - name: Build current compiler and exercise its generated native interfaces
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-          $vsInstall = & $vswhere -latest -version '[18.0,19.0)' -requires Microsoft.Component.MSBuild -property installationPath
-          if (-not $vsInstall) {
-              throw 'Visual Studio 2026 / MSBuild 18.x is required for C++/WinRT 3.x named-module validation.'
-          }
-
-          $vsDevCmd = Join-Path $vsInstall 'Common7\Tools\VsDevCmd.bat'
+          $vs = & $vswhere -latest -version '[18.0,19.0)' -requires Microsoft.Component.MSBuild -property installationPath
+          if (-not $vs) { throw 'VS2026 is required.' }
+          $dev = Join-Path $vs 'Common7\Tools\VsDevCmd.bat'
           $quote = [char]34
-          $chain = "call $quote$vsDevCmd$quote -no_logo -arch=amd64 -host_arch=amd64" +
+          $chain = "call $quote$dev$quote -no_logo -arch=amd64 -host_arch=amd64" +
               " && init.cmd x64chk /nopgo" +
-              " && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-cppwinrt-modules.ps1 -ModuleVisualStudioVersion 18.0 -ModulePlatformToolset v145" +
-              " && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-module-sample.ps1"
-
+              " && msbuild src\XamlCompiler\Microsoft.UI.Xaml.Markup.Compiler.csproj /restore /t:Build /p:Configuration=Debug /p:Platform=x64 /m:2 /ds:false /binaryLogger:BuildOutput\binlogs\Compiler.EarlyNative.binlog" +
+              " && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-unit-tests.ps1 -VisualStudioVersion 18.0 -TestCaseFilter FullyQualifiedName~UnitTests.CppWinRTModuleTests -SkipRegressionBuild" +
+              " && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-cppwinrt-modules.ps1"
           cmd /d /c $chain
-          if ($LASTEXITCODE -ne 0) {
-              exit $LASTEXITCODE
-          }
-
-      - name: Upload named-module binlogs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v6
         if: always()
-        uses: actions/upload-artifact@v6
         with:
-          name: binlogs-cppwinrt-modules
+          name: xamlc-early-native
           path: |
             BuildOutput/binlogs/**
             BuildOutput/TestResults/XamlCompiler/**
-          if-no-files-found: ignore
-          retention-days: 7
-
-
-  xamlc-unit-tests:
-    needs:
-      - sync-xamlc-t4
-      - build
-    if: needs.sync-xamlc-t4.outputs.generated_commit != 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        source: [feature, predecessor, upstream]
-    name: XamlCompiler full suite (${{ matrix.source }})
-    runs-on: windows-2022
-    timeout-minutes: 120
-    env:
-      NUGET_PACKAGES: ${{ github.workspace }}\packages
-      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
-      DOTNET_NOLOGO: '1'
-      CL: '/MP2'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-        with:
-          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-          ref: ${{ needs.sync-xamlc-t4.outputs.checkout_sha }}
-          fetch-depth: 0
-          show-progress: false
-
-      - name: Restore VS2022-built XamlC and WinUI prerequisites
-        uses: actions/download-artifact@v6
-        with:
-          name: xaml-module-prereqs-x64chk
-          path: BuildOutput
-
-      - name: Restore x64chk WinUI NuGet package
-        uses: actions/download-artifact@v6
-        with:
-          name: winui-nuget-x64chk
-          path: PackageStore
-
-      - name: Materialize WinUI package for native tests
-        shell: pwsh
-        run: .github/scripts/materialize-winui-validation-package.ps1
-
-      - name: Select compiler and test baseline
-        if: matrix.source != 'feature'
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $baseline = if ('${{ matrix.source }}' -eq 'predecessor') { '9acf3ba0388a09701b8397353141884facabdc31' } else { '586676fd489598dd55aa48d1f0e8e964ab82dab0' }
-          $props = [IO.File]::ReadAllBytes('src/XamlCompiler/Tests/UnitTests/Directory.Build.props')
-          git restore --source=$baseline --worktree -- src/XamlCompiler/BuildTasks src/XamlCompiler/Targets src/XamlCompiler/Tests/UnitTests
-          if ($LASTEXITCODE -ne 0) { throw 'Baseline source restore failed.' }
-          [IO.File]::WriteAllBytes('src/XamlCompiler/Tests/UnitTests/Directory.Build.props', $props)
-          New-Item -ItemType Directory -Force BuildOutput/TestResults/XamlCompiler | Out-Null
-          Set-Content BuildOutput/TestResults/XamlCompiler/baseline.txt "${{ matrix.source }} $baseline"
-
-      - name: Initialize VS2022 and run the complete unit suite
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-          $vsInstall = & $vswhere -latest -version '[17.0,18.0)' -requires Microsoft.Component.MSBuild -property installationPath
-          if (-not $vsInstall) {
-              throw 'Visual Studio 2022 / MSBuild 17.x is required for XamlCompiler unit validation.'
-          }
-          $vsDevCmd = Join-Path $vsInstall 'Common7\Tools\VsDevCmd.bat'
-          $quote = [char]34
-          $chain = "call $quote$vsDevCmd$quote -no_logo -arch=amd64 -host_arch=amd64" +
-              " && init.cmd x64chk /nopgo" +
-              " && msbuild src\XamlCompiler\Microsoft.UI.Xaml.Markup.Compiler.csproj /restore /t:Build /p:Configuration=Debug /p:Platform=x64 /m:2 /ds:false /binaryLogger:BuildOutput\binlogs\Compiler.FullSuite.binlog" +
-              " && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-unit-tests.ps1"
-          cmd /d /c $chain
-          if ($LASTEXITCODE -ne 0) {
-              exit $LASTEXITCODE
-          }
-
-      - name: Upload unit-test discovery, results, and binlogs
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: xamlc-unit-tests-x64chk-${{ matrix.source }}
-          path: |
-            BuildOutput/TestResults/XamlCompiler/**
-            BuildOutput/binlogs/*.UnitValidation.binlog
-            BuildOutput/binlogs/Compiler.FullSuite.binlog
-          if-no-files-found: warn
+            BuildOutput/obj/**/XamlModules/**
+            BuildOutput/obj/**/*.g.ixx
           retention-days: 7
