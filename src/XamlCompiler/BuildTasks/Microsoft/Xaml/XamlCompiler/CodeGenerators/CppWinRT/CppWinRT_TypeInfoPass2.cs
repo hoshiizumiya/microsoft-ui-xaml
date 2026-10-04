@@ -36,11 +36,14 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 //------------------------------------------------------------------------------
 ");
   if(!String.IsNullOrEmpty(ProjectInfo.PrecompiledHeaderFile)) { 
-            this.Write("#include \"");
+            this.Write("#ifndef XAML_USE_MODULE\r\n#include \"");
             this.Write(this.ToStringHelper.ToStringWithCulture(ProjectInfo.PrecompiledHeaderFile));
-            this.Write("\"\r\n");
+            this.Write("\"\r\n#endif\r\n");
   }
-            this.Write(@"#include <unknwn.h>
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTConsumerPreamble()));
+            this.Write(@"
+#if !defined(XAML_USE_MODULE) && !defined(WINRT_IMPORT_MODULE)
+#include <unknwn.h>
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -48,26 +51,18 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 #include <mutex>
 #include <type_traits>
 #include <vector>
+#include <functional>
+#include <map>
+#include <regex>
+#include <string>
+#include <utility>
+#endif
 
 // Undefine GetCurrentTime macro to prevent
 // conflict with Storyboard::GetCurrentTime
 #undef GetCurrentTime
 
 ");
-  if (ProjectInfo.UseCppWinRTNamedModules) { 
-            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTModuleCompatibilityDefinition()));
-            this.Write("\r\n");
-  } else { 
-      foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { 
-            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)));
-            this.Write("\r\n");
-      }
-  } 
-            this.Write("\r\n");
-  if (ProjectInfo.GenerateIncrementalTypeInfo) { 
-            this.Write("#ifdef XAML_TYPE_INFO_INC\r\n#include XAML_TYPE_INFO_INC\r\n#endif\r\n");
-  } 
-            this.Write("#include \"XamlTypeInfo.xaml.g.h\"\r\n\r\n");
   if (!ProjectInfo.GenerateIncrementalTypeInfo) { 
       foreach(string includeFile in Model.AllLocalXamlHeaderFiles) { 
             this.Write("#include \"");
@@ -75,10 +70,19 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             this.Write("\"\r\n");
       } 
   } 
-            this.Write("#include \"XamlBindingInfo.xaml.g.hpp\"\r\n");
+  if (ProjectInfo.GenerateIncrementalTypeInfo) { 
+            this.Write("#ifdef XAML_TYPE_INFO_INC\r\n#include XAML_TYPE_INFO_INC\r\n#endif\r\n");
+  } 
+  foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { 
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)));
+            this.Write("\r\n");
+  } 
+            this.Write("#include \"XamlTypeInfo.xaml.g.h\"\r\n#include \"XamlBindingInfo.xaml.g.h\"\r\n#ifdef XAM" +
+                    "L_USE_MODULE\r\nimport ");
+            this.Write(this.ToStringHelper.ToStringWithCulture(CppWinRTProjectionDependency.GetXamlPrimaryModuleName(ProjectInfo.RootNamespace)));
+            this.Write(";\r\n#endif\r\n#include \"XamlBindingInfo.xaml.g.hpp\"\r\n");
   if (!ProjectInfo.GenerateIncrementalTypeInfo) { 
-      foreach(string includeFile in Model.AllLocalHppGeneratedFiles) 
-      { 
+      foreach(string includeFile in Model.AllLocalHppGeneratedFiles) { 
             this.Write("#include \"");
             this.Write(this.ToStringHelper.ToStringWithCulture(includeFile.Replace(".g.hpp", ".xaml.g.hpp")));
             this.Write("\"\r\n");

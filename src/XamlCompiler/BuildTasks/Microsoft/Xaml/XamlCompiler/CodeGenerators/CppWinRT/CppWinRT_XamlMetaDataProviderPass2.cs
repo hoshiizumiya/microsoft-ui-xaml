@@ -23,11 +23,11 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
         public override string TransformText()
         {
   if(!String.IsNullOrEmpty(ProjectInfo.PrecompiledHeaderFile)) { 
-            this.Write("#include \"");
+            this.Write("#ifndef XAML_USE_MODULE\r\n#include \"");
             this.Write(this.ToStringHelper.ToStringWithCulture(ProjectInfo.PrecompiledHeaderFile));
-            this.Write("\"\r\n");
+            this.Write("\"\r\n#endif\r\n");
   }
-            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTModuleCompatibilityDefinition()));
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTConsumerPreamble()));
             this.Write("\r\n");
             return this.GenerationEnvironment.ToString();
         }

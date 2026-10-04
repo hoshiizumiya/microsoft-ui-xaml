@@ -32,13 +32,14 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 //------------------------------------------------------------------------------
 ");
   if(!String.IsNullOrEmpty(ProjectInfo.PrecompiledHeaderFile)) { 
-            this.Write("#include \"");
+            this.Write("#ifndef XAML_USE_MODULE\r\n#include \"");
             this.Write(this.ToStringHelper.ToStringWithCulture(ProjectInfo.PrecompiledHeaderFile));
-            this.Write("\"\r\n");
+            this.Write("\"\r\n#endif\r\n");
   }
-            this.Write("\r\n#include <cstdint>\r\n#include <memory>\r\n#include <utility>\r\n\r\n");
-            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTModuleCompatibilityDefinition()));
-            this.Write("\r\n#include \"XamlBindingInfo.xaml.g.h\"\r\n\r\nnamespace winrt::");
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTConsumerPreamble()));
+            this.Write("\r\n\r\n#if !defined(XAML_USE_MODULE) && !defined(WINRT_IMPORT_MODULE)\r\n#include <cst" +
+                    "dint>\r\n#include <memory>\r\n#include <utility>\r\n#endif\r\n\r\n#include \"XamlBindingInf" +
+                    "o.xaml.g.h\"\r\n\r\nnamespace winrt::");
             this.Write(this.ToStringHelper.ToStringWithCulture(Colonize(ProjectInfo.RootNamespace)));
             this.Write("::implementation\r\n{\r\n\r\nusing DataContextChangedEventArgs = ");
             this.Write(this.ToStringHelper.ToStringWithCulture(Projection(KnownNamespaces.Xaml)));

@@ -36,25 +36,23 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 //------------------------------------------------------------------------------
 ");
   if(!String.IsNullOrEmpty(ProjectInfo.PrecompiledHeaderFile)) { 
-            this.Write("#include \"");
+            this.Write("#ifndef XAML_USE_MODULE\r\n#include \"");
             this.Write(this.ToStringHelper.ToStringWithCulture(ProjectInfo.PrecompiledHeaderFile));
-            this.Write("\"\r\n");
+            this.Write("\"\r\n#endif\r\n");
   }
-            this.Write("\r\n#include <cstdint>\r\n#include <memory>\r\n#include <type_traits>\r\n#include <utilit" +
-                    "y>\r\n\r\n");
-  if (ProjectInfo.UseCppWinRTNamedModules) { 
-            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTModuleCompatibilityDefinition()));
-            this.Write("\r\n");
-  } 
-  foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { 
-            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)));
-            this.Write("\r\n");
-  } 
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTConsumerPreamble()));
+            this.Write("\r\n\r\n#if !defined(XAML_USE_MODULE) && !defined(WINRT_IMPORT_MODULE)\r\n#include <cst" +
+                    "dint>\r\n#include <memory>\r\n#include <type_traits>\r\n#include <utility>\r\n#endif\r\n\r\n" +
+                    "");
   foreach (var includeFile in Model.NeededLocalXamlHeaderFiles) { 
             this.Write("#include \"");
             this.Write(this.ToStringHelper.ToStringWithCulture(includeFile));
             this.Write("\"\r\n");
   }
+  foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { 
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)));
+            this.Write("\r\n");
+  } 
             this.Write("\r\n#pragma warning(push)\r\n#pragma warning(disable: 4100) // unreferenced formal pa" +
                     "rameter\r\n\r\nnamespace winrt::");
             this.Write(this.ToStringHelper.ToStringWithCulture(Colonize(Model.CodeInfo.ClassName.Namespace)));
