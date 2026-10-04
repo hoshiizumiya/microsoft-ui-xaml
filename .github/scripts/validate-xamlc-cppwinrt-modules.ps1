@@ -114,6 +114,7 @@ function Assert-RemovedClass([string]$Directory, [string]$ShortName, [string]$Id
     foreach ($name in @("$ShortName.xaml.g.h", "$ShortName.xaml.g.hpp", "$ShortName.xaml.g.hpp.backup", "$ShortName.xaml.g.ixx", "$Identity.ifc")) {
         if (@(Get-ChildItem $Directory -Filter $name -File -Recurse -ErrorAction SilentlyContinue).Count -ne 0) { throw "Removed class left $name." }
     }
+    if (@(Get-ChildItem $Directory -File -Recurse | Where-Object { $_.DirectoryName -like '*\XamlModules*' -and $_.Name -like "$ShortName.xaml.g.ixx.*" }).Count -ne 0) { throw 'Removed class left scanner or object outputs.' }
     if ((Get-Content (Get-OneGeneratedFile $Directory 'Application_Xaml.g.ixx').FullName -Raw).Contains("export import $Identity;")) { throw 'Removed class remains in the root.' }
 }
 
@@ -122,6 +123,8 @@ $fixtureRoot = Split-Path (Join-Path $repoRoot $simpleModules)
 $classes = @('Simple.App', 'Simple.MainPage', 'Simple.EmptyPage', 'Simple.Views.PanelPage', 'Simple.Controls.PanelPage')
 Invoke-XamlModuleBuild $simpleModules 'SimpleModules.CleanModule'
 Assert-XamlGraph $simpleGeneratedRoot 'Simple' $classes
+$panelScans = @(Get-ChildItem $simpleGeneratedRoot -Filter 'PanelPage.xaml.g.ixx.module.json' -Recurse -File)
+if ($panelScans.Count -ne 2 -or $panelScans[0].DirectoryName -eq $panelScans[1].DirectoryName) { throw 'Same-leaf class interfaces did not receive independent scanner outputs.' }
 $mainInterface = Get-OneGeneratedFile $simpleGeneratedRoot 'MainPage.xaml.g.ixx'
 if (-not (Get-Content $mainInterface.FullName -Raw).Contains('export import winrt.Simple;')) { throw 'Unresolved local field dependency was not exported.' }
 $mainPass2 = Get-Content (Get-OneGeneratedFile $simpleGeneratedRoot 'MainPage.xaml.g.hpp').FullName -Raw

@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation.
+﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
 namespace Microsoft.UI.Xaml.Markup.Compiler
@@ -187,6 +187,8 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
         #endregion
 
         #region Output Properties
+
+        public Dictionary<string, string> GeneratedModuleNames { get; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         public IList<string> GeneratedCodeFiles
         {
@@ -805,6 +807,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
                     }
                     string path = Path.Combine(codeFile.TargetFolderFullPath, codeFile.BaseFileName + ".xaml.g.ixx");
                     activePaths.Add(path);
+                    GeneratedModuleNames[path] = CppWinRTProjectionDependency.GetXamlClassModuleName(RootNamespace, codeFile.XamlTaskItems.First().ClassFullName);
                     if (File.Exists(path) && !_generatedCodeFiles.Contains(path))
                     {
                         _generatedCodeFiles.Add(path);
@@ -831,6 +834,8 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
                         _generatedCodeFiles.Add(path);
                     }
                 }
+                GeneratedModuleNames[Path.Combine(OutputFolderFullpath, "Application_Xaml.g.ixx")] = rootModule;
+                GeneratedModuleNames[Path.Combine(OutputFolderFullpath, "XamlSupport.g.ixx")] = rootModule + ".Support";
                 modules.Add(rootModule);
                 modules.Add(rootModule + ".Support");
                 modules.AddRange(classNames.Select(name => CppWinRTProjectionDependency.GetXamlClassModuleName(RootNamespace, name)));
