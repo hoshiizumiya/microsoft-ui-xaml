@@ -160,6 +160,7 @@
     <ClCompile Include="XamlHeaderImportSmoke.cpp" Condition="'$(CppWinRTBuildModule)' == 'true'" />
     <ClCompile Include="XamlMultipleHeaderImportSmoke.cpp" Condition="'$(CppWinRTBuildModule)' == 'true' and '$(IncludeIncrementalEmptyPage)' != 'false'" />
     <ClCompile Include="HandwrittenMainPage.ixx" Condition="'$(CppWinRTBuildModule)' == 'true'" />
+    <ClCompile Include="HandwrittenXaml.ixx" Condition="'$(CppWinRTBuildModule)' == 'true'" />
     <ClCompile Include="HandwrittenClassConsumer.cpp" Condition="'$(CppWinRTBuildModule)' == 'true'" />
     <ClCompile Include="CustomEmptyPage.ixx" Condition="'$(CppWinRTBuildModule)' == 'true' and '$(IncludeIncrementalEmptyPage)' != 'false'" />
     <ClCompile Include="CustomXamlModuleConsumer.cpp" Condition="'$(CppWinRTBuildModule)' == 'true' and '$(IncludeIncrementalEmptyPage)' != 'false'" />
@@ -232,7 +233,7 @@
           BeforeTargets="FixupCLCompileOptions">
     <ItemGroup>
       <ClCompile Remove="@(ClCompile)" Condition="'%(ClCompile.CompileAs)' != 'CompileAsCppModule'" />
-      <ClCompile Remove="CustomEmptyPage.ixx;HandwrittenMainPage.ixx" />
+      <ClCompile Remove="CustomEmptyPage.ixx;HandwrittenMainPage.ixx;HandwrittenXaml.ixx" />
     </ItemGroup>
   </Target>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">

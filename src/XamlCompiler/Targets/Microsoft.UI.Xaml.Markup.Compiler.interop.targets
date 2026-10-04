@@ -708,7 +708,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
         <MakeDir Directories="@(_XamlModuleObjectDirs)" />
         <!-- The manifest controls IFC lifetime even when a class is renamed in place. -->
         <ItemGroup Condition="!Exists('$(XamlCppWinRTModuleIfcDir)modules.list')">
-            <_XamlStaleIfc Include="$(XamlCppWinRTModuleIfcDir)*.ifc" />
+            <_XamlStaleIfc Include="$(XamlCppWinRTModuleIfcDir)*.ifc;$(XamlCppWinRTModuleIfcDir)*.ifc.d.json" />
         </ItemGroup>
         <ReadLinesFromFile File="$(XamlCppWinRTModuleIfcDir)modules.list" Condition="Exists('$(XamlCppWinRTModuleIfcDir)modules.list')">
             <Output TaskParameter="Lines" ItemName="_XamlPreviousModules" />
@@ -718,7 +718,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
         </ReadLinesFromFile>
         <ItemGroup>
             <_XamlPreviousModules Remove="@(_XamlCurrentModules)" />
-            <_XamlStaleIfc Include="@(_XamlPreviousModules->'$(XamlCppWinRTModuleIfcDir)%(Identity).ifc')" />
+            <_XamlStaleIfc Include="@(_XamlPreviousModules->'$(XamlCppWinRTModuleIfcDir)%(Identity).ifc');@(_XamlPreviousModules->'$(XamlCppWinRTModuleIfcDir)%(Identity).ifc.d.json')" />
         </ItemGroup>
         <!-- Source-relative scanner/object paths distinguish same-leaf XAML files.
              Delete artifacts whose dedicated interface was removed or renamed. -->
