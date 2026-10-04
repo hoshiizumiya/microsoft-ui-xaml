@@ -215,7 +215,10 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
         public string GetCppWinRTConsumerPreamble()
         {
             // Generated consumers own their native preamble; no application /FI is needed.
-            return "#ifdef XAML_USE_MODULE\n#include <windows.h>\n#include <unknwn.h>\n#include <algorithm>\n#include <cstddef>\n#include <cstdint>\n#include <functional>\n#include <map>\n#include <memory>\n#include <mutex>\n#include <regex>\n#include <string>\n#include <type_traits>\n#include <utility>\n#include <vector>\n#include <winrt/base_macros.h>\n#undef GetCurrentTime\n#ifndef WINRT_IMPORT_MODULE\n#define WINRT_IMPORT_MODULE\n#endif\n#endif";
+            // Keep platform and macro-only headers before the module imports. Do not textually
+            // include STL headers and then import std: MSVC diagnoses duplicate CRT/STL
+            // declarations when C++/WinRT namespace modules are consumed by the same TU.
+            return "#ifdef XAML_USE_MODULE\n#include <windows.h>\n#include <unknwn.h>\n#include <winrt/base_macros.h>\n#undef GetCurrentTime\nimport std;\n#ifndef WINRT_IMPORT_MODULE\n#define WINRT_IMPORT_MODULE\n#endif\n#endif";
         }
 
         public static String Projection(string typeName)
