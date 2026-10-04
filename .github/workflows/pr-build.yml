@@ -65,6 +65,7 @@ jobs:
             BuildOutput/TestResults/XamlCompiler/**
             BuildOutput/obj/**/XamlModules/**
             BuildOutput/obj/**/*.g.ixx
+            BuildOutput/obj/**/SimpleModules/generated/**
           retention-days: 7
 
       - uses: actions/upload-artifact@v6
