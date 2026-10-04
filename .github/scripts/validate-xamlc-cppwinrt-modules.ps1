@@ -92,7 +92,11 @@ function Assert-XamlGraph([string]$Directory, [string]$Namespace, [string[]]$Cla
     if ($text -match '#include|namespace |export import :') { throw 'The root must only aggregate independent named modules.' }
     if (-not $text.Contains("export module $Namespace.Application_Xaml;")) { throw 'Incorrect root module identity.' }
     foreach ($class in $Classes) {
-        $encoded = ($class.Split('.') | ForEach-Object { 'C_' + $_ }) -join '.'
+        $encoded = ($class.Split('.') | ForEach-Object {
+            'C_' + (([char[]]$_ | ForEach-Object {
+                if ($_ -cmatch '[a-z0-9]') { [string]$_ } else { '_' + ([int]$_).ToString('x4') }
+            }) -join '')
+        }) -join '.'
         $identity = "$Namespace.Application_Xaml.Class.$encoded"
         if (-not $text.Contains("export import $identity;")) { throw "Root is missing $identity." }
         $source = @(Get-ChildItem $Directory -Filter '*.xaml.g.ixx' -File -Recurse | Where-Object { (Get-Content $_.FullName -Raw).Contains("export module $identity;") })
@@ -114,6 +118,7 @@ function Assert-RemovedClass([string]$Directory, [string]$ShortName, [string]$Id
     foreach ($name in @("$ShortName.xaml.g.h", "$ShortName.xaml.g.hpp", "$ShortName.xaml.g.hpp.backup", "$ShortName.xaml.g.ixx", "$Identity.ifc")) {
         if (@(Get-ChildItem $Directory -Filter $name -File -Recurse -ErrorAction SilentlyContinue).Count -ne 0) { throw "Removed class left $name." }
     }
+    if (@(Get-ChildItem $Directory -File -Recurse | Where-Object { $_.DirectoryName -like '*\XamlModules*' -and $_.Name -like "$ShortName.xaml.g.ixx.*" }).Count -ne 0) { throw 'Removed class left scanner or object outputs.' }
     if ((Get-Content (Get-OneGeneratedFile $Directory 'Application_Xaml.g.ixx').FullName -Raw).Contains("export import $Identity;")) { throw 'Removed class remains in the root.' }
 }
 
@@ -122,6 +127,8 @@ $fixtureRoot = Split-Path (Join-Path $repoRoot $simpleModules)
 $classes = @('Simple.App', 'Simple.MainPage', 'Simple.EmptyPage', 'Simple.Views.PanelPage', 'Simple.Controls.PanelPage')
 Invoke-XamlModuleBuild $simpleModules 'SimpleModules.CleanModule'
 Assert-XamlGraph $simpleGeneratedRoot 'Simple' $classes
+$panelScans = @(Get-ChildItem $simpleGeneratedRoot -Filter 'PanelPage.xaml.g.ixx.module.json' -Recurse -File)
+if ($panelScans.Count -ne 2 -or $panelScans[0].DirectoryName -eq $panelScans[1].DirectoryName) { throw 'Same-leaf class interfaces did not receive independent scanner outputs.' }
 $mainInterface = Get-OneGeneratedFile $simpleGeneratedRoot 'MainPage.xaml.g.ixx'
 if (-not (Get-Content $mainInterface.FullName -Raw).Contains('export import winrt.Simple;')) { throw 'Unresolved local field dependency was not exported.' }
 $mainPass2 = Get-Content (Get-OneGeneratedFile $simpleGeneratedRoot 'MainPage.xaml.g.hpp').FullName -Raw
@@ -129,17 +136,28 @@ foreach ($dependency in @('import winrt.Simple.Models;', 'import winrt.Simple.Ta
     if (-not $mainPass2.Contains($dependency)) { throw "Missing x:Bind implementation dependency: $dependency" }
 }
 $emptySource = Get-OneGeneratedFile $simpleGeneratedRoot 'EmptyPage.xaml.g.ixx'
-$emptyIfc = Get-OneGeneratedFile $simpleGeneratedRoot 'Simple.Application_Xaml.Class.C_Simple.C_EmptyPage.ifc'
+$emptyIfc = Get-OneGeneratedFile $simpleGeneratedRoot 'Simple.Application_Xaml.Class.C__0053imple.C__0045mpty_0050age.ifc'
 $emptySourceTime = $emptySource.LastWriteTimeUtc
 $emptyIfcTime = $emptyIfc.LastWriteTimeUtc
 Invoke-XamlModuleBuild $simpleModules 'SimpleModules.NoChange'
 if ((Get-Item $emptyIfc.FullName).LastWriteTimeUtc -ne $emptyIfcTime) { throw 'No-change build rebuilt a class IFC.' }
-(Get-Item (Join-Path $fixtureRoot 'MainPage.xaml')).LastWriteTime = (Get-Date).AddSeconds(2)
-Invoke-XamlModuleBuild $simpleModules 'SimpleModules.OnePageChanged'
-if ((Get-Item $emptySource.FullName).LastWriteTimeUtc -ne $emptySourceTime -or (Get-Item $emptyIfc.FullName).LastWriteTimeUtc -ne $emptyIfcTime) { throw 'Changing MainPage rebuilt the sibling EmptyPage interface.' }
+$mainXaml = Join-Path $fixtureRoot 'MainPage.xaml'
+$mainOriginal = [IO.File]::ReadAllBytes($mainXaml)
+$mainIfc = Get-OneGeneratedFile $simpleGeneratedRoot 'Simple.Application_Xaml.Class.C__0053imple.C__004dain_0050age.ifc'
+$mainIfcTime = $mainIfc.LastWriteTimeUtc
+try {
+    $changedXaml = [Text.Encoding]::UTF8.GetString($mainOriginal).Replace('<targets:BindTarget', '<TextBlock x:Name="IncrementalField" Text="Changed declaration" /><targets:BindTarget')
+    [IO.File]::WriteAllText($mainXaml, $changedXaml)
+    Invoke-XamlModuleBuild $simpleModules 'SimpleModules.OnePageChanged'
+    if (-not (Get-Content (Get-OneGeneratedFile $simpleGeneratedRoot 'MainPage.xaml.g.h').FullName -Raw).Contains('_IncrementalField')) { throw 'Changing XAML did not regenerate its declaration.' }
+    if ((Get-Item $mainIfc.FullName).LastWriteTimeUtc -eq $mainIfcTime) { throw 'Changing the declaration did not rebuild its class IFC.' }
+    if ((Get-Item $emptySource.FullName).LastWriteTimeUtc -ne $emptySourceTime -or (Get-Item $emptyIfc.FullName).LastWriteTimeUtc -ne $emptyIfcTime) { throw 'Changing MainPage rebuilt the sibling EmptyPage interface.' }
+} finally {
+    [IO.File]::WriteAllBytes($mainXaml, $mainOriginal)
+}
 
 Invoke-XamlModuleBuild $simpleModules 'SimpleModules.PageRemoved' @('/p:IncludeIncrementalEmptyPage=false')
-Assert-RemovedClass $simpleGeneratedRoot 'EmptyPage' 'Simple.Application_Xaml.Class.C_Simple.C_EmptyPage'
+Assert-RemovedClass $simpleGeneratedRoot 'EmptyPage' 'Simple.Application_Xaml.Class.C__0053imple.C__0045mpty_0050age'
 Assert-XamlGraph $simpleGeneratedRoot 'Simple' @($classes | Where-Object { $_ -ne 'Simple.EmptyPage' })
 Invoke-XamlModuleBuild $simpleModules 'SimpleModules.PageRestored' @('/p:IncludeIncrementalEmptyPage=true')
 Assert-XamlGraph $simpleGeneratedRoot 'Simple' $classes
@@ -159,7 +177,7 @@ try {
         if ($renamed[$path] -ne $path) { Remove-Item $path }
     }
     Invoke-XamlModuleBuild $simpleModules 'SimpleModules.Rename'
-    Assert-RemovedClass $simpleGeneratedRoot 'EmptyPage' 'Simple.Application_Xaml.Class.C_Simple.C_EmptyPage'
+    Assert-RemovedClass $simpleGeneratedRoot 'EmptyPage' 'Simple.Application_Xaml.Class.C__0053imple.C__0045mpty_0050age'
     Assert-XamlGraph $simpleGeneratedRoot 'Simple' @($classes | ForEach-Object { $_.Replace('EmptyPage', 'RenamedPage') })
 } finally {
     foreach ($path in $original.Keys) {
@@ -168,7 +186,7 @@ try {
     }
 }
 Invoke-XamlModuleBuild $simpleModules 'SimpleModules.RenameRestored'
-Assert-RemovedClass $simpleGeneratedRoot 'RenamedPage' 'Simple.Application_Xaml.Class.C_Simple.C_RenamedPage'
+Assert-RemovedClass $simpleGeneratedRoot 'RenamedPage' 'Simple.Application_Xaml.Class.C__0053imple.C__0052enamed_0050age'
 Assert-XamlGraph $simpleGeneratedRoot 'Simple' $classes
 
 Invoke-XamlModuleBuild -RelativeProject $simpleModules -LogName 'SimpleModules.NoPageInterfaces' -Target 'ClCompile' -ExtraProperties @('/p:XamlCodeGenerationControlFlags=NoPageCodeGen', '/p:ValidateXamlInterfacesOnly=true')

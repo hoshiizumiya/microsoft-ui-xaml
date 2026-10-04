@@ -12,10 +12,8 @@
 //     Changes to this file may cause incorrect behavior and will be lost if
 //     the code is regenerated.
 //------------------------------------------------------------------------------
-<#  if(!String.IsNullOrEmpty(ProjectInfo.PrecompiledHeaderFile)) { #>
-#ifndef XAML_USE_MODULE
+<#  if(!ProjectInfo.BuildXamlModules && !String.IsNullOrEmpty(ProjectInfo.PrecompiledHeaderFile)) { #>
 #include "<#=ProjectInfo.PrecompiledHeaderFile#>"
-#endif
 <#  }#>
 <#=GetCppWinRTConsumerPreamble()#>
 

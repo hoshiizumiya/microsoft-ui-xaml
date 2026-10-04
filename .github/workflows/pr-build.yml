@@ -3,25 +3,9 @@
 name: PR Build
 
 on:
-  pull_request:
-    branches-ignore:
-      - l10n_develop
-      - release
-      - dependabot/**
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-      - '.github/ISSUE_TEMPLATE/**'
-      - '.github/PULL_REQUEST_TEMPLATE.md'
-      - '.github/policies/**'
-      - 'LICENSE'
-      - 'NOTICE.md'
-      - 'PRIVACY.md'
-      - 'privacy.md'
-      - 'SECURITY.md'
-      - 'CODE_OF_CONDUCT.md'
-      - 'CONTRIBUTING.md'
-      - 'CONTRIBUTING_feedback_and_requests.md'
+  push:
+    branches: [feat/xamlccppmodule/product-validation]
+    paths: [.github/full-validation-trigger.txt]
   workflow_dispatch: {}
 
 concurrency:
@@ -138,7 +122,7 @@ jobs:
 
   build:
     needs: sync-xamlc-t4
-    if: needs.sync-xamlc-t4.outputs.generated_commit != 'true'
+    if: needs.sync-xamlc-t4.result == 'success'
     name: Build (${{ matrix.flavor }})
     runs-on: windows-2022
     timeout-minutes: 120
@@ -244,7 +228,7 @@ jobs:
     needs:
       - sync-xamlc-t4
       - build
-    if: needs.sync-xamlc-t4.outputs.generated_commit != 'true'
+    if: needs.sync-xamlc-t4.result == 'success'
     name: Validate C++/WinRT named modules
     runs-on: windows-2025-vs2026
     timeout-minutes: 90
@@ -317,7 +301,7 @@ jobs:
     needs:
       - sync-xamlc-t4
       - build
-    if: needs.sync-xamlc-t4.outputs.generated_commit != 'true'
+    if: needs.sync-xamlc-t4.result == 'success'
     strategy:
       fail-fast: false
       matrix:

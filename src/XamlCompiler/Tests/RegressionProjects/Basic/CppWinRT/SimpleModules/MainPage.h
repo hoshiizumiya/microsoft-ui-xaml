@@ -10,9 +10,15 @@
 #include "MainPageBase.h"
 #include "MainPage.g.h"
 
+#ifdef WINRT_IMPORT_MODULE
+import winrt.Microsoft.UI.Xaml.Controls.Primitives;
+import winrt.Microsoft.UI.Xaml.Documents;
+import winrt.Microsoft.UI.Xaml.Input;
+#else
 #include "winrt/Microsoft.UI.Xaml.Controls.Primitives.h"
 #include "winrt/Microsoft.UI.Xaml.Documents.h"
 #include "winrt/Microsoft.UI.Xaml.Input.h"
+#endif
 
 namespace winrt::Simple::implementation
 {

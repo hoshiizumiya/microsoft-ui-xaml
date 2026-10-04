@@ -14,10 +14,18 @@ module;
 #include <vector>
 #include <winrt/base_macros.h>
 #undef GetCurrentTime
-#undef WINRT_IMPORT_MODULE
-#include "MainPage.h"
 export module Simple.HandwrittenMainPage;
-export import Simple.Application_Xaml.Class.C_Simple.C_MainPage;
+#define WINRT_IMPORT_MODULE
+export import Simple.Application_Xaml;
+import winrt.Simple;
+import winrt.Simple.Models;
+import winrt.Microsoft.UI.Xaml.Controls.Primitives;
+import winrt.Microsoft.UI.Xaml.Documents;
+import winrt.Microsoft.UI.Xaml.Input;
+export extern "C++"
+{
+#include "MainPage.h"
+}
 export extern "C++" namespace winrt::Simple::implementation
 {
     struct MainPage;

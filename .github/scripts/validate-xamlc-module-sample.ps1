@@ -36,7 +36,12 @@ foreach ($configuration in @('Debug', 'Release')) {
     if ($root.Count -ne 1) { throw 'Sample did not receive an automatic root aggregator.' }
     foreach ($class in @('App', 'MainWindow')) {
         if (@(Get-ChildItem $intermediate -Filter "$class.xaml.g.ixx" -Recurse -File).Count -ne 1) { throw "Sample lacks $class interface." }
-        $identity = "WinUICppwinrtModuleSample.Application_Xaml.Class.C_WinUICppwinrtModuleSample.C_$class"
+        $encoded = ("WinUICppwinrtModuleSample.$class".Split('.') | ForEach-Object {
+            'C_' + (([char[]]$_ | ForEach-Object {
+                if ($_ -cmatch '[a-z0-9]') { [string]$_ } else { '_' + ([int]$_).ToString('x4') }
+            }) -join '')
+        }) -join '.'
+        $identity = "WinUICppwinrtModuleSample.Application_Xaml.Class.$encoded"
         if (@(Get-ChildItem $intermediate -Filter "$identity.ifc" -Recurse -File).Count -ne 1) { throw "Sample lacks $class IFC." }
     }
     foreach ($identity in @('WinUICppwinrtModuleSample.Application_Xaml', 'WinUICppwinrtModuleSample.Application_Xaml.Support')) {

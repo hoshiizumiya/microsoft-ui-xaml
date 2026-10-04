@@ -188,6 +188,8 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
 
         #region Output Properties
 
+        public Dictionary<string, string> GeneratedModuleNames { get; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
         public IList<string> GeneratedCodeFiles
         {
             get
@@ -805,6 +807,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
                     }
                     string path = Path.Combine(codeFile.TargetFolderFullPath, codeFile.BaseFileName + ".xaml.g.ixx");
                     activePaths.Add(path);
+                    GeneratedModuleNames[path] = CppWinRTProjectionDependency.GetXamlClassModuleName(RootNamespace, codeFile.XamlTaskItems.First().ClassFullName);
                     if (File.Exists(path) && !_generatedCodeFiles.Contains(path))
                     {
                         _generatedCodeFiles.Add(path);
@@ -831,6 +834,8 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
                         _generatedCodeFiles.Add(path);
                     }
                 }
+                GeneratedModuleNames[Path.Combine(OutputFolderFullpath, "Application_Xaml.g.ixx")] = rootModule;
+                GeneratedModuleNames[Path.Combine(OutputFolderFullpath, "XamlSupport.g.ixx")] = rootModule + ".Support";
                 modules.Add(rootModule);
                 modules.Add(rootModule + ".Support");
                 modules.AddRange(classNames.Select(name => CppWinRTProjectionDependency.GetXamlClassModuleName(RootNamespace, name)));
@@ -3313,12 +3318,12 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
 
         private bool ShouldSuppressTypeInfoCodeGen()
         {
-            return _projectInfo.HasCodeGenFlag(CodeGenCtrlFlags.NoTypeInfoCodeGen);
+            return CodeGenerationControlFlags.HasFlag(CodeGenCtrlFlags.NoTypeInfoCodeGen);
         }
 
         private bool ShouldSuppressPageCodeGen()
         {
-            return _projectInfo.HasCodeGenFlag(CodeGenCtrlFlags.NoPageCodeGen);
+            return CodeGenerationControlFlags.HasFlag(CodeGenCtrlFlags.NoPageCodeGen);
         }
 
         internal BuildTaskFileService TaskFileService { get; set; }

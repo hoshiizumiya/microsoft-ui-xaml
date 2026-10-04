@@ -119,13 +119,13 @@
     <Page Include="Views\PanelPage.xaml" />
     <Midl Include="Views\PanelPage.idl"><WinMetadataFile>$(IntDir)Views.PanelPage.winmd</WinMetadataFile><HeaderFileName>$(IntDir)Views.PanelPage.h</HeaderFileName><DependentUpon>Views\PanelPage.xaml</DependentUpon></Midl>
     <ClInclude Include="Views\PanelPage.h"><DependentUpon>Views\PanelPage.xaml</DependentUpon></ClInclude>
-    <ClCompile Include="Views\PanelPage.cpp"><DependentUpon>Views\PanelPage.xaml</DependentUpon></ClCompile>
+    <ClCompile Include="Views\PanelPage.cpp"><DependentUpon>Views\PanelPage.xaml</DependentUpon><ObjectFileName>$(IntDir)Views.PanelPage.obj</ObjectFileName><ModuleDependenciesFile>$(IntDir)Views.PanelPage.module.json</ModuleDependenciesFile></ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Page Include="Controls\PanelPage.xaml" />
     <Midl Include="Controls\PanelPage.idl"><WinMetadataFile>$(IntDir)Controls.PanelPage.winmd</WinMetadataFile><HeaderFileName>$(IntDir)Controls.PanelPage.h</HeaderFileName><DependentUpon>Controls\PanelPage.xaml</DependentUpon></Midl>
     <ClInclude Include="Controls\PanelPage.h"><DependentUpon>Controls\PanelPage.xaml</DependentUpon></ClInclude>
-    <ClCompile Include="Controls\PanelPage.cpp"><DependentUpon>Controls\PanelPage.xaml</DependentUpon></ClCompile>
+    <ClCompile Include="Controls\PanelPage.cpp"><DependentUpon>Controls\PanelPage.xaml</DependentUpon><ObjectFileName>$(IntDir)Controls.PanelPage.obj</ObjectFileName><ModuleDependenciesFile>$(IntDir)Controls.PanelPage.module.json</ModuleDependenciesFile></ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml">
@@ -160,6 +160,7 @@
     <ClCompile Include="XamlHeaderImportSmoke.cpp" Condition="'$(CppWinRTBuildModule)' == 'true'" />
     <ClCompile Include="XamlMultipleHeaderImportSmoke.cpp" Condition="'$(CppWinRTBuildModule)' == 'true' and '$(IncludeIncrementalEmptyPage)' != 'false'" />
     <ClCompile Include="HandwrittenMainPage.ixx" Condition="'$(CppWinRTBuildModule)' == 'true'" />
+    <ClCompile Include="HandwrittenXaml.ixx" Condition="'$(CppWinRTBuildModule)' == 'true'" />
     <ClCompile Include="HandwrittenClassConsumer.cpp" Condition="'$(CppWinRTBuildModule)' == 'true'" />
     <ClCompile Include="CustomEmptyPage.ixx" Condition="'$(CppWinRTBuildModule)' == 'true' and '$(IncludeIncrementalEmptyPage)' != 'false'" />
     <ClCompile Include="CustomXamlModuleConsumer.cpp" Condition="'$(CppWinRTBuildModule)' == 'true' and '$(IncludeIncrementalEmptyPage)' != 'false'" />
@@ -232,7 +233,7 @@
           BeforeTargets="FixupCLCompileOptions">
     <ItemGroup>
       <ClCompile Remove="@(ClCompile)" Condition="'%(ClCompile.CompileAs)' != 'CompileAsCppModule'" />
-      <ClCompile Remove="CustomEmptyPage.ixx;HandwrittenMainPage.ixx" />
+      <ClCompile Remove="CustomEmptyPage.ixx;HandwrittenMainPage.ixx;HandwrittenXaml.ixx" />
     </ItemGroup>
   </Target>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">

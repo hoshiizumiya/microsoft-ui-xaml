@@ -89,28 +89,37 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
         {
             get
             {
-                var namespaces = new HashSet<string>(StringComparer.Ordinal)
+                try
                 {
-                    KnownNamespaces.WindowsFoundation, KnownNamespaces.Xaml, KnownNamespaces.XamlMarkup
-                };
-                string baseTypeName = CodeInfo.BaseTypeName;
-                int separator = baseTypeName.LastIndexOf('.');
-                if (separator > 0)
-                {
-                    namespaces.Add(baseTypeName.Substring(0, separator));
-                }
-                foreach (var field in CodeInfo.FieldDeclarations)
-                {
-                    foreach (var ns in CppWinRTProjectionDependency.GetNamespaces(field.FieldXamlType?.UnderlyingType, field.FieldTypePath))
+                    var namespaces = new HashSet<string>(StringComparer.Ordinal)
                     {
-                        namespaces.Add(ns);
+                        KnownNamespaces.WindowsFoundation, KnownNamespaces.Xaml, KnownNamespaces.XamlMarkup
+                    };
+                    string baseTypeName = CodeInfo.BaseTypeName;
+                    int separator = baseTypeName.LastIndexOf('.');
+                    if (separator > 0)
+                    {
+                        namespaces.Add(baseTypeName.Substring(0, separator));
                     }
+                    foreach (var field in CodeInfo.FieldDeclarations)
+                    {
+                        foreach (var ns in CppWinRTProjectionDependency.GetNamespaces(field.FieldXamlType?.UnderlyingType, field.FieldTypePath))
+                        {
+                            namespaces.Add(ns);
+                        }
+                    }
+                    if (CodeInfo.IsApplication)
+                    {
+                        namespaces.Add(KnownNamespaces.WindowsXamlInterop);
+                    }
+                    return namespaces.OrderBy(ns => ns, StringComparer.Ordinal);
                 }
-                if (CodeInfo.IsApplication)
+                catch (Exception exception)
                 {
-                    namespaces.Add(KnownNamespaces.WindowsXamlInterop);
+                    // Temporary package-consumer diagnostic; remove after the lifecycle regression is identified.
+                    string details = $"x:Class={CodeInfo?.ClassName?.FullName}; IsApplication={CodeInfo?.IsApplication}; BaseTypeName={CodeInfo?.BaseTypeName ?? "<null>"}; FieldDeclarations={CodeInfo?.FieldDeclarations?.Count()}; BindStatus={CodeInfo?.BindStatus}";
+                    throw new InvalidOperationException("XAML declaration dependency collection failed: " + details + Environment.NewLine + exception, exception);
                 }
-                return namespaces.OrderBy(ns => ns, StringComparer.Ordinal);
             }
         }
 

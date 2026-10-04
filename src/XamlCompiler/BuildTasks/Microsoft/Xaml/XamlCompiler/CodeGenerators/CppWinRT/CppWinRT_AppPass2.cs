@@ -30,10 +30,10 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 //------------------------------------------------------------------------------
 
 ");
-  if(!String.IsNullOrEmpty(ProjectInfo.PrecompiledHeaderFile)) { 
-            this.Write("#ifndef XAML_USE_MODULE\r\n#include \"");
+  if(!ProjectInfo.BuildXamlModules && !String.IsNullOrEmpty(ProjectInfo.PrecompiledHeaderFile)) { 
+            this.Write("#include \"");
             this.Write(this.ToStringHelper.ToStringWithCulture(ProjectInfo.PrecompiledHeaderFile));
-            this.Write("\"\r\n#endif\r\n");
+            this.Write("\"\r\n");
   }
             this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTConsumerPreamble()));
             this.Write("\r\n#if !defined(XAML_USE_MODULE) && !defined(WINRT_IMPORT_MODULE)\r\n#include <windo" +
