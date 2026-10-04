@@ -1,11 +1,10 @@
-# PR build (OSS). Product-only compile gate; tests and signing run in internal ADO.
+# Full fork validation: formal T4 generation, product builds and native consumers.
 
 name: PR Build
 
 on:
   push:
     branches: [feat/xamlccppmodule/product-validation]
-    paths: [.github/full-validation-trigger.txt]
   workflow_dispatch: {}
 
 concurrency:
@@ -33,7 +32,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           show-progress: false
 
@@ -98,11 +97,15 @@ jobs:
               exit 0
           }
 
-          $isSameRepoPr = "${{ github.event_name }}" -eq "pull_request" -and
+          $eventName = "${{ github.event_name }}"
+          $targetBranch = "${{ github.event.pull_request.head.ref || github.ref_name }}"
+          $isSameRepoPr = $eventName -eq 'pull_request' -and
               "${{ github.event.pull_request.head.repo.full_name }}" -eq "${{ github.repository }}"
+          $isBranchRun = $eventName -in @('push', 'workflow_dispatch') -and
+              $targetBranch -match '^(review/xamlc-|feat/xamlccppmodule/)'
 
-          if (-not $isSameRepoPr) {
-              throw "XamlC T4 outputs are stale. Regenerate them with TransformAll and push the generated .cs files."
+          if (-not ($isSameRepoPr -or $isBranchRun)) {
+              throw "XamlC T4 outputs are stale. Generated .cs files are available in the T4 artifact; push them to the source branch."
           }
 
           git config user.name 'github-actions[bot]'
@@ -111,14 +114,24 @@ jobs:
           git diff --cached --check
           git commit -m 'Regenerate XamlC T4 templates'
           $generatedSha = git rev-parse HEAD
-          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+          git push origin "HEAD:$targetBranch"
+          if ($LASTEXITCODE -ne 0) { throw 'The source branch moved or rejected the generated commit.' }
           "checkout_sha=$generatedSha" >> $env:GITHUB_OUTPUT
           "generated_commit=true" >> $env:GITHUB_OUTPUT
 
           # GITHUB_TOKEN pushes do not recursively trigger the PR workflow.
           # Dispatch a fresh run explicitly so checks are attached to the new HEAD.
           $env:GH_TOKEN = "${{ github.token }}"
-          gh workflow run pr-build.yml --repo "${{ github.repository }}" --ref "${{ github.event.pull_request.head.ref }}"
+          gh workflow run pr-build.yml --repo "${{ github.repository }}" --ref "$targetBranch"
+          if ($LASTEXITCODE -ne 0) { throw 'Could not dispatch validation for the generated commit.' }
+
+      - name: Upload formal T4 outputs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: xamlc-formal-t4-outputs
+          path: src/XamlCompiler/BuildTasks/Microsoft/Xaml/XamlCompiler/CodeGenerators/**/*.cs
+          retention-days: 7
 
   build:
     needs: sync-xamlc-t4
@@ -160,13 +173,7 @@ jobs:
       CL: '/MP2'
 
     steps:
-      - name: Skip disabled PR Build validation
-        if: env.DISABLE_PR_BUILD_MATRIX_VALIDATION == 'true'
-        shell: pwsh
-        run: Write-Host "PR Build matrix validation is disabled by DISABLE_PR_BUILD_MATRIX_VALIDATION."
-
       - name: Checkout
-        if: env.DISABLE_PR_BUILD_MATRIX_VALIDATION != 'true'
         uses: actions/checkout@v5
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
@@ -175,7 +182,6 @@ jobs:
           show-progress: false
 
       - name: Initialize build environment and build
-        if: env.DISABLE_PR_BUILD_MATRIX_VALIDATION != 'true'
         shell: pwsh
         run: |
           & "${{ github.workspace }}/.github/scripts/build-pr.ps1" `
@@ -184,7 +190,7 @@ jobs:
             -Configuration $env:WINUI_BUILD_CONFIGURATION
 
       - name: Upload MSBuild binlogs
-        if: failure() && env.DISABLE_PR_BUILD_MATRIX_VALIDATION != 'true'
+        if: failure()
         uses: actions/upload-artifact@v6
         with:
           name: binlogs-${{ matrix.flavor }}
@@ -193,7 +199,6 @@ jobs:
           retention-days: 7
 
       - name: Upload product runtime payload
-        if: env.DISABLE_PR_BUILD_MATRIX_VALIDATION != 'true'
         uses: actions/upload-artifact@v6
         with:
           name: winui-product-${{ matrix.flavor }}
@@ -203,7 +208,6 @@ jobs:
           retention-days: 7
 
       - name: Upload consumable WinUI NuGet package
-        if: env.DISABLE_PR_BUILD_MATRIX_VALIDATION != 'true'
         uses: actions/upload-artifact@v6
         with:
           name: winui-nuget-${{ matrix.flavor }}
@@ -212,7 +216,7 @@ jobs:
           retention-days: 7
 
       - name: Upload named-module validation prerequisites
-        if: matrix.flavor == 'x64chk' && env.DISABLE_PR_BUILD_MATRIX_VALIDATION != 'true'
+        if: matrix.flavor == 'x64chk'
         uses: actions/upload-artifact@v6
         with:
           name: xaml-module-prereqs-x64chk
@@ -344,7 +348,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $baseline = if ('${{ matrix.source }}' -eq 'predecessor') { '9acf3ba0388a09701b8397353141884facabdc31' } else { '586676fd489598dd55aa48d1f0e8e964ab82dab0' }
+          $baseline = if ('${{ matrix.source }}' -eq 'predecessor') { 'ad88d2e5aceef3ad5eade466d127aefeb72457d4' } else { '7b68d3e0b771a57d80098799406234efee479517' }
           $props = [IO.File]::ReadAllBytes('src/XamlCompiler/Tests/UnitTests/Directory.Build.props')
           git restore --source=$baseline --worktree -- src/XamlCompiler/BuildTasks src/XamlCompiler/Targets src/XamlCompiler/Tests/UnitTests
           if ($LASTEXITCODE -ne 0) { throw 'Baseline source restore failed.' }

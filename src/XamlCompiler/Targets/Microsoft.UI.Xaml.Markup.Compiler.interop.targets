@@ -972,13 +972,16 @@ Licensed under the MIT License. See LICENSE in the project root for license info
               Update every XAML-generated compile item, including XamlMetaDataProvider.cpp which
               C++/WinRT may have added before MarkupCompilePass2.
             -->
+            <!-- Update is evaluation-only. Inside a target it does not select the
+                 listed items; copy, amend and replace only the generated items. -->
             <_XamlGeneratedModuleConsumers Include="@(ClCompile)"
-                       Condition="'$(CppWinRTBuildModule)' == 'true' and '%(ClCompile.CompilerIteration)' == 'XamlGenerated'" />
-            <ClCompile Update="@(_XamlGeneratedModuleConsumers)">
+                       Condition="'$(CppWinRTBuildModule)' == 'true' and '%(ClCompile.CompilerIteration)' == 'XamlGenerated'">
                 <AdditionalBMIDirectories>$(IntDir);$(XamlCppWinRTModuleIfcDir);$(_XamlGeneratedAdditionalBMIDirectories);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
                 <PrecompiledHeader>NotUsing</PrecompiledHeader>
                 <PreprocessorDefinitions>XAML_USE_MODULE;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
-            </ClCompile>
+            </_XamlGeneratedModuleConsumers>
+            <ClCompile Remove="@(_XamlGeneratedModuleConsumers)" />
+            <ClCompile Include="@(_XamlGeneratedModuleConsumers)" />
             <_XamlGeneratedModuleConsumers Remove="@(_XamlGeneratedModuleConsumers)" />
             <_XamlPass1PreprocessorSource Remove="@(_XamlPass1PreprocessorSource)" />
         </ItemGroup>
@@ -996,25 +999,26 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             AfterTargets="ComputeXamlGeneratedCompileInputs"
             BeforeTargets="CompileXamlGeneratedFiles">
         <ItemGroup>
-            <ClCompile Update="@(XamlGFiles);@(GeneratedXamlPagesFiles)">
-                <AdditionalBMIDirectories>$(IntDir);$(XamlCppWinRTModuleIfcDir);$(_XamlGeneratedAdditionalBMIDirectories);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
-                <PrecompiledHeader>NotUsing</PrecompiledHeader>
-                <PreprocessorDefinitions>XAML_USE_MODULE;$(_XamlGeneratedPreprocessorDefinitions);%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
-            </ClCompile>
-
-            <!--
-              Some generated component sources (for example XamlMetaDataProvider.cpp)
-              can already be in ClCompile rather than XamlGFiles. Keep the compiler
-              iteration path covered as well.
-            -->
-            <_XamlGeneratedModuleConsumers Include="@(ClCompile)"
+            <_XamlGeneratedCompilePaths Include="@(XamlGFiles);@(GeneratedXamlPagesFiles)" />
+            <_XamlGeneratedCompilePaths Include="@(ClCompile)"
                        Condition="'%(ClCompile.CompilerIteration)' == 'XamlGenerated'" />
-            <ClCompile Update="@(_XamlGeneratedModuleConsumers)">
-                <AdditionalBMIDirectories>$(IntDir);$(XamlCppWinRTModuleIfcDir);$(_XamlGeneratedAdditionalBMIDirectories);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
+            <!-- Intersect with existing ClCompile items so their metadata is preserved.
+                 FullPath matching also handles relative versus absolute generated paths. -->
+            <_XamlAuthoredCompileItems Include="@(ClCompile)" />
+            <_XamlAuthoredCompileItems Remove="@(_XamlGeneratedCompilePaths)"
+                       MatchOnMetadata="FullPath" MatchOnMetadataOptions="PathLike" />
+            <_XamlGeneratedModuleConsumers Include="@(ClCompile)" />
+            <_XamlGeneratedModuleConsumers Remove="@(_XamlAuthoredCompileItems)" />
+            <_XamlGeneratedModuleConsumers>
+                <AdditionalBMIDirectories>$(IntDir);$(XamlCppWinRTModuleIfcDir);$(_XamlGeneratedAdditionalBMIDirectories);%(_XamlGeneratedModuleConsumers.AdditionalBMIDirectories)</AdditionalBMIDirectories>
                 <PrecompiledHeader>NotUsing</PrecompiledHeader>
-                <PreprocessorDefinitions>XAML_USE_MODULE;$(_XamlGeneratedPreprocessorDefinitions);%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
-            </ClCompile>
+                <PreprocessorDefinitions>XAML_USE_MODULE;$(_XamlGeneratedPreprocessorDefinitions);%(_XamlGeneratedModuleConsumers.PreprocessorDefinitions)</PreprocessorDefinitions>
+            </_XamlGeneratedModuleConsumers>
+            <ClCompile Remove="@(_XamlGeneratedModuleConsumers)" />
+            <ClCompile Include="@(_XamlGeneratedModuleConsumers)" />
             <_XamlGeneratedModuleConsumers Remove="@(_XamlGeneratedModuleConsumers)" />
+            <_XamlAuthoredCompileItems Remove="@(_XamlAuthoredCompileItems)" />
+            <_XamlGeneratedCompilePaths Remove="@(_XamlGeneratedCompilePaths)" />
         </ItemGroup>
     </Target>
 
