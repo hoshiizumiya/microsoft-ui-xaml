@@ -134,9 +134,20 @@ $emptySourceTime = $emptySource.LastWriteTimeUtc
 $emptyIfcTime = $emptyIfc.LastWriteTimeUtc
 Invoke-XamlModuleBuild $simpleModules 'SimpleModules.NoChange'
 if ((Get-Item $emptyIfc.FullName).LastWriteTimeUtc -ne $emptyIfcTime) { throw 'No-change build rebuilt a class IFC.' }
-(Get-Item (Join-Path $fixtureRoot 'MainPage.xaml')).LastWriteTime = (Get-Date).AddSeconds(2)
-Invoke-XamlModuleBuild $simpleModules 'SimpleModules.OnePageChanged'
-if ((Get-Item $emptySource.FullName).LastWriteTimeUtc -ne $emptySourceTime -or (Get-Item $emptyIfc.FullName).LastWriteTimeUtc -ne $emptyIfcTime) { throw 'Changing MainPage rebuilt the sibling EmptyPage interface.' }
+$mainXaml = Join-Path $fixtureRoot 'MainPage.xaml'
+$mainOriginal = [IO.File]::ReadAllBytes($mainXaml)
+$mainIfc = Get-OneGeneratedFile $simpleGeneratedRoot 'Simple.Application_Xaml.Class.C_Simple.C_MainPage.ifc'
+$mainIfcTime = $mainIfc.LastWriteTimeUtc
+try {
+    $changedXaml = [Text.Encoding]::UTF8.GetString($mainOriginal).Replace('<targets:BindTarget', '<TextBlock x:Name="IncrementalField" Text="Changed declaration" /><targets:BindTarget')
+    [IO.File]::WriteAllText($mainXaml, $changedXaml)
+    Invoke-XamlModuleBuild $simpleModules 'SimpleModules.OnePageChanged'
+    if (-not (Get-Content (Get-OneGeneratedFile $simpleGeneratedRoot 'MainPage.xaml.g.h').FullName -Raw).Contains('_IncrementalField')) { throw 'Changing XAML did not regenerate its declaration.' }
+    if ((Get-Item $mainIfc.FullName).LastWriteTimeUtc -eq $mainIfcTime) { throw 'Changing the declaration did not rebuild its class IFC.' }
+    if ((Get-Item $emptySource.FullName).LastWriteTimeUtc -ne $emptySourceTime -or (Get-Item $emptyIfc.FullName).LastWriteTimeUtc -ne $emptyIfcTime) { throw 'Changing MainPage rebuilt the sibling EmptyPage interface.' }
+} finally {
+    [IO.File]::WriteAllBytes($mainXaml, $mainOriginal)
+}
 
 Invoke-XamlModuleBuild $simpleModules 'SimpleModules.PageRemoved' @('/p:IncludeIncrementalEmptyPage=false')
 Assert-RemovedClass $simpleGeneratedRoot 'EmptyPage' 'Simple.Application_Xaml.Class.C_Simple.C_EmptyPage'

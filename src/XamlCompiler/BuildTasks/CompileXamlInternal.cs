@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft Corporation.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
 namespace Microsoft.UI.Xaml.Markup.Compiler
@@ -3313,12 +3313,12 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
 
         private bool ShouldSuppressTypeInfoCodeGen()
         {
-            return _projectInfo.HasCodeGenFlag(CodeGenCtrlFlags.NoTypeInfoCodeGen);
+            return CodeGenerationControlFlags.HasFlag(CodeGenCtrlFlags.NoTypeInfoCodeGen);
         }
 
         private bool ShouldSuppressPageCodeGen()
         {
-            return _projectInfo.HasCodeGenFlag(CodeGenCtrlFlags.NoPageCodeGen);
+            return CodeGenerationControlFlags.HasFlag(CodeGenCtrlFlags.NoPageCodeGen);
         }
 
         internal BuildTaskFileService TaskFileService { get; set; }
