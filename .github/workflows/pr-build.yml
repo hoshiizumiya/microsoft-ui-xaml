@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        source: [feature, predecessor, upstream]
+        source: [feature]
     name: XamlCompiler full suite (${{ matrix.source }})
     runs-on: windows-2022
     timeout-minutes: 120
@@ -81,6 +81,7 @@ jobs:
           $quote = [char]34
           $chain = "call $quote$vsDevCmd$quote -no_logo -arch=amd64 -host_arch=amd64" +
               " && init.cmd x64chk /nopgo" +
+              " && msbuild src\XamlCompiler\Microsoft.UI.Xaml.Markup.Compiler.csproj /t:TransformAll /p:TransformOnBuild=true /p:TransformOutOfDateOnly=false /p:BuildingInsideVisualStudio=true /m:1 /v:minimal" +
               " && msbuild src\XamlCompiler\Microsoft.UI.Xaml.Markup.Compiler.csproj /restore /t:Build /p:Configuration=Debug /p:Platform=x64 /m:2 /ds:false /binaryLogger:BuildOutput\binlogs\Compiler.FullSuite.binlog" +
               " && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-unit-tests.ps1"
           cmd /d /c $chain

@@ -683,6 +683,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
         <ItemGroup>
             <_XamlGeneratedInterfaces Include="@(_GeneratedCodeFiles->'%(FullPath)')"
                 Condition="$([System.String]::Copy('%(_GeneratedCodeFiles.Identity)').EndsWith('.g.ixx'))">
+                <XamlModuleName>%(_GeneratedCodeFiles.XamlModuleName)</XamlModuleName>
                 <XamlModuleRelativePath>$([MSBuild]::MakeRelative($(_XamlModuleGeneratedDir), %(_GeneratedCodeFiles.FullPath)))</XamlModuleRelativePath>
                 <XamlModuleObjectDir>$([System.IO.Path]::GetDirectoryName('$(XamlCppWinRTModuleIfcDir)$([MSBuild]::MakeRelative($(_XamlModuleGeneratedDir), %(_GeneratedCodeFiles.FullPath))).obj'))</XamlModuleObjectDir>
             </_XamlGeneratedInterfaces>
@@ -696,8 +697,10 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                 <CompileAs>CompileAsCppModule</CompileAs>
                 <ModulesSupported>true</ModulesSupported>
                 <PrecompiledHeader>NotUsing</PrecompiledHeader>
-                <ModuleOutputFile>$(XamlCppWinRTModuleIfcDir)</ModuleOutputFile>
+                <ModuleOutputFile>$(XamlCppWinRTModuleIfcDir)%(_XamlUniqueInterfaces.XamlModuleName).ifc</ModuleOutputFile>
                 <ObjectFileName>$(XamlCppWinRTModuleIfcDir)%(_XamlUniqueInterfaces.XamlModuleRelativePath).obj</ObjectFileName>
+                <ModuleDependenciesFile>$(XamlCppWinRTModuleIfcDir)%(_XamlUniqueInterfaces.XamlModuleRelativePath).module.json</ModuleDependenciesFile>
+                <SourceDependenciesFile>$(XamlCppWinRTModuleIfcDir)%(_XamlUniqueInterfaces.XamlModuleRelativePath).source.json</SourceDependenciesFile>
                 <AdditionalBMIDirectories Condition="'$(_CppWinRTModuleIfcSearchDirs)' != ''">$(_CppWinRTModuleIfcSearchDirs);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
                 <CompilerIteration>XamlGeneratedModule</CompilerIteration>
             </ClCompile>
@@ -717,7 +720,16 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <_XamlPreviousModules Remove="@(_XamlCurrentModules)" />
             <_XamlStaleIfc Include="@(_XamlPreviousModules->'$(XamlCppWinRTModuleIfcDir)%(Identity).ifc')" />
         </ItemGroup>
-        <Delete Files="@(_XamlStaleIfc)" />
+        <!-- Source-relative scanner/object paths distinguish same-leaf XAML files.
+             Delete artifacts whose dedicated interface was removed or renamed. -->
+        <ItemGroup>
+            <_XamlGeneratedModuleArtifacts Include="$(XamlCppWinRTModuleIfcDir)**\*.g.ixx.*">
+                <XamlGeneratedSource>$(_XamlModuleGeneratedDir)$([System.Text.RegularExpressions.Regex]::Replace('%(_XamlGeneratedModuleArtifacts.RecursiveDir)%(_XamlGeneratedModuleArtifacts.Filename)%(_XamlGeneratedModuleArtifacts.Extension)', '\.(obj|module\.json(\.command)?|source\.json)$', ''))</XamlGeneratedSource>
+            </_XamlGeneratedModuleArtifacts>
+            <_XamlOrphanedModuleArtifacts Include="@(_XamlGeneratedModuleArtifacts)"
+                Condition="!Exists('%(_XamlGeneratedModuleArtifacts.XamlGeneratedSource)')" />
+        </ItemGroup>
+        <Delete Files="@(_XamlStaleIfc);@(_XamlOrphanedModuleArtifacts)" />
         <Copy SourceFiles="$(_XamlModuleGeneratedDir)XamlModules.list" DestinationFiles="$(XamlCppWinRTModuleIfcDir)modules.list" SkipUnchangedFiles="true" />
         <ItemGroup>
             <FileWrites Include="$(XamlCppWinRTModuleIfcDir)modules.list" />
@@ -727,6 +739,8 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <_XamlPreviousModules Remove="@(_XamlPreviousModules)" />
             <_XamlCurrentModules Remove="@(_XamlCurrentModules)" />
             <_XamlStaleIfc Remove="@(_XamlStaleIfc)" />
+            <_XamlOrphanedModuleArtifacts Remove="@(_XamlOrphanedModuleArtifacts)" />
+            <_XamlGeneratedModuleArtifacts Remove="@(_XamlGeneratedModuleArtifacts)" />
         </ItemGroup>
     </Target>
 

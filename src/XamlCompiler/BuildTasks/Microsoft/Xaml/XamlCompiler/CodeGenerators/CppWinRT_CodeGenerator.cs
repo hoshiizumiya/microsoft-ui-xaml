@@ -91,9 +91,13 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 
         public static string GetXamlClassModuleName(string rootNamespace, string runtimeClassName)
         {
-            // Encode each segment independently: namespace boundaries, underscores and
-            // keyword identifiers must not collapse to the same module identifier.
-            var segments = runtimeClassName.Replace("::", ".").Split('.').Select(segment => "C_" + segment);
+            // Escape uppercase/underscore/non-ASCII characters so module identities stay
+            // distinct even when their IFC filenames live on a case-insensitive filesystem.
+            var segments = runtimeClassName.Replace("::", ".").Split('.').Select(segment =>
+                "C_" + String.Concat(segment.Select(character =>
+                    character >= 'a' && character <= 'z' || character >= '0' && character <= '9'
+                        ? character.ToString()
+                        : "_" + ((int)character).ToString("x4", System.Globalization.CultureInfo.InvariantCulture))));
             return $"{GetXamlPrimaryModuleName(rootNamespace)}.Class.{String.Join(".", segments)}";
         }
 
