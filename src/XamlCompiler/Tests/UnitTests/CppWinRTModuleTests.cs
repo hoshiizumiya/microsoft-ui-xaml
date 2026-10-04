@@ -72,11 +72,15 @@ namespace UnitTests
         {
             Assert.AreEqual("OpenNet.Application_Xaml", CppWinRTProjectionDependency.GetXamlPrimaryModuleName("OpenNet"));
             Assert.AreEqual("Application_Xaml", CppWinRTProjectionDependency.GetXamlPrimaryModuleName(String.Empty));
-            Assert.AreEqual("OpenNet.Application_Xaml.Class.C_Views.C_MainPage", CppWinRTProjectionDependency.GetXamlClassModuleName("OpenNet", "Views::MainPage"));
+            Assert.AreEqual("OpenNet.Application_Xaml.Class.C__0056iews.C__004dain_0050age", CppWinRTProjectionDependency.GetXamlClassModuleName("OpenNet", "Views::MainPage"));
             Assert.AreNotEqual(CppWinRTProjectionDependency.GetXamlClassModuleName("OpenNet", "Views.MainPage"), CppWinRTProjectionDependency.GetXamlClassModuleName("OpenNet", "Controls.MainPage"));
             Assert.AreNotEqual(CppWinRTProjectionDependency.GetXamlClassModuleName("OpenNet", "A_B.C"), CppWinRTProjectionDependency.GetXamlClassModuleName("OpenNet", "A.B_C"));
             Assert.AreEqual("OpenNet.Application_Xaml.Class.C_export.C_module", CppWinRTProjectionDependency.GetXamlClassModuleName("OpenNet", "export.module"));
             Assert.AreNotEqual("OpenNet.Application_Xaml.Support", CppWinRTProjectionDependency.GetXamlClassModuleName("OpenNet", "Support"));
+            Assert.IsFalse(String.Equals(
+                CppWinRTProjectionDependency.GetXamlClassModuleName("OpenNet", "Views.MainPage"),
+                CppWinRTProjectionDependency.GetXamlClassModuleName("OpenNet", "views.MainPage"),
+                StringComparison.OrdinalIgnoreCase));
         }
 
         [TestMethod]
@@ -138,7 +142,7 @@ namespace UnitTests
             Assert.IsFalse(header.Contains("Application_Xaml"));
             Assert.IsFalse(header.Contains("WINRT_XAML_SKIP_BODY"));
             string module = modules.Single(file => file.FileName.EndsWith(".ixx")).Contents;
-            StringAssert.Contains(module, "export module Test.Application_Xaml.Class.C_Test.C_MainPage;");
+            StringAssert.Contains(module, "export module Test.Application_Xaml.Class.C__0054est.C__004dain_0050age;");
             StringAssert.Contains(module, "export import winrt.Microsoft.UI.Xaml.Controls;");
             Assert.IsFalse(module.Contains("Controls.Primitives"));
         }
@@ -179,6 +183,23 @@ namespace UnitTests
             Assert.IsFalse(text.Contains("ModulePreamble"));
             project.BuildXamlModules = true;
             Assert.AreEqual(text, helper.GenerateTypeInfo(false, schema, project, new ClassName("Test.App"), CodeGenLanguage.CppWinRT).Single(file => file.FileName == "XamlTypeInfo.g.cpp").Contents);
+            project.PrecompiledHeaderFile = "pch.h";
+            foreach (bool pass1 in new[] { true, false })
+            {
+                foreach (var source in helper.GenerateTypeInfo(pass1, schema, project, new ClassName("Test.App"), CodeGenLanguage.CppWinRT).Where(file => file.FileName.EndsWith(".cpp", StringComparison.Ordinal)))
+                {
+                    Assert.IsFalse(source.Contents.Contains("pch.h"));
+                }
+            }
+            project.BuildXamlModules = false;
+            foreach (bool pass1 in new[] { true, false })
+            {
+                foreach (var source in helper.GenerateTypeInfo(pass1, schema, project, new ClassName("Test.App"), CodeGenLanguage.CppWinRT).Where(file => file.FileName.EndsWith(".cpp", StringComparison.Ordinal)))
+                {
+                    StringAssert.Contains(source.Contents, "#include \"pch.h\"");
+                    Assert.IsFalse(source.Contents.Contains("#ifndef XAML_USE_MODULE"));
+                }
+            }
         }
 
         [TestMethod]

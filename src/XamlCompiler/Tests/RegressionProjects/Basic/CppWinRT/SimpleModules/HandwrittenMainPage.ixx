@@ -17,7 +17,7 @@ module;
 #undef WINRT_IMPORT_MODULE
 #include "MainPage.h"
 export module Simple.HandwrittenMainPage;
-export import Simple.Application_Xaml.Class.C_Simple.C_MainPage;
+export import Simple.Application_Xaml.Class.C__0053imple.C__004dain_0050age;
 export extern "C++" namespace winrt::Simple::implementation
 {
     struct MainPage;

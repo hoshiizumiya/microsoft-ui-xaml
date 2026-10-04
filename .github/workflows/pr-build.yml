@@ -50,6 +50,7 @@ jobs:
           $quote = [char]34
           $chain = "call $quote$dev$quote -no_logo -arch=amd64 -host_arch=amd64" +
               " && init.cmd x64chk /nopgo" +
+              " && msbuild src\XamlCompiler\Microsoft.UI.Xaml.Markup.Compiler.csproj /t:TransformAll /p:TransformOnBuild=true /p:TransformOutOfDateOnly=false /p:BuildingInsideVisualStudio=true /m:1 /v:minimal" +
               " && msbuild src\XamlCompiler\Microsoft.UI.Xaml.Markup.Compiler.csproj /restore /t:Build /p:Configuration=Debug /p:Platform=x64 /m:2 /ds:false /binaryLogger:BuildOutput\binlogs\Compiler.EarlyNative.binlog" +
               " && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-unit-tests.ps1 -VisualStudioVersion 18.0 -TestCaseFilter FullyQualifiedName~UnitTests.CppWinRTModuleTests -SkipRegressionBuild" +
               " && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-cppwinrt-modules.ps1"
@@ -64,4 +65,11 @@ jobs:
             BuildOutput/TestResults/XamlCompiler/**
             BuildOutput/obj/**/XamlModules/**
             BuildOutput/obj/**/*.g.ixx
+          retention-days: 7
+
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: xamlc-formal-t4-companions
+          path: src/XamlCompiler/BuildTasks/Microsoft/Xaml/XamlCompiler/CodeGenerators/**/*.cs
           retention-days: 7

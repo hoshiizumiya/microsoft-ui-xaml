@@ -106,6 +106,12 @@ namespace Win8Xaml.CompilerProxies
             set { _buildXamlModules.SetValue(_instance, value); }
         }
 
+        public string PrecompiledHeaderFile
+        {
+            get { return (string)_xamlProjectInfoType.GetProperty("PrecompiledHeaderFile").GetValue(_instance, null); }
+            set { _xamlProjectInfoType.GetProperty("PrecompiledHeaderFile").SetValue(_instance, value); }
+        }
+
         public void SetEmptyAdditionalXamlTypeInfoIncludes()
         {
             var property = _xamlProjectInfoType.GetProperty("AdditionalXamlTypeInfoIncludes");
