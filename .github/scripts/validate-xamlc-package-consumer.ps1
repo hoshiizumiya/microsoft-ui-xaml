@@ -28,10 +28,10 @@ foreach ($mode in @('Module', 'Header')) {
         & msbuild.exe $project @common "/t:$target" "/p:Configuration=$configuration" "/p:CppWinRTBuildModule=$module" "/p:IntDir=$intermediate" "/p:OutDir=$testRoot\bin\$mode\$configuration\" "/binaryLogger:$binlog\NuGetConsumer.$mode.$configuration.binlog"
         if ($LASTEXITCODE -ne 0) { throw "NuGet consumer $mode $configuration failed: $LASTEXITCODE" }
         if ($mode -eq 'Module') {
-            $root = @(Get-ChildItem $intermediate -Filter 'Application_Xaml.g.ixx' -Recurse -File)
+            $root = @(Get-ChildItem $testRoot -Filter 'Application_Xaml.g.ixx' -Recurse -File)
             if ($root.Count -ne 1 -or -not (Get-Content $root[0].FullName -Raw).Contains('export module NuGetModules.Application_Xaml;')) { throw 'Automatic public root module missing.' }
             foreach ($class in @('App', 'MainPage', 'EmptyPage')) {
-                if (@(Get-ChildItem $intermediate -Filter "$class.xaml.g.ixx" -Recurse -File).Count -ne 1) { throw "No automatic interface for $class." }
+                if (@(Get-ChildItem $root[0].DirectoryName -Filter "$class.xaml.g.ixx" -Recurse -File).Count -ne 1) { throw "No automatic interface for $class." }
             }
             if (-not $Pass1Only -and @(Get-ChildItem $intermediate -Filter 'NuGetModules.Application_Xaml.ifc' -Recurse -File).Count -ne 1) { throw 'Root IFC was not automatically registered.' }
         }

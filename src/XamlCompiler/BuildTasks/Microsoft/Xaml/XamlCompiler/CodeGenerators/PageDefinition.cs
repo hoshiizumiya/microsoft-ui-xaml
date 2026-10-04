@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft Corporation.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
 namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
@@ -89,44 +89,34 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
         {
             get
             {
-                try
+                var namespaces = new HashSet<string>(StringComparer.Ordinal)
                 {
-                    var namespaces = new HashSet<string>(StringComparer.Ordinal)
-                    {
-                        KnownNamespaces.WindowsFoundation, KnownNamespaces.Xaml, KnownNamespaces.XamlMarkup
-                    };
-                    if (CodeInfo == null || String.IsNullOrWhiteSpace(CodeInfo.BaseTypeName))
-                    {
-                        // A missing class/base is an unharvested model, not an empty declaration.
-                        throw new InvalidOperationException("XAML class and base type must be harvested before collecting declaration dependencies.");
-                    }
-                    string baseTypeName = CodeInfo.BaseTypeName;
-                    int separator = baseTypeName.LastIndexOf('.');
-                    string baseNamespace = separator > 0 ? baseTypeName.Substring(0, separator) : null;
-                    foreach (var ns in CppWinRTProjectionDependency.GetNamespaces(CodeInfo.BaseType?.UnderlyingType, baseNamespace))
+                    KnownNamespaces.WindowsFoundation, KnownNamespaces.Xaml, KnownNamespaces.XamlMarkup
+                };
+                if (CodeInfo == null || String.IsNullOrWhiteSpace(CodeInfo.BaseTypeName))
+                {
+                    // A missing class/base is an unharvested model, not an empty declaration.
+                    throw new InvalidOperationException("XAML class and base type must be harvested before collecting declaration dependencies.");
+                }
+                string baseTypeName = CodeInfo.BaseTypeName;
+                int separator = baseTypeName.LastIndexOf('.');
+                string baseNamespace = separator > 0 ? baseTypeName.Substring(0, separator) : null;
+                foreach (var ns in CppWinRTProjectionDependency.GetNamespaces(CodeInfo.BaseType?.UnderlyingType, baseNamespace))
+                {
+                    namespaces.Add(ns);
+                }
+                foreach (var field in CodeInfo.FieldDeclarations)
+                {
+                    foreach (var ns in CppWinRTProjectionDependency.GetNamespaces(field.FieldXamlType?.UnderlyingType, field.FieldTypePath))
                     {
                         namespaces.Add(ns);
                     }
-                    foreach (var field in CodeInfo.FieldDeclarations)
-                    {
-                        foreach (var ns in CppWinRTProjectionDependency.GetNamespaces(field.FieldXamlType?.UnderlyingType, field.FieldTypePath))
-                        {
-                            namespaces.Add(ns);
-                        }
-                    }
-                    if (CodeInfo.IsApplication)
-                    {
-                        namespaces.Add(KnownNamespaces.WindowsXamlInterop);
-                    }
-                    return namespaces.OrderBy(ns => ns, StringComparer.Ordinal);
                 }
-                catch (Exception exception)
+                if (CodeInfo.IsApplication)
                 {
-                    // Temporary package-consumer diagnostic; remove after the lifecycle regression is identified.
-                    string baseFileName = CodeInfo?.PerXamlFileInfo?.Count > 0 ? CodeInfo.BaseFileName : "<unharvested>";
-                    string details = $"x:Class={CodeInfo?.ClassName?.FullName}; BaseFileName={baseFileName}; IsApplication={CodeInfo?.IsApplication}; BaseTypeName={CodeInfo?.BaseTypeName ?? "<null>"}; FieldDeclarations={CodeInfo?.FieldDeclarations?.Count()}; BindStatus={CodeInfo?.BindStatus}";
-                    throw new InvalidOperationException("XAML declaration dependency collection failed: " + details + Environment.NewLine + exception, exception);
+                    namespaces.Add(KnownNamespaces.WindowsXamlInterop);
                 }
+                return namespaces.OrderBy(ns => ns, StringComparer.Ordinal);
             }
         }
 

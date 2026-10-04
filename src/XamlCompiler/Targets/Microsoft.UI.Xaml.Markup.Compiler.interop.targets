@@ -1,4 +1,4 @@
-﻿<!--
+<!--
 ***********************************************************************************************
 WARNING:  DO NOT MODIFY this file unless you are knowledgeable about MSBuild and have
           created a backup copy.  Incorrect changes to this file will make it
@@ -657,7 +657,6 @@ Licensed under the MIT License. See LICENSE in the project root for license info
       does not introduce a second ProjectReference protocol.
     -->
     <PropertyGroup>
-        <_XamlModuleGeneratedDir>$([MSBuild]::NormalizeDirectory($(MSBuildProjectDirectory), $(XamlGeneratedOutputPath)))</_XamlModuleGeneratedDir>
         <XamlCppWinRTModuleIfcDir Condition="'$(XamlCppWinRTModuleIfcDir)' == ''">$(IntDir)XamlModules\</XamlCppWinRTModuleIfcDir>
     </PropertyGroup>
 
@@ -665,6 +664,9 @@ Licensed under the MIT License. See LICENSE in the project root for license info
     <Target Name="XamlCppWinRTRemoveInactiveModuleOutputs"
             Condition="'$(XamlLanguage)' == 'CppWinRT' and ('$(CppWinRTBuildModule)' != 'true' or ('@(Page)' == '' and '@(ApplicationDefinition)' == ''))"
             BeforeTargets="MarkupCompilePass1;FixupCLCompileOptions">
+        <PropertyGroup>
+            <_XamlModuleGeneratedDir>$([MSBuild]::NormalizeDirectory($(MSBuildProjectDirectory), $(XamlGeneratedOutputPath)))</_XamlModuleGeneratedDir>
+        </PropertyGroup>
         <ItemGroup>
             <_XamlInactiveModuleOutputs Include="$(XamlCppWinRTModuleIfcDir)**\*;$(_XamlModuleGeneratedDir)**\*.xaml.g.ixx;$(_XamlModuleGeneratedDir)XamlSupport.g.ixx;$(_XamlModuleGeneratedDir)Application_Xaml.g.ixx;$(_XamlModuleGeneratedDir)XamlModules.list" />
             <_XamlInactiveModuleOutputs Include="$(_XamlModuleGeneratedDir)**\*.xaml.g.h;$(_XamlModuleGeneratedDir)**\*.xaml.g.hpp;$(_XamlModuleGeneratedDir)**\*.xaml.g.hpp.backup"
@@ -679,6 +681,11 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true' and ('@(Page)' != '' or '@(ApplicationDefinition)' != '')"
             DependsOnTargets="CppWinRTResolveModuleReferences;MarkupCompilePass1"
             BeforeTargets="CppWinRTAddModuleInterfaces;FixupCLCompileOptions">
+        <!-- NuGet imports can replace XamlGeneratedOutputPath after this file is evaluated.
+             Resolve the final directory after Pass1, alongside its generated item metadata. -->
+        <PropertyGroup>
+            <_XamlModuleGeneratedDir>$([MSBuild]::NormalizeDirectory($(MSBuildProjectDirectory), $(XamlGeneratedOutputPath)))</_XamlModuleGeneratedDir>
+        </PropertyGroup>
         <MakeDir Directories="$(XamlCppWinRTModuleIfcDir)" />
         <ItemGroup>
             <_XamlGeneratedInterfaces Include="@(_GeneratedCodeFiles->'%(FullPath)')"
