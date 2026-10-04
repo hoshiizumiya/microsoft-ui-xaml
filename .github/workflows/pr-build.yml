@@ -122,7 +122,7 @@ jobs:
 
   build:
     needs: sync-xamlc-t4
-    if: needs.sync-xamlc-t4.result == 'success'
+    if: always() && !cancelled() && needs.sync-xamlc-t4.result == 'success'
     name: Build (${{ matrix.flavor }})
     runs-on: windows-2022
     timeout-minutes: 120
@@ -228,7 +228,7 @@ jobs:
     needs:
       - sync-xamlc-t4
       - build
-    if: needs.sync-xamlc-t4.result == 'success'
+    if: always() && !cancelled() && needs.sync-xamlc-t4.result == 'success'
     name: Validate C++/WinRT named modules
     runs-on: windows-2025-vs2026
     timeout-minutes: 90
@@ -277,8 +277,8 @@ jobs:
           $quote = [char]34
           $chain = "call $quote$vsDevCmd$quote -no_logo -arch=amd64 -host_arch=amd64" +
               " && init.cmd x64chk /nopgo" +
-              " && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-cppwinrt-modules.ps1 -ModuleVisualStudioVersion 18.0 -ModulePlatformToolset v145" +
-              " && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-module-sample.ps1"
+              " && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-cppwinrt-modules.ps1 -ModuleVisualStudioVersion 18.0 -ModulePlatformToolset v145"
+
 
           cmd /d /c $chain
           if ($LASTEXITCODE -ne 0) {
@@ -301,7 +301,7 @@ jobs:
     needs:
       - sync-xamlc-t4
       - build
-    if: needs.sync-xamlc-t4.result == 'success'
+    if: always() && !cancelled() && needs.sync-xamlc-t4.result == 'success'
     strategy:
       fail-fast: false
       matrix:
@@ -382,4 +382,43 @@ jobs:
             BuildOutput/binlogs/*.UnitValidation.binlog
             BuildOutput/binlogs/Compiler.FullSuite.binlog
           if-no-files-found: warn
+          retention-days: 7
+
+  nuget-consumers:
+    needs: [sync-xamlc-t4, build]
+    if: always() && !cancelled() && needs.sync-xamlc-t4.result == 'success'
+    name: NuGet module sample
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 90
+    env:
+      NUGET_PACKAGES: ${{ github.workspace }}\packages
+      CL: '/MP2'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.sync-xamlc-t4.outputs.checkout_sha }}
+          fetch-depth: 1
+          show-progress: false
+      - uses: actions/download-artifact@v6
+        with:
+          name: winui-nuget-x64chk
+          path: PackageStore
+      - name: Real package fixture and product sample
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs = & $vswhere -latest -version '[18.0,19.0)' -requires Microsoft.Component.MSBuild -property installationPath
+          if (-not $vs) { throw 'VS2026 is required.' }
+          $dev = Join-Path $vs 'Common7\Tools\VsDevCmd.bat'
+          cmd /d /c "call `"$dev`" -no_logo -arch=amd64 -host_arch=amd64 && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-package-consumer.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-module-sample.ps1"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: nuget-consumer-evidence
+          path: |
+            BuildOutput/binlogs/**
+            PackageConsumerValidation/obj/**
+            SampleValidation/obj/**
           retention-days: 7

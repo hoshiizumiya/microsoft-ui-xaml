@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft Corporation.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
@@ -129,9 +129,16 @@ namespace UnitTests
             {
                 CodeInfo = new XamlClassCodeInfo("Test.NotHarvested", false)
             };
-            var exception = Assert.ThrowsException<System.Reflection.TargetInvocationException>(() => { var namespaces = definition.DeclarationCppWinRTProjectionNamespaces; });
-            Assert.IsInstanceOfType(exception.InnerException, typeof(InvalidOperationException));
-            StringAssert.Contains(exception.InnerException.ToString(), "must be harvested");
+            try
+            {
+                var namespaces = definition.DeclarationCppWinRTProjectionNamespaces;
+                Assert.Fail("Unharvested declaration dependencies must report an invalid lifecycle state.");
+            }
+            catch (System.Reflection.TargetInvocationException exception)
+            {
+                Assert.IsInstanceOfType(exception.InnerException, typeof(InvalidOperationException));
+                StringAssert.Contains(exception.InnerException.ToString(), "must be harvested");
+            }
         }
 
         [TestMethod]

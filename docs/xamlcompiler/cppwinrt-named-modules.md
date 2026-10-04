@@ -33,32 +33,16 @@ import Example.Application_Xaml;
 
 The exported generated declarations have external C++ ownership, allowing their traditional textual declarations to refer to the same entities. `XAML_USE_MODULE` is applied only to XamlCompiler-generated consumer sources. Ordinary application sources choose their own projection include/import strategy. Native and standard includes used by those sources must precede imports.
 
-Advanced users can package a generated declaration under their own module name:
+Optional user-level C++ module packaging can re-export the generated root alongside handwritten declarations. This is independent of the basic XamlCompiler contract. `import MyApp.Application_Xaml;` does not change the ownership of a handwritten `struct MainPage : MainPageT<MainPage>` or the cppwinrt component scaffolding.
 
-```cpp
-module;
-#include <unknwn.h>
-#include <winrt/base_macros.h>
-#undef GetCurrentTime
-export module Example.CustomPageDeclarations;
-import std;
-export import winrt.Windows.Foundation;
-export import winrt.Microsoft.UI.Xaml;
-export import winrt.Microsoft.UI.Xaml.Controls;
-export import winrt.Microsoft.UI.Xaml.Markup;
-#define XAML_IMPL_MODULE
-#include "MainPage.xaml.g.h"
-#undef XAML_IMPL_MODULE
-```
+A handwritten packaging interface must establish its own ownership for those declarations, provide their projection dependencies, and arrange template instantiation. The validation fixture uses `export extern "C++"` to preserve the existing external C++ entities, and places the handwritten declarations before re-exporting the automatic root. Projection component headers follow the C++/WinRT `WINRT_IMPORT_MODULE` convention. No XamlC producer macro is required by that packaging pattern.
 
-Additional field/base projection namespaces and BindingInfo support, when referenced, must also be imported. The generated automatic interface records this dependency set.
+`XAML_IMPL_MODULE` and `XAML_USE_MODULE` are internal generation mechanisms. The former is scoped to generated declaration producers; the latter is applied only to generated consumer translation units. They are not project-global settings. Per-class encoded identities are deterministic implementation details of the generated build graph; direct imports are possible but ordinary consumers use the root.
 
-These interfaces export XamlCompiler scaffolding, such as `MainPageT`; they do not automatically export or change ownership of a user's `MainPage` definition or its C++/WinRT `MainPage_base` component scaffolding. A handwritten class module must preserve external C++ ownership for the component scaffolding and arrange the class definition and template instantiation itself. A separate thin module can re-export both the handwritten packaging module and the generated declaration module without moving a component header into named-module ownership. XamlCompiler continues to compile Pass2 bodies through the existing TypeInfo consumer path.
+For an empty project `RootNamespace`, the generator falls back to `Application_Xaml`; a malformed namespace uses `XamlProject.<encoded namespace>.Application_Xaml`. Valid project namespaces, including Unicode identifiers, retain `<RootNamespace>.Application_Xaml`. Class encoding uses the full runtime name, independently of the physical `.ixx` path.
 
 Incremental packaging uses the complete saved project XAML set, including unchanged classes. Content-identical interface files retain their timestamps. Removing, suppressing or renaming a class removes its interface and manifest entry; MSBuild removes the former module IFC before scanning current interfaces. Switching to header mode removes XAML interfaces and IFCs. Each class interface is a separate scanner input; the root only depends on those completed interfaces and support.
 
 Validation is maintained in fork PR #40: multi-page and same-leaf namespace fixtures, header/module entity coexistence, custom packaging, static producer/consumer, incremental graph transitions, the product sample, and strict full-suite comparisons against predecessor and upstream source on the same runner/toolchain. The retained `std::` qualification preparation overlaps upstream #11846 and can be removed from the feature delta after that predecessor merges. The isolated feature remains based on #12132 until its incremental correction merges.
-
-The validation fixture also exercises a handwritten packaging module: it places `MainPage.h` and its component scaffolding in the global module fragment, establishes its own named module, and exports an external-C++ redeclaration of `MainPage`. A separate thin interface re-exports that module and the generated declaration module. A separate importing consumer checks that the complete handwritten class is visible. This pattern deliberately keeps the handwritten component's existing global ownership; it is separate from moving its definition and implementation into named-module ownership.
 
 Generated sources retain the original PCH include in header mode and omit it in automatic module mode. This is decided during generation: MSVC `/Yu` skips tokens before the PCH include, so a C++ conditional around that include leaves an unmatched `#endif`. Projection includes/imports still use the C++ preprocessor switch.

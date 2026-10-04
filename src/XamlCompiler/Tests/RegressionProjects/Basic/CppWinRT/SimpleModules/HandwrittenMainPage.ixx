@@ -16,7 +16,6 @@ module;
 #undef GetCurrentTime
 export module Simple.HandwrittenMainPage;
 #define WINRT_IMPORT_MODULE
-export import Simple.Application_Xaml;
 import winrt.Simple;
 import winrt.Simple.Models;
 import winrt.Microsoft.UI.Xaml.Controls.Primitives;
@@ -30,3 +29,5 @@ export extern "C++" namespace winrt::Simple::implementation
 {
     struct MainPage;
 }
+// Merge the automatic declarations only after the textual handwritten declarations.
+export import Simple.Application_Xaml;
