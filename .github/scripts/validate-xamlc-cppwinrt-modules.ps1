@@ -91,6 +91,9 @@ function Assert-XamlGraph([string]$Directory, [string]$Namespace, [string[]]$Cla
     $text = Get-Content $root.FullName -Raw
     if ($text -match '#include|namespace |export import :') { throw 'The root must only aggregate independent named modules.' }
     if (-not $text.Contains("export module $Namespace.Application_Xaml;")) { throw 'Incorrect root module identity.' }
+    $support = Get-OneGeneratedFile $Directory 'Application_Xaml.Support.g.ixx'
+    if (-not (Get-Content $support.FullName -Raw).Contains("export module $Namespace.Application_Xaml.Support;")) { throw 'Incorrect support module identity.' }
+    if (Test-Path (Join-Path $Directory 'XamlSupport.g.ixx')) { throw 'Legacy support interface filename was retained.' }
     foreach ($class in $Classes) {
         $encoded = ($class.Split('.') | ForEach-Object {
             'C_' + (([char[]]$_ | ForEach-Object {
@@ -210,7 +213,7 @@ $providerRoot = Join-Path $repoRoot 'BuildOutput\obj\amd64chk\CompilerTests\Feat
 Invoke-XamlModuleBuild $staticProvider 'StaticProvider.Module'
 Assert-XamlGraph $providerRoot 'StaticControlsModuleLib' @('StaticControlsModuleLib.BlankUserControl')
 Invoke-XamlModuleBuild -RelativeProject $staticProvider -LogName 'StaticProvider.NoTypeInfoInterfaces' -Target 'ClCompile' -ExtraProperties @('/p:XamlCodeGenerationControlFlags=NoTypeInfoCodeGen', '/p:ValidateXamlInterfacesOnly=true')
-$support = Get-OneGeneratedFile $providerRoot 'XamlSupport.g.ixx'
+$support = Get-OneGeneratedFile $providerRoot 'Application_Xaml.Support.g.ixx'
 if ((Get-Content $support.FullName -Raw).Contains('XamlTypeInfo.xaml.g.h')) { throw 'NoTypeInfoCodeGen retained TypeInfo declarations in the support module.' }
 Assert-XamlGraph $providerRoot 'StaticControlsModuleLib' @('StaticControlsModuleLib.BlankUserControl')
 Invoke-XamlModuleBuild $staticProvider 'StaticProvider.TypeInfoRestored'

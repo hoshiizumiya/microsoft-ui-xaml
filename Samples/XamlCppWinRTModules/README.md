@@ -6,20 +6,17 @@ This repo-local sample demonstrates the normal application shape for XamlC's C++
 For the architecture and migration details, see
 [`docs/design-notes/xamlc-cppwinrt-named-modules.md`](../../docs/design-notes/xamlc-cppwinrt-named-modules.md).
 
-> This sample targets the implementation on `feat/xamlccppmodule/phase1`. Until that
-> compiler work ships in a Windows App SDK release, build it against this repository.
-> Phase 1 is currently in integration hardening; the public module contract is established,
-> while the final VS2026/MSVC v145 focused validation gate is still being closed.
+> This sample targets the named-module implementation in this repository. It is a
+> contributor validation sample; the feature is not yet part of a released Windows App SDK.
 
 For implementation ownership, exact source files, MSBuild ordering, failure signatures and
-phase-1 acceptance criteria, see
+acceptance criteria, see
 [`xamlc-cppwinrt-named-modules-implementation-guide.md`](../../docs/design-notes/xamlc-cppwinrt-named-modules-implementation-guide.md).
 
 The sample currently uses `YexuanXiao.CppWinRTPlus 3.1.260928.1`, based on the
 C++/WinRT 3.x module implementation. Its provider-wrapper target checks whether PCH
 is enabled, addressing the missing `pch.h` failure in
 [fork #30](https://github.com/hoshiizumiya/microsoft-ui-xaml/issues/30).
-This package choice supports integration validation; the full gate still needs to pass.
 
 ## What the sample demonstrates
 
@@ -31,7 +28,7 @@ This package choice supports integration validation; the full gate still needs t
   `.g.h -> .xaml.g.h -> Application_Xaml` bridge.
 - x:Bind to a runtime class in the separate
   `XamlCppWinRTModulesSample.Models` projection namespace.
-- A separate source file that explicitly imports the public project XAML module.
+- A separate source file that consumes the public project XAML module with a single import.
 
 The public XAML module is:
 
@@ -39,7 +36,9 @@ The public XAML module is:
 import XamlCppWinRTModulesSample.Application_Xaml;
 ```
 
-Normal `App.xaml.cpp` and `MainWindow.xaml.cpp` do **not** write that import.
+The public consumer contract is the single import above. This sample's ordinary
+`MainWindow.xaml.cpp` uses the generated component-header bridge; `XamlModuleSmoke.cpp`
+also verifies direct consumption with no XamlC macros or projection preamble.
 
 ## Build
 
@@ -102,19 +101,22 @@ GreetingModel.idl / MainWindow.idl
 MainWindow.xaml
         |
         +-- XamlC Pass1 -> MainWindow.xaml.g.h
-        |                    partition of XamlCppWinRTModulesSample.Application_Xaml
+        |                 XamlC Pass1 -> MainWindow.xaml.g.ixx
+        |                    class module partition
         |
-        +-- XamlC shared Pass1 -> XamlBindingInfo.xaml.g.h
-        |                         primary Application_Xaml interface
+        +-- XamlC shared Pass1 -> Application_Xaml.Support.g.ixx
+        |                         shared BindingInfo/TypeInfo support module
+        +-- XamlC shared Pass1 -> Application_Xaml.g.ixx
+        |                         public root re-exporting support and class modules
         |
         +-- MSVC -> $(IntDir)XamlModules\*.ifc
         |
         +-- XamlC Pass2 -> *.xaml.g.hpp / metadata-provider implementation
 ```
 
-At compile time, `MainWindow.g.h` detects `MainWindow.xaml.g.h`; the XAML companion
-imports the project umbrella. This is the key hand-off between C++/WinRT component
-generation and XamlC module generation.
+At compile time, `MainWindow.g.h` detects `MainWindow.xaml.g.h`; the generated XAML
+companion imports the project root. This preserves the component-header path while
+also allowing any consumer source to write `import XamlCppWinRTModulesSample.Application_Xaml;`.
 
 ## Normal source consumption
 
@@ -146,7 +148,6 @@ umbrella instead of textually redeclaring the XAML surface.
 `XamlModuleSmoke.cpp` intentionally bypasses the component-header bridge:
 
 ```cpp
-#define WINRT_IMPORT_MODULE
 import XamlCppWinRTModulesSample.Application_Xaml;
 
 static_assert(
@@ -180,7 +181,9 @@ The exact intermediate root is controlled by repository MSBuild properties, but 
 important generated artifacts are:
 
 ```text
-$(GeneratedFilesDir)XamlBindingInfo.xaml.g.h
+$(GeneratedFilesDir)Application_Xaml.Support.g.ixx
+$(GeneratedFilesDir)Application_Xaml.g.ixx
+$(GeneratedFilesDir)MainWindow.xaml.g.ixx
 $(GeneratedFilesDir)App.xaml.g.h
 $(GeneratedFilesDir)MainWindow.xaml.g.h
 $(GeneratedFilesDir)XamlTypeInfo.xaml.g.h   (when TypeInfo is generated)
@@ -188,8 +191,10 @@ $(GeneratedFilesDir)XamlTypeInfo.xaml.g.h   (when TypeInfo is generated)
 $(IntDir)XamlModules\*.ifc
 ```
 
-`XamlBindingInfo.xaml.g.h` is the primary
-`XamlCppWinRTModulesSample.Application_Xaml` interface. App/MainWindow are partitions.
+`Application_Xaml.g.ixx` is the public root module interface. The support interface
+is physically named `Application_Xaml.Support.g.ixx`; App and MainWindow declarations
+are independent class-module interfaces. The ordinary `.g.h` and `.xaml.g.h` outputs
+remain available for generated-header compatibility.
 
 ## Switching back to header mode
 

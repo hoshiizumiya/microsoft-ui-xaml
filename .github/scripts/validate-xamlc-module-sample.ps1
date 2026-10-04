@@ -2,6 +2,8 @@ param([string]$SampleRoot)
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 if (-not $SampleRoot) { $SampleRoot = Join-Path $repoRoot 'SampleValidation' }
+$smoke = Get-Content (Join-Path $repoRoot 'Samples\XamlCppWinRTModules\XamlModuleSmoke.cpp') -Raw
+if (-not $smoke.Contains('import XamlCppWinRTModulesSample.Application_Xaml;') -or $smoke -match 'XAML_(IMPL|USE)_MODULE') { throw 'Direct sample consumer is not using the plain public root import.' }
 $package = @(Get-ChildItem (Join-Path $repoRoot 'PackageStore') -Filter 'Microsoft.WindowsAppSDK.WinUI.*.nupkg' -File)
 if ($package.Count -ne 1) { throw 'Expected one freshly built WinUI package.' }
 $version = $package[0].BaseName.Substring('Microsoft.WindowsAppSDK.WinUI.'.Length)
@@ -34,6 +36,9 @@ foreach ($configuration in @('Debug', 'Release')) {
     if ($LASTEXITCODE -ne 0) { throw "Sample $configuration failed: $LASTEXITCODE" }
     $root = @(Get-ChildItem $intermediate -Filter 'Application_Xaml.g.ixx' -Recurse -File)
     if ($root.Count -ne 1) { throw 'Sample did not receive an automatic root aggregator.' }
+    $support = @(Get-ChildItem $intermediate -Filter 'Application_Xaml.Support.g.ixx' -Recurse -File)
+    if ($support.Count -ne 1 -or -not (Get-Content $support[0].FullName -Raw).Contains('export module WinUICppwinrtModuleSample.Application_Xaml.Support;')) { throw 'Sample did not receive the correctly named support module interface.' }
+    if (@(Get-ChildItem $intermediate -Filter 'XamlSupport.g.ixx' -Recurse -File).Count -ne 0) { throw 'Sample retained the legacy support interface filename.' }
     foreach ($class in @('App', 'MainWindow')) {
         if (@(Get-ChildItem $intermediate -Filter "$class.xaml.g.ixx" -Recurse -File).Count -ne 1) { throw "Sample lacks $class interface." }
         $encoded = ("WinUICppwinrtModuleSample.$class".Split('.') | ForEach-Object {

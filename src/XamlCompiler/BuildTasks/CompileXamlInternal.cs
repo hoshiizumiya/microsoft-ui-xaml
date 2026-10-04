@@ -822,9 +822,12 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
                 }
                 var shared = new List<FileNameAndContentPair>
                 {
-                    new FileNameAndContentPair("XamlSupport.g.ixx", CppWinRTProjectionDependency.WriteInterface(rootModule + ".Support", supportNamespaces, supportHeaders)),
+                    new FileNameAndContentPair("Application_Xaml.Support.g.ixx", CppWinRTProjectionDependency.WriteInterface(rootModule + ".Support", supportNamespaces, supportHeaders)),
                     new FileNameAndContentPair("Application_Xaml.g.ixx", CppWinRTProjectionDependency.WriteAggregator(RootNamespace, classNames))
                 };
+                // Remove the previous support filename so the module scanner cannot
+                // compile a stale second interface with the same logical module name.
+                DeleteGeneratedCodeFileAndBackup(Path.Combine(OutputFolderFullpath, "XamlSupport.g.ixx"));
                 WriteOutputFilesToDisk(shared, OutputFolderFullpath, true);
                 foreach (var file in shared)
                 {
@@ -835,7 +838,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
                     }
                 }
                 GeneratedModuleNames[Path.Combine(OutputFolderFullpath, "Application_Xaml.g.ixx")] = rootModule;
-                GeneratedModuleNames[Path.Combine(OutputFolderFullpath, "XamlSupport.g.ixx")] = rootModule + ".Support";
+                GeneratedModuleNames[Path.Combine(OutputFolderFullpath, "Application_Xaml.Support.g.ixx")] = rootModule + ".Support";
                 modules.Add(rootModule);
                 modules.Add(rootModule + ".Support");
                 modules.AddRange(classNames.Select(name => CppWinRTProjectionDependency.GetXamlClassModuleName(RootNamespace, name)));
@@ -852,7 +855,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
             }
             if (!buildModules)
             {
-                foreach (string name in new[] { "XamlSupport.g.ixx", "Application_Xaml.g.ixx", "XamlModules.list" })
+                foreach (string name in new[] { "Application_Xaml.Support.g.ixx", "XamlSupport.g.ixx", "Application_Xaml.g.ixx", "XamlModules.list" })
                 {
                     DeleteGeneratedCodeFileAndBackup(Path.Combine(OutputFolderFullpath, name));
                 }
@@ -905,8 +908,8 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
                     // Native Pass1 normally regenerates these shared headers after per-class
                     // code generation. The no-change shortcut returns before those generators
                     // run, so report the existing files explicitly. Incremental builds depend
-                    // on XamlBindingInfo.xaml.g.h as the Application_Xaml primary interface and
-                    // on XamlTypeInfo.xaml.g.h as its optional TypeInfo partition.
+                    // on XamlBindingInfo.xaml.g.h for support declarations and on
+                    // XamlTypeInfo.xaml.g.h for its optional TypeInfo declarations.
                     extraFilePaths.Add(Path.Combine(
                         SourceFileManager.OutputFolderFullpath,
                         KnownStrings.XamlBindingInfo + Language.Pass1Extension));

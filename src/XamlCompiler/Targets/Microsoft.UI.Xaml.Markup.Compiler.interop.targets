@@ -668,7 +668,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <_XamlModuleGeneratedDir>$([MSBuild]::NormalizeDirectory($(MSBuildProjectDirectory), $(XamlGeneratedOutputPath)))</_XamlModuleGeneratedDir>
         </PropertyGroup>
         <ItemGroup>
-            <_XamlInactiveModuleOutputs Include="$(XamlCppWinRTModuleIfcDir)**\*;$(_XamlModuleGeneratedDir)**\*.xaml.g.ixx;$(_XamlModuleGeneratedDir)XamlSupport.g.ixx;$(_XamlModuleGeneratedDir)Application_Xaml.g.ixx;$(_XamlModuleGeneratedDir)XamlModules.list" />
+            <_XamlInactiveModuleOutputs Include="$(XamlCppWinRTModuleIfcDir)**\*;$(_XamlModuleGeneratedDir)**\*.xaml.g.ixx;$(_XamlModuleGeneratedDir)Application_Xaml.Support.g.ixx;$(_XamlModuleGeneratedDir)XamlSupport.g.ixx;$(_XamlModuleGeneratedDir)Application_Xaml.g.ixx;$(_XamlModuleGeneratedDir)XamlModules.list" />
             <_XamlInactiveModuleOutputs Include="$(_XamlModuleGeneratedDir)**\*.xaml.g.h;$(_XamlModuleGeneratedDir)**\*.xaml.g.hpp;$(_XamlModuleGeneratedDir)**\*.xaml.g.hpp.backup"
                 Condition="'@(Page)' == '' and '@(ApplicationDefinition)' == ''" />
         </ItemGroup>

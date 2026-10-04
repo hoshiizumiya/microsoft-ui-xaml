@@ -14,7 +14,7 @@ With `CppWinRTBuildModule=true`, Pass1 generates dedicated module interfaces alo
 | --- | --- |
 | `MainPage.xaml.g.h` | The ordinary generated `MainPageT` declaration. `XAML_IMPL_MODULE` suppresses native/projection includes and enables `export extern "C++"` declarations. The header has no module name. |
 | `MainPage.xaml.g.ixx` | Establishes an independent named module, re-exports the namespaces required by that declaration, and includes its generated header under `XAML_IMPL_MODULE`. |
-| `XamlSupport.g.ixx` | Packages shared BindingInfo and, when enabled, TypeInfo declarations. It does not package the handwritten metadata provider or a C++/WinRT component header. |
+| `Application_Xaml.Support.g.ixx` | Implements `<RootNamespace>.Application_Xaml.Support`, packaging shared BindingInfo and optional TypeInfo declarations. It does not package the handwritten metadata provider or a C++/WinRT component header. |
 | `Application_Xaml.g.ixx` | Re-exports support and the complete current project's class modules. It includes no class bodies. |
 | `XamlTypeInfo.g.cpp` and provider sources | Ordinary translation units. Generated consumers prepare native/standard headers, include local class declarations, then import the XAML root and required projections under `XAML_USE_MODULE`. |
 | Pass2 `.xaml.g.hpp` | Retains the two-pass implementation scheduling. It does not become a module interface or require a wrapper translation unit. |

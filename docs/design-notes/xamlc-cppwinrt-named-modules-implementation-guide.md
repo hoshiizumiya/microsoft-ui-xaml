@@ -28,10 +28,12 @@ the repository T4 tooling. Do not hand-edit generated C# or introduce unrelated 
 ## Generation order and ownership
 
 1. C++/WinRT resolves projection-module references before XAML Pass1.
-2. XamlC Pass1 declares one `<RootNamespace>.Application_Xaml` primary interface
-   in `XamlBindingInfo.xaml.g.h` and exports App/Page/optional TypeInfo partitions.
-3. MSBuild registers generated `.xaml.g.h` files with `CompileAsCppModule`,
-   `PrecompiledHeader=NotUsing`, and `WINRT_XAML_MODULE_INTERFACE`.
+2. XamlC Pass1 writes class `.xaml.g.ixx` interfaces, the shared
+   `Application_Xaml.Support.g.ixx`, and the public `Application_Xaml.g.ixx` root.
+   The support interface includes BindingInfo and optional TypeInfo headers; each
+   class interface includes its generated declarations under `XAML_IMPL_MODULE`.
+3. MSBuild registers the generated `.ixx` interfaces with `CompileAsCppModule` and
+   `PrecompiledHeader=NotUsing`.
 4. C++/WinRT adds its projection module interfaces. XamlC then normalizes the
    combined module input set by physical FullPath before VC dependency scanning.
 5. Pass2 remains an ordinary translation unit. Late generated compile items receive

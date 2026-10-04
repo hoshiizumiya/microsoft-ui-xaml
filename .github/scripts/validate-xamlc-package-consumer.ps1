@@ -30,6 +30,8 @@ foreach ($mode in @('Module', 'Header')) {
         if ($mode -eq 'Module') {
             $root = @(Get-ChildItem $testRoot -Filter 'Application_Xaml.g.ixx' -Recurse -File)
             if ($root.Count -ne 1 -or -not (Get-Content $root[0].FullName -Raw).Contains('export module NuGetModules.Application_Xaml;')) { throw 'Automatic public root module missing.' }
+            $support = @(Get-ChildItem $testRoot -Filter 'Application_Xaml.Support.g.ixx' -Recurse -File)
+            if ($support.Count -ne 1 -or -not (Get-Content $support[0].FullName -Raw).Contains('export module NuGetModules.Application_Xaml.Support;')) { throw 'Automatic support module missing or incorrectly named.' }
             foreach ($class in @('App', 'MainPage', 'EmptyPage')) {
                 if (@(Get-ChildItem $root[0].DirectoryName -Filter "$class.xaml.g.ixx" -Recurse -File).Count -ne 1) { throw "No automatic interface for $class." }
             }
