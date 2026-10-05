@@ -68,19 +68,19 @@ namespace UnitTests
         }
 
         [TestMethod]
-        public void ClassModuleIdentity_PreservesFullNamespaceAndKeywordSegments()
+        public void ClassModuleIdentity_PreservesReadableValidSegmentsAndEscapesKeywords()
         {
             Assert.AreEqual("OpenNet.Application_Xaml", CppWinRTProjectionDependency.GetXamlPrimaryModuleName("OpenNet"));
             Assert.AreEqual("Application_Xaml", CppWinRTProjectionDependency.GetXamlPrimaryModuleName(String.Empty));
-            Assert.AreEqual("OpenNet.Application_Xaml.Class.C__0056iews.C__004dain_0050age", CppWinRTProjectionDependency.GetXamlClassModuleName("OpenNet", "Views::MainPage"));
+            Assert.AreEqual("OpenNet.Application_Xaml.Views.MainPage", CppWinRTProjectionDependency.GetXamlClassModuleName("OpenNet", "Views::MainPage"));
+            Assert.AreEqual("OpenNet.Application_Xaml.Views.MainPage", CppWinRTProjectionDependency.GetXamlClassModuleName("OpenNet", "OpenNet.Views.MainPage"));
             Assert.AreNotEqual(CppWinRTProjectionDependency.GetXamlClassModuleName("OpenNet", "Views.MainPage"), CppWinRTProjectionDependency.GetXamlClassModuleName("OpenNet", "Controls.MainPage"));
             Assert.AreNotEqual(CppWinRTProjectionDependency.GetXamlClassModuleName("OpenNet", "A_B.C"), CppWinRTProjectionDependency.GetXamlClassModuleName("OpenNet", "A.B_C"));
-            Assert.AreEqual("OpenNet.Application_Xaml.Class.C_export.C_module", CppWinRTProjectionDependency.GetXamlClassModuleName("OpenNet", "export.module"));
-            Assert.AreNotEqual("OpenNet.Application_Xaml.Support", CppWinRTProjectionDependency.GetXamlClassModuleName("OpenNet", "Support"));
-            Assert.IsFalse(String.Equals(
+            StringAssert.StartsWith(CppWinRTProjectionDependency.GetXamlClassModuleName("OpenNet", "export.module"), "OpenNet.Application_Xaml.__XamlEscaped_");
+            Assert.AreEqual("OpenNet.Application_Xaml.Support", CppWinRTProjectionDependency.GetXamlClassModuleName("OpenNet", "Support"));
+            Assert.AreNotEqual(
                 CppWinRTProjectionDependency.GetXamlClassModuleName("OpenNet", "Views.MainPage"),
-                CppWinRTProjectionDependency.GetXamlClassModuleName("OpenNet", "views.MainPage"),
-                StringComparison.OrdinalIgnoreCase));
+                CppWinRTProjectionDependency.GetXamlClassModuleName("OpenNet", "views.MainPage"));
         }
 
         [TestMethod]
@@ -88,12 +88,14 @@ namespace UnitTests
         {
             var classes = new[] { "Views.MainPage", "Controls.MainPage", "A_B.C", "A.B_C", "export.module", "应用.视图.主页", "Other.Nested.Views.MainPage", "Other.App", "Other._0056iews.MainPage" };
             var identities = classes.Select(name => CppWinRTProjectionDependency.GetXamlClassModuleName("Project", name)).ToArray();
-            Assert.AreEqual(classes.Length, identities.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+            Assert.AreEqual(classes.Length, identities.Distinct(StringComparer.Ordinal).Count());
             foreach (var identity in identities)
             {
-                StringAssert.StartsWith(identity, "Project.Application_Xaml.Class.");
+                StringAssert.StartsWith(identity, "Project.Application_Xaml.");
+                Assert.IsFalse(identity.Contains(".Class."));
             }
             Assert.AreEqual("应用.Application_Xaml", CppWinRTProjectionDependency.GetXamlPrimaryModuleName("应用"));
+            Assert.AreEqual("Project.Application_Xaml.应用.视图.主页", CppWinRTProjectionDependency.GetXamlClassModuleName("Project", "应用.视图.主页"));
             Assert.AreEqual(CppWinRTProjectionDependency.GetXamlClassModuleName("Project", "应用.视图.主页"), CppWinRTProjectionDependency.GetXamlClassModuleName("Project", "应用::视图::主页"));
         }
 
@@ -106,10 +108,10 @@ namespace UnitTests
             }
             var invalid = new[] { "1Project", "Bad-Root", "A..B", "export.module", ".Root", "Root." };
             var identities = invalid.Select(CppWinRTProjectionDependency.GetXamlPrimaryModuleName).ToArray();
-            Assert.AreEqual(invalid.Length, identities.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+            Assert.AreEqual(invalid.Length, identities.Distinct(StringComparer.Ordinal).Count());
             for (int i = 0; i < invalid.Length; i++)
             {
-                StringAssert.StartsWith(identities[i], "XamlProject.C_");
+                StringAssert.StartsWith(identities[i], "XamlProject.__XamlEscaped_");
                 Assert.AreEqual(identities[i], CppWinRTProjectionDependency.GetXamlPrimaryModuleName(invalid[i]));
             }
         }
@@ -219,8 +221,10 @@ namespace UnitTests
             Assert.IsFalse(header.Contains("export module"));
             Assert.IsFalse(header.Contains("Application_Xaml"));
             Assert.IsFalse(header.Contains("WINRT_XAML_SKIP_BODY"));
+            Assert.IsFalse(header.Contains("XAML_USE_MODULE"));
+            Assert.IsFalse(header.Contains("WINRT_IMPORT_MODULE"));
             string module = modules.Single(file => file.FileName.EndsWith(".ixx")).Contents;
-            StringAssert.Contains(module, "export module Test.Application_Xaml.Class.C__0054est.C__004dain_0050age;");
+            StringAssert.Contains(module, "export module Test.Application_Xaml.MainPage;");
             StringAssert.Contains(module, "export import winrt.Microsoft.UI.Xaml.Controls;");
             Assert.IsFalse(module.Contains("Controls.Primitives"));
         }
@@ -270,6 +274,7 @@ namespace UnitTests
             StringAssert.Contains(moduleText, "import std;");
             Assert.IsFalse(moduleText.Contains("#include <vector>"));
             Assert.IsFalse(moduleText.Contains("XAML_USE_MODULE"));
+            Assert.IsFalse(moduleText.Contains("WINRT_IMPORT_MODULE"));
             Assert.IsFalse(moduleText.Contains("export module"));
             Assert.AreNotEqual(headerText, moduleText);
 
