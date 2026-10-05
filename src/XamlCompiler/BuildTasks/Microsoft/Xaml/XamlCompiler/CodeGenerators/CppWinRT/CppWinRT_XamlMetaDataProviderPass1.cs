@@ -32,18 +32,12 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 //------------------------------------------------------------------------------
 #pragma once
 
-#if !defined(XAML_USE_MODULE) && !defined(WINRT_IMPORT_MODULE)
 #include <unknwn.h>
-#endif
 #undef GetCurrentTime
-#if defined(XAML_USE_MODULE) || defined(WINRT_IMPORT_MODULE)
-import std;
-#else
 #include <functional>
 #include <map>
 #include <memory>
 #include <vector>
-#endif
 #include ""XamlTypeInfo.xaml.g.h""
 #include ""XamlMetaDataProvider.g.h""
 

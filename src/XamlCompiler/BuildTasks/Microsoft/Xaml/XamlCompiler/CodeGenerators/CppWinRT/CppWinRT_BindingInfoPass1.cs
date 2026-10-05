@@ -33,19 +33,13 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 
 #pragma once
 #ifndef XAML_IMPL_MODULE
-#if !defined(XAML_USE_MODULE) && !defined(WINRT_IMPORT_MODULE)
 #include <unknwn.h>
-#endif
 #undef GetCurrentTime
-#if defined(XAML_USE_MODULE) || defined(WINRT_IMPORT_MODULE)
-import std;
-#else
 #include <cstdint>
 #include <memory>
-#endif
 ");
   foreach (var projectionNamespace in CppWinRTProjectionDependency.BindingSupportNamespaces) { 
-            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)));
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionHeaderDirective(projectionNamespace, optionalHeader: true)));
             this.Write("\r\n");
   } 
             this.Write("#endif\r\n\r\n#ifdef XAML_IMPL_MODULE\r\n#define XAML_EXPORT export extern \"C++\"\r\n#else" +
