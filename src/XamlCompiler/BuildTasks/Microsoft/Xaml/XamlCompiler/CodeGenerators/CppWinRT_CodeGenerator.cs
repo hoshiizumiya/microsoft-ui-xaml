@@ -11,6 +11,8 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 {
     internal static class CppWinRTProjectionDependency
     {
+        private const string EscapedModuleSegmentPrefix = "__XamlEscaped_";
+
         public static string GetNamespace(Type type)
         {
             Type adjustedType = type;
@@ -84,12 +86,16 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 
         private static string EncodeModuleSegment(string segment)
         {
-            // UTF-16 escaping is injective, culture independent and safe for Windows IFC paths.
-            // Escaping the underscore also makes literal "_hhhh" distinct from an escaped character.
-            return "C_" + String.Concat(segment.Select(character =>
-                character >= 'a' && character <= 'z' || character >= '0' && character <= '9'
-                    ? character.ToString()
-                    : "_" + ((int)character).ToString("x4", System.Globalization.CultureInfo.InvariantCulture)));
+            // Preserve normal C++ identifiers verbatim so generated module names remain readable.
+            // Invalid identifiers, keywords and the reserved escape prefix use a full UTF-16 escape;
+            // encoding every code unit in that case keeps the mapping injective.
+            if (IsModuleIdentifier(segment) && !segment.StartsWith(EscapedModuleSegmentPrefix, StringComparison.Ordinal))
+            {
+                return segment;
+            }
+
+            return EscapedModuleSegmentPrefix + String.Concat(segment.Select(character =>
+                ((int)character).ToString("x4", System.Globalization.CultureInfo.InvariantCulture)));
         }
 
         private static bool IsModuleIdentifier(string value)
@@ -108,7 +114,6 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                     return false;
                 }
             }
-            // Contextual module keywords are not accepted as generated module-name segments.
             const string keywords = " alignas alignof and and_eq asm auto bitand bitor bool break case catch char char8_t char16_t char32_t class compl concept const consteval constexpr constinit const_cast continue co_await co_return co_yield decltype default delete do double dynamic_cast else enum explicit export extern false float for friend goto if inline int long module import mutable namespace new noexcept not not_eq nullptr operator or or_eq private protected public register reinterpret_cast requires return short signed sizeof static static_assert static_cast struct switch template this thread_local throw true try typedef typeid typename union unsigned using virtual void volatile wchar_t while xor xor_eq ";
             return keywords.IndexOf(" " + value + " ", StringComparison.Ordinal) < 0;
         }
@@ -119,8 +124,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             {
                 return "Application_Xaml";
             }
-            // Valid project namespaces keep the public <RootNamespace>.Application_Xaml contract.
-            // Malformed project input gets a deterministic, valid fallback rather than invalid C++.
+
             string moduleRoot = rootNamespace.Split('.').All(IsModuleIdentifier)
                 ? rootNamespace
                 : "XamlProject." + EncodeModuleSegment(rootNamespace);
@@ -133,8 +137,16 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             {
                 throw new ArgumentException("A harvested x:Class runtime name is required.", nameof(runtimeClassName));
             }
-            var segments = runtimeClassName.Replace("::", ".").Split('.').Select(EncodeModuleSegment);
-            return $"{GetXamlPrimaryModuleName(rootNamespace)}.Class.{String.Join(".", segments)}";
+
+            string normalizedRuntimeName = runtimeClassName.Replace("::", ".");
+            string normalizedRoot = rootNamespace?.Replace("::", ".");
+            if (!String.IsNullOrWhiteSpace(normalizedRoot) && normalizedRuntimeName.StartsWith(normalizedRoot + ".", StringComparison.Ordinal))
+            {
+                normalizedRuntimeName = normalizedRuntimeName.Substring(normalizedRoot.Length + 1);
+            }
+
+            var segments = normalizedRuntimeName.Split('.').Select(EncodeModuleSegment);
+            return $"{GetXamlPrimaryModuleName(rootNamespace)}.{String.Join(".", segments)}";
         }
 
         public static IEnumerable<string> BindingSupportNamespaces => new[]
@@ -166,7 +178,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             }
             if (supportModule != null)
             {
-                text.AppendLine($"export import {supportModule};");
+                text.AppendLine($"import {supportModule};");
             }
             text.AppendLine("#define XAML_IMPL_MODULE");
             foreach (var header in headers)
@@ -183,14 +195,12 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             var text = new StringBuilder();
             text.AppendLine("// Generated project XAML module. Declarations belong to the individual interfaces.");
             text.AppendLine($"export module {moduleName};");
-            text.AppendLine($"export import {moduleName}.Support;");
             foreach (var name in classNames.Distinct(StringComparer.Ordinal).OrderBy(name => name, StringComparer.Ordinal))
             {
                 text.AppendLine($"export import {GetXamlClassModuleName(rootNamespace, name)};");
             }
             return text.ToString();
         }
-
     }
 
     internal class CppWinRT_CodeGenerator<T> : NativeCodeGenerator<T>
@@ -208,17 +218,22 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
         public string GetCppWinRTProjectionDependencyDirective(string projectionNamespace, bool optionalHeader = false)
         {
             string header = CppWinRTProjectionDependency.GetHeaderFile(projectionNamespace);
-            string directive = $"#if defined(XAML_USE_MODULE) || defined(WINRT_IMPORT_MODULE)\nimport {CppWinRTProjectionDependency.GetModuleName(projectionNamespace)};\n#else\n#include <{header}>\n#endif";
+            string directive = $"#ifdef XAML_USE_MODULE\nimport {CppWinRTProjectionDependency.GetModuleName(projectionNamespace)};\n#else\n#include <{header}>\n#endif";
+            return optionalHeader ? $"#if __has_include(<{header}>)\n{directive}\n#endif" : directive;
+        }
+
+        public string GetCppWinRTProjectionHeaderDirective(string projectionNamespace, bool optionalHeader = false)
+        {
+            string header = CppWinRTProjectionDependency.GetHeaderFile(projectionNamespace);
+            string directive = $"#include <{header}>";
             return optionalHeader ? $"#if __has_include(<{header}>)\n{directive}\n#endif" : directive;
         }
 
         public string GetCppWinRTConsumerPreamble()
         {
-            // Generated consumers own their native preamble; no application /FI is needed.
-            // Keep platform and macro-only headers before the module imports. Do not textually
-            // include STL headers and then import std: MSVC diagnoses duplicate CRT/STL
-            // declarations when C++/WinRT namespace modules are consumed by the same TU.
-            return "#ifdef XAML_USE_MODULE\n#include <windows.h>\n#include <unknwn.h>\n#include <winrt/base_macros.h>\n#undef GetCurrentTime\nimport std;\n#ifndef WINRT_IMPORT_MODULE\n#define WINRT_IMPORT_MODULE\n#endif\n#endif";
+            // XAML_USE_MODULE is XamlC's consumer switch. It must not mutate C++/WinRT's
+            // independent WINRT_IMPORT_MODULE compatibility mechanism.
+            return "#ifdef XAML_USE_MODULE\n#include <windows.h>\n#include <unknwn.h>\n#include <winrt/base_macros.h>\n#undef GetCurrentTime\nimport std;\n#endif";
         }
 
         public static String Projection(string typeName)
