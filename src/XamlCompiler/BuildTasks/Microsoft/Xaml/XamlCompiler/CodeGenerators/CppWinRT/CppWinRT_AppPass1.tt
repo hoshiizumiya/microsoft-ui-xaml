@@ -2,12 +2,10 @@
 <#@ assembly name="System.Core" #>
 #pragma once
 #ifndef XAML_IMPL_MODULE
-#if !defined(XAML_USE_MODULE) && !defined(WINRT_IMPORT_MODULE)
 #include <unknwn.h>
-#endif
 #undef GetCurrentTime
 <#  foreach (var projectionNamespace in Model.DeclarationCppWinRTProjectionNamespaces) { #>
-<#=GetCppWinRTProjectionDependencyDirective(projectionNamespace)#>
+<#=GetCppWinRTProjectionHeaderDirective(projectionNamespace)#>
 <#  } #>
 #include "XamlTypeInfo.xaml.g.h"
 #include "XamlMetaDataProvider.h"
