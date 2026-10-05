@@ -10,17 +10,11 @@
 
 #pragma once
 #ifndef XAML_IMPL_MODULE
-#if !defined(XAML_USE_MODULE) && !defined(WINRT_IMPORT_MODULE)
 #include <unknwn.h>
-#endif
 #undef GetCurrentTime
-#if defined(XAML_USE_MODULE) || defined(WINRT_IMPORT_MODULE)
-import std;
-#else
 #include <cstdint>
-#endif
 <#  foreach (var projectionNamespace in Model.DeclarationCppWinRTProjectionNamespaces) { #>
-<#=GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)#>
+<#=GetCppWinRTProjectionHeaderDirective(projectionNamespace, optionalHeader: true)#>
 <#  } #>
 <#  if (Model.CodeInfo.BindStatus != BindStatus.None) { #>
 #include "XamlBindingInfo.xaml.g.h"
