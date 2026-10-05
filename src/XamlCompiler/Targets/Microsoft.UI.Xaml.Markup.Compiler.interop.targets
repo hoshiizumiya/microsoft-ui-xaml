@@ -727,16 +727,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <_XamlPreviousModules Remove="@(_XamlCurrentModules)" />
             <_XamlStaleIfc Include="@(_XamlPreviousModules->'$(XamlCppWinRTModuleIfcDir)%(Identity).ifc');@(_XamlPreviousModules->'$(XamlCppWinRTModuleIfcDir)%(Identity).ifc.d.json')" />
         </ItemGroup>
-        <!-- Source-relative scanner/object paths distinguish same-leaf XAML files.
-             Delete artifacts whose dedicated interface was removed or renamed. -->
-        <ItemGroup>
-            <_XamlGeneratedModuleArtifacts Include="$(XamlCppWinRTModuleIfcDir)**\*.g.ixx.*">
-                <XamlGeneratedSource>$(_XamlModuleGeneratedDir)$([System.Text.RegularExpressions.Regex]::Replace('%(_XamlGeneratedModuleArtifacts.RecursiveDir)%(_XamlGeneratedModuleArtifacts.Filename)%(_XamlGeneratedModuleArtifacts.Extension)', '\.(obj|module\.json(\.command)?|source\.json)$', ''))</XamlGeneratedSource>
-            </_XamlGeneratedModuleArtifacts>
-            <_XamlOrphanedModuleArtifacts Include="@(_XamlGeneratedModuleArtifacts)"
-                Condition="!Exists('%(_XamlGeneratedModuleArtifacts.XamlGeneratedSource)')" />
-        </ItemGroup>
-        <Delete Files="@(_XamlStaleIfc);@(_XamlOrphanedModuleArtifacts)" />
+        <Delete Files="@(_XamlStaleIfc)" />
         <Copy SourceFiles="$(_XamlModuleGeneratedDir)XamlModules.list" DestinationFiles="$(XamlCppWinRTModuleIfcDir)modules.list" SkipUnchangedFiles="true" />
         <ItemGroup>
             <FileWrites Include="$(XamlCppWinRTModuleIfcDir)modules.list" />
@@ -746,6 +737,29 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <_XamlPreviousModules Remove="@(_XamlPreviousModules)" />
             <_XamlCurrentModules Remove="@(_XamlCurrentModules)" />
             <_XamlStaleIfc Remove="@(_XamlStaleIfc)" />
+        </ItemGroup>
+    </Target>
+
+    <!-- Pass 1 can still see a previous page interface while its incremental cleanup is
+         pending. Wait until Pass 2 has finalized the generated source set before deciding
+         whether source-relative scanner and object outputs are orphaned. -->
+    <Target Name="XamlCppWinRTRemoveOrphanedModuleArtifacts"
+            Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'"
+            AfterTargets="MarkupCompilePass2"
+            BeforeTargets="ComputeXamlGeneratedCompileInputs;CompileXamlGeneratedFiles">
+        <PropertyGroup>
+            <_XamlModuleGeneratedDir>$([MSBuild]::NormalizeDirectory($(MSBuildProjectDirectory), $(XamlGeneratedOutputPath)))</_XamlModuleGeneratedDir>
+        </PropertyGroup>
+        <!-- Source-relative scanner/object paths distinguish same-leaf XAML files. -->
+        <ItemGroup>
+            <_XamlGeneratedModuleArtifacts Include="$(XamlCppWinRTModuleIfcDir)**\*.g.ixx.*">
+                <XamlGeneratedSource>$(_XamlModuleGeneratedDir)$([System.Text.RegularExpressions.Regex]::Replace('%(_XamlGeneratedModuleArtifacts.RecursiveDir)%(_XamlGeneratedModuleArtifacts.Filename)%(_XamlGeneratedModuleArtifacts.Extension)', '\.(obj|module\.json(\.command)?|source\.json)$', ''))</XamlGeneratedSource>
+            </_XamlGeneratedModuleArtifacts>
+            <_XamlOrphanedModuleArtifacts Include="@(_XamlGeneratedModuleArtifacts)"
+                Condition="!Exists('%(_XamlGeneratedModuleArtifacts.XamlGeneratedSource)')" />
+        </ItemGroup>
+        <Delete Files="@(_XamlOrphanedModuleArtifacts)" />
+        <ItemGroup>
             <_XamlOrphanedModuleArtifacts Remove="@(_XamlOrphanedModuleArtifacts)" />
             <_XamlGeneratedModuleArtifacts Remove="@(_XamlGeneratedModuleArtifacts)" />
         </ItemGroup>
@@ -969,13 +983,14 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             </ClCompile>
 
             <!--
-              Update every XAML-generated compile item, including XamlMetaDataProvider.cpp which
-              C++/WinRT may have added before MarkupCompilePass2.
+              Update XAML-generated implementation files. XamlMetaDataProvider.cpp is the
+              C++/WinRT wrapper that includes its generated projection header textually; mixing
+              XAML_USE_MODULE imports into that translation unit duplicates CRT/STL declarations.
             -->
             <!-- Update is evaluation-only. Inside a target it does not select the
                  listed items; copy, amend and replace only the generated items. -->
             <_XamlGeneratedModuleConsumers Include="@(ClCompile)"
-                       Condition="'$(CppWinRTBuildModule)' == 'true' and '%(ClCompile.CompilerIteration)' == 'XamlGenerated'">
+                       Condition="'$(CppWinRTBuildModule)' == 'true' and '%(ClCompile.CompilerIteration)' == 'XamlGenerated' and '%(ClCompile.Filename)%(ClCompile.Extension)' != 'XamlMetaDataProvider.cpp'">
                 <AdditionalBMIDirectories>$(IntDir);$(XamlCppWinRTModuleIfcDir);$(_XamlGeneratedAdditionalBMIDirectories);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
                 <PrecompiledHeader>NotUsing</PrecompiledHeader>
                 <PreprocessorDefinitions>XAML_USE_MODULE;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -999,9 +1014,11 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             AfterTargets="ComputeXamlGeneratedCompileInputs"
             BeforeTargets="CompileXamlGeneratedFiles">
         <ItemGroup>
-            <_XamlGeneratedCompilePaths Include="@(XamlGFiles);@(GeneratedXamlPagesFiles)" />
+            <_XamlGeneratedCompilePaths Include="@(XamlGFiles)"
+                       Condition="'%(XamlGFiles.Filename)%(XamlGFiles.Extension)' != 'XamlMetaDataProvider.cpp'" />
+            <_XamlGeneratedCompilePaths Include="@(GeneratedXamlPagesFiles)" />
             <_XamlGeneratedCompilePaths Include="@(ClCompile)"
-                       Condition="'%(ClCompile.CompilerIteration)' == 'XamlGenerated'" />
+                       Condition="'%(ClCompile.CompilerIteration)' == 'XamlGenerated' and '%(ClCompile.Filename)%(ClCompile.Extension)' != 'XamlMetaDataProvider.cpp'" />
             <!-- Intersect with existing ClCompile items so their metadata is preserved.
                  FullPath matching also handles relative versus absolute generated paths. -->
             <_XamlAuthoredCompileItems Include="@(ClCompile)" />
