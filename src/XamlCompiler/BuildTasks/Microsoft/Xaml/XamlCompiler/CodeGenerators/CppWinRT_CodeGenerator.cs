@@ -218,7 +218,10 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
         public string GetCppWinRTProjectionDependencyDirective(string projectionNamespace, bool optionalHeader = false)
         {
             string header = CppWinRTProjectionDependency.GetHeaderFile(projectionNamespace);
-            string directive = $"#ifdef XAML_USE_MODULE\nimport {CppWinRTProjectionDependency.GetModuleName(projectionNamespace)};\n#else\n#include <{header}>\n#endif";
+            bool useModule = typeof(T) == typeof(TypeInfoDefinition) && ProjectInfo.BuildXamlModules;
+            string directive = useModule
+                ? $"import {CppWinRTProjectionDependency.GetModuleName(projectionNamespace)};"
+                : $"#include <{header}>";
             return optionalHeader ? $"#if __has_include(<{header}>)\n{directive}\n#endif" : directive;
         }
 
@@ -233,14 +236,20 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
         {
             if (typeof(T) != typeof(TypeInfoDefinition))
             {
-                // Only XamlTypeInfo owns XamlC's include/import consumer switch. Some existing
-                // Pass2 templates still call this helper, so neutralize build metadata there and
-                // keep those generated implementation fragments on their legacy header path.
+                // Existing generated implementation fragments stay on their legacy header path.
+                // The target currently carries XAML_USE_MODULE metadata for those files, so
+                // neutralize it until that compatibility metadata is removed from MSBuild.
                 return "#ifdef XAML_USE_MODULE\n#undef XAML_USE_MODULE\n#endif";
             }
 
-            // XAML_USE_MODULE is independent from C++/WinRT's WINRT_IMPORT_MODULE workaround.
-            return "#ifdef XAML_USE_MODULE\n#include <windows.h>\n#include <unknwn.h>\n#include <winrt/base_macros.h>\n#undef GetCurrentTime\nimport std;\n#endif";
+            if (!ProjectInfo.BuildXamlModules)
+            {
+                return String.Empty;
+            }
+
+            // Module/header selection is a generation-time decision. Keep only the platform
+            // declarations needed before importing the standard-library module.
+            return "#include <windows.h>\n#include <unknwn.h>\n#include <winrt/base_macros.h>\n#undef GetCurrentTime\nimport std;";
         }
 
         public static String Projection(string typeName)
