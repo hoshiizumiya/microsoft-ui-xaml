@@ -41,8 +41,9 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             this.Write("\"\r\n");
   }
             this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTConsumerPreamble()));
-            this.Write(@"
-#if !defined(XAML_USE_MODULE) && !defined(WINRT_IMPORT_MODULE)
+            this.Write("\r\n");
+  if (!ProjectInfo.BuildXamlModules) { 
+            this.Write(@"#if !defined(WINRT_IMPORT_MODULE)
 #include <unknwn.h>
 #include <algorithm>
 #include <cstddef>
@@ -57,12 +58,10 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 #include <string>
 #include <utility>
 #endif
-
-// Undefine GetCurrentTime macro to prevent
-// conflict with Storyboard::GetCurrentTime
-#undef GetCurrentTime
-
 ");
+  } 
+            this.Write("\r\n// Undefine GetCurrentTime macro to prevent\r\n// conflict with Storyboard::GetCu" +
+                    "rrentTime\r\n#undef GetCurrentTime\r\n\r\n");
   if (!ProjectInfo.GenerateIncrementalTypeInfo) { 
       foreach(string includeFile in Model.AllLocalXamlHeaderFiles) { 
             this.Write("#include \"");
@@ -77,10 +76,13 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)));
             this.Write("\r\n");
   } 
-            this.Write("#include \"XamlTypeInfo.xaml.g.h\"\r\n#include \"XamlBindingInfo.xaml.g.h\"\r\n#ifdef XAM" +
-                    "L_USE_MODULE\r\nimport ");
+            this.Write("#include \"XamlTypeInfo.xaml.g.h\"\r\n#include \"XamlBindingInfo.xaml.g.h\"\r\n");
+  if (ProjectInfo.BuildXamlModules) { 
+            this.Write("import ");
             this.Write(this.ToStringHelper.ToStringWithCulture(CppWinRTProjectionDependency.GetXamlPrimaryModuleName(ProjectInfo.RootNamespace)));
-            this.Write(";\r\n#endif\r\n#include \"XamlBindingInfo.xaml.g.hpp\"\r\n");
+            this.Write(";\r\n");
+  } 
+            this.Write("#include \"XamlBindingInfo.xaml.g.hpp\"\r\n");
   if (!ProjectInfo.GenerateIncrementalTypeInfo) { 
       foreach(string includeFile in Model.AllLocalHppGeneratedFiles) { 
             this.Write("#include \"");
