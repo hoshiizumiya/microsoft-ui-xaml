@@ -56,8 +56,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             if (_isPass1 && _language.Name == ProgrammingLanguage.CppWinRT && _projectInfo.BuildXamlModules)
             {
                 string moduleName = CppWinRTProjectionDependency.GetXamlClassModuleName(_projectInfo.RootNamespace, codeInfo.ClassName.FullName);
-                string supportModule = codeInfo.BindStatus == BindStatus.None ? null : CppWinRTProjectionDependency.GetXamlPrimaryModuleName(_projectInfo.RootNamespace) + ".Support";
-                string module = CppWinRTProjectionDependency.WriteInterface(moduleName, model.DeclarationCppWinRTProjectionNamespaces, new[] { codeFileName }, supportModule);
+                string module = CppWinRTProjectionDependency.WriteInterface(moduleName, model.DeclarationCppWinRTProjectionNamespaces, new[] { codeFileName });
                 retList.Add(new FileNameAndContentPair(codeInfo.BaseFileName + ".xaml.g.ixx", module));
             }
             return retList;
