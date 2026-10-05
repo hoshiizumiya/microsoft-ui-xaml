@@ -16,7 +16,8 @@
 #include "<#=ProjectInfo.PrecompiledHeaderFile#>"
 <#  }#>
 <#=GetCppWinRTConsumerPreamble()#>
-#if !defined(XAML_USE_MODULE) && !defined(WINRT_IMPORT_MODULE)
+<#  if (!ProjectInfo.BuildXamlModules) { #>
+#if !defined(WINRT_IMPORT_MODULE)
 #include <unknwn.h>
 #include <algorithm>
 #include <cstddef>
@@ -31,6 +32,7 @@
 #include <string>
 #include <utility>
 #endif
+<#  } #>
 
 // Undefine GetCurrentTime macro to prevent
 // conflict with Storyboard::GetCurrentTime
@@ -51,9 +53,9 @@
 <#  } #>
 #include "XamlTypeInfo.xaml.g.h"
 #include "XamlBindingInfo.xaml.g.h"
-#ifdef XAML_USE_MODULE
+<#  if (ProjectInfo.BuildXamlModules) { #>
 import <#=CppWinRTProjectionDependency.GetXamlPrimaryModuleName(ProjectInfo.RootNamespace)#>;
-#endif
+<#  } #>
 #include "XamlBindingInfo.xaml.g.hpp"
 <#  if (!ProjectInfo.GenerateIncrementalTypeInfo) { #>
 <#      foreach(string includeFile in Model.AllLocalHppGeneratedFiles) { #>
