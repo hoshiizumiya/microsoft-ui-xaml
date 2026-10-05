@@ -231,8 +231,15 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 
         public string GetCppWinRTConsumerPreamble()
         {
-            // XAML_USE_MODULE is XamlC's consumer switch. It must not mutate C++/WinRT's
-            // independent WINRT_IMPORT_MODULE compatibility mechanism.
+            if (typeof(T) != typeof(TypeInfoDefinition))
+            {
+                // Only XamlTypeInfo owns XamlC's include/import consumer switch. Some existing
+                // Pass2 templates still call this helper, so neutralize build metadata there and
+                // keep those generated implementation fragments on their legacy header path.
+                return "#ifdef XAML_USE_MODULE\n#undef XAML_USE_MODULE\n#endif";
+            }
+
+            // XAML_USE_MODULE is independent from C++/WinRT's WINRT_IMPORT_MODULE workaround.
             return "#ifdef XAML_USE_MODULE\n#include <windows.h>\n#include <unknwn.h>\n#include <winrt/base_macros.h>\n#undef GetCurrentTime\nimport std;\n#endif";
         }
 
