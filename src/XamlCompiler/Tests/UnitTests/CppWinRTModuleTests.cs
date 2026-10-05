@@ -180,7 +180,7 @@ namespace UnitTests
         public void Aggregator_OnlyReExportsIndependentInterfacesFromTheFullClassSet()
         {
             string text = CppWinRTProjectionDependency.WriteAggregator("Test", new[] { "Test.SecondPage", "Test.App", "Test.MainPage", "Test.MainPage" });
-            StringAssert.Contains(text, "export import Test.Application_Xaml.Support;");
+            Assert.IsFalse(text.Contains("Application_Xaml.Support"));
             foreach (var name in new[] { "Test.App", "Test.MainPage", "Test.SecondPage" })
             {
                 StringAssert.Contains(text, "export import " + CppWinRTProjectionDependency.GetXamlClassModuleName("Test", name) + ";");
@@ -237,7 +237,7 @@ namespace UnitTests
         }
 
         [TestMethod]
-        public void TypeInfoConsumer_IncludesLocalDeclarationsBeforeProjectionAndRootImports()
+        public void TypeInfoConsumer_SelectsHeadersOrModulesDuringGeneration()
         {
             var helper = new TestHelper();
             var project = new XamlProjectInfo
@@ -247,20 +247,32 @@ namespace UnitTests
             };
             project.SetEmptyAdditionalXamlTypeInfoIncludes();
             var schema = new XamlSchemaCodeInfo();
-            string text = helper.GenerateTypeInfo(false, schema, project, new ClassName("Test.App"), CodeGenLanguage.CppWinRT).Single(file => file.FileName == "XamlTypeInfo.g.cpp").Contents;
-            int firstImport = text.IndexOf("import winrt.", StringComparison.Ordinal);
-            int rootImport = text.IndexOf("import Test.Application_Xaml;", StringComparison.Ordinal);
+
+            string headerText = helper.GenerateTypeInfo(false, schema, project, new ClassName("Test.App"), CodeGenLanguage.CppWinRT)
+                .Single(file => file.FileName == "XamlTypeInfo.g.cpp").Contents;
+            StringAssert.Contains(headerText, "#include <vector>");
+            Assert.IsFalse(headerText.Contains("import winrt."));
+            Assert.IsFalse(headerText.Contains("import Test.Application_Xaml;"));
+            Assert.IsFalse(headerText.Contains("XAML_USE_MODULE"));
+
+            project.BuildXamlModules = true;
+            string moduleText = helper.GenerateTypeInfo(false, schema, project, new ClassName("Test.App"), CodeGenLanguage.CppWinRT)
+                .Single(file => file.FileName == "XamlTypeInfo.g.cpp").Contents;
+            int firstImport = moduleText.IndexOf("import winrt.", StringComparison.Ordinal);
+            int rootImport = moduleText.IndexOf("import Test.Application_Xaml;", StringComparison.Ordinal);
+            Assert.IsTrue(firstImport >= 0);
+            Assert.IsTrue(rootImport > firstImport);
             foreach (string header in new[] { "MainPage.xaml.h", "SecondPage.xaml.h" })
             {
-                int local = text.IndexOf("#include \"" + header + "\"", StringComparison.Ordinal);
+                int local = moduleText.IndexOf("#include \"" + header + "\"", StringComparison.Ordinal);
                 Assert.IsTrue(local >= 0 && local < firstImport && local < rootImport);
             }
-            Assert.IsTrue(text.IndexOf("#include <vector>", StringComparison.Ordinal) < firstImport);
-            StringAssert.Contains(text, "#ifdef XAML_USE_MODULE");
-            Assert.IsFalse(text.Contains("export module"));
-            Assert.IsFalse(text.Contains("ModulePreamble"));
-            project.BuildXamlModules = true;
-            Assert.AreEqual(text, helper.GenerateTypeInfo(false, schema, project, new ClassName("Test.App"), CodeGenLanguage.CppWinRT).Single(file => file.FileName == "XamlTypeInfo.g.cpp").Contents);
+            StringAssert.Contains(moduleText, "import std;");
+            Assert.IsFalse(moduleText.Contains("#include <vector>"));
+            Assert.IsFalse(moduleText.Contains("XAML_USE_MODULE"));
+            Assert.IsFalse(moduleText.Contains("export module"));
+            Assert.AreNotEqual(headerText, moduleText);
+
             project.PrecompiledHeaderFile = "pch.h";
             foreach (bool pass1 in new[] { true, false })
             {
@@ -275,7 +287,7 @@ namespace UnitTests
                 foreach (var source in helper.GenerateTypeInfo(pass1, schema, project, new ClassName("Test.App"), CodeGenLanguage.CppWinRT).Where(file => file.FileName.EndsWith(".cpp", StringComparison.Ordinal)))
                 {
                     StringAssert.Contains(source.Contents, "#include \"pch.h\"");
-                    Assert.IsFalse(source.Contents.Contains("#ifndef XAML_USE_MODULE"));
+                    Assert.IsFalse(source.Contents.Contains("XAML_USE_MODULE"));
                 }
             }
         }
