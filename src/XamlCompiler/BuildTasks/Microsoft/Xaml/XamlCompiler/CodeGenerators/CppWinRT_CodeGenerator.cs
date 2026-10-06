@@ -218,8 +218,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
         public string GetCppWinRTProjectionDependencyDirective(string projectionNamespace, bool optionalHeader = false)
         {
             string header = CppWinRTProjectionDependency.GetHeaderFile(projectionNamespace);
-            bool useModule = ProjectInfo.BuildXamlModules && (typeof(T) == typeof(TypeInfoDefinition) || !String.IsNullOrWhiteSpace(ProjectInfo.XamlCodeBehindModule));
-            string directive = useModule
+            string directive = ProjectInfo.BuildXamlModules
                 ? $"import {CppWinRTProjectionDependency.GetModuleName(projectionNamespace)};"
                 : $"#include <{header}>";
             return optionalHeader ? $"#if __has_include(<{header}>)\n{directive}\n#endif" : directive;
@@ -241,10 +240,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 
             // Keep unavoidable platform/preprocessor state textual and before every import.
             // The standard library and projections themselves are imported by the generated TU.
-            return "#include <windows.h>
-#include <unknwn.h>
-#include <winrt/base_macros.h>
-#undef GetCurrentTime";
+            return "#include <windows.h>\n#include <unknwn.h>\n#include <winrt/base_macros.h>\n#undef GetCurrentTime";
         }
 
         public static String Projection(string typeName)
