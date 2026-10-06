@@ -1,0 +1,164 @@
+name: Apply XamlC module-first redesign
+
+on:
+  push:
+    paths:
+      - .github/workflows/apply-xaml-module-first-redesign.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/xamlccppmodule/product-validation
+          fetch-depth: 0
+      - name: Apply deterministic source changes
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          ROOT = Path('.')
+
+          def read(path):
+              p = ROOT / path
+              data = p.read_bytes()
+              bom = data.startswith(b'\xef\xbb\xbf')
+              return p, data.decode('utf-8-sig'), bom
+
+          def write(p, text, bom):
+              p.write_bytes(text.encode('utf-8-sig' if bom else 'utf-8'))
+
+          def replace(path, old, new, expected=1):
+              p, text, bom = read(path)
+              count = text.count(old)
+              if count != expected:
+                  raise RuntimeError(f'{path}: expected {expected} occurrences, found {count}')
+              text = text.replace(old, new)
+              write(p, text, bom)
+
+          def sub(path, pattern, repl, expected=1, flags=re.S):
+              p, text, bom = read(path)
+              text2, count = re.subn(pattern, repl, text, flags=flags)
+              if count != expected:
+                  raise RuntimeError(f'{path}: expected {expected} regex replacements, found {count}')
+              write(p, text2, bom)
+
+          codegen = 'src/XamlCompiler/BuildTasks/Microsoft/Xaml/XamlCompiler/CodeGenerators/CppWinRT_CodeGenerator.cs'
+          sub(codegen,
+              r'        public string GetCppWinRTConsumerPreamble\(\)\n        \{.*?\n        \}\n\n        public static String Projection',
+              '''        public string GetCppWinRTConsumerPreamble()\n        {\n            if (typeof(T) != typeof(TypeInfoDefinition) || !ProjectInfo.BuildXamlModules)\n            {\n                return String.Empty;\n            }\n\n            // Keep unavoidable platform/preprocessor state textual and before every import.\n            // The standard library and projections themselves are imported by the generated TU.\n            return "#include <windows.h>\\n#include <unknwn.h>\\n#include <winrt/base_macros.h>\\n#undef GetCurrentTime";\n        }\n\n        public static String Projection''')
+          replace(codegen,
+              'bool useModule = typeof(T) == typeof(TypeInfoDefinition) && ProjectInfo.BuildXamlModules;',
+              'bool useModule = ProjectInfo.BuildXamlModules && (typeof(T) == typeof(TypeInfoDefinition) || !String.IsNullOrWhiteSpace(ProjectInfo.XamlCodeBehindModule));')
+
+          project_info = 'src/XamlCompiler/BuildTasks/Microsoft/Xaml/XamlCompiler/XamlProjectInfo.cs'
+          replace(project_info,
+              '        public bool BuildXamlModules { get; set; }\n\n        public string PrecompiledHeaderFile { get; set; }',
+              '        public bool BuildXamlModules { get; set; }\n        public string XamlCodeBehindModule { get; set; }\n\n        public string PrecompiledHeaderFile { get; set; }')
+
+          iface = 'src/XamlCompiler/Exe/Microsoft.UI.Xaml.Markup.Compiler.MSBuildInterop/ICompileXamlInputs.cs'
+          replace(iface,
+              '        string GenXbfPath { get; set; }\n        string PrecompiledHeaderFile { get; set; }',
+              '        string GenXbfPath { get; set; }\n        string PrecompiledHeaderFile { get; set; }\n        string XamlCodeBehindModule { get; set; }')
+
+          compiler_inputs = 'src/XamlCompiler/Exe/Microsoft.UI.Xaml.Markup.Compiler.MSBuildInterop/CompilerInputs.cs'
+          replace(compiler_inputs,
+              '        public string GenXbfPath { get; set; }\n        public string PrecompiledHeaderFile { get; set; }',
+              '        public string GenXbfPath { get; set; }\n        public string PrecompiledHeaderFile { get; set; }\n        public string XamlCodeBehindModule { get; set; }')
+          replace(compiler_inputs,
+              '            r.PrecompiledHeaderFile = i.PrecompiledHeaderFile;\n            r.IgnoreSpecifiedTargetPlatformMinVersion',
+              '            r.PrecompiledHeaderFile = i.PrecompiledHeaderFile;\n            r.XamlCodeBehindModule = i.XamlCodeBehindModule;\n            r.IgnoreSpecifiedTargetPlatformMinVersion')
+
+          compile_task = 'src/XamlCompiler/BuildTasks/CompileXaml.cs'
+          replace(compile_task,
+              '        public string GenXbfPath { get; set; }\n        public string PrecompiledHeaderFile { get; set; }',
+              '        public string GenXbfPath { get; set; }\n        public string PrecompiledHeaderFile { get; set; }\n        public string XamlCodeBehindModule { get; set; }')
+
+          serializer = 'src/XamlCompiler/Exe/Microsoft.UI.Xaml.Markup.Compiler.IO/XamlCompiler/InputSerializer.cs'
+          replace(serializer,
+              '        public string GenXbfPath { get; set; }\n        public string PrecompiledHeaderFile { get; set; }',
+              '        public string GenXbfPath { get; set; }\n        public string PrecompiledHeaderFile { get; set; }\n        public string XamlCodeBehindModule { get; set; }')
+
+          internal = 'src/XamlCompiler/BuildTasks/CompileXamlInternal.cs'
+          replace(internal,
+              '        public string PrecompiledHeaderFile { get; set; }\n\n        // For compatability',
+              '        public string PrecompiledHeaderFile { get; set; }\n        public string XamlCodeBehindModule { get; set; }\n\n        // For compatability')
+          replace(internal,
+              '            PrecompiledHeaderFile = i.PrecompiledHeaderFile;\n            Language = Compiler.Language.Parse(i.Language);',
+              '            PrecompiledHeaderFile = i.PrecompiledHeaderFile;\n            XamlCodeBehindModule = i.XamlCodeBehindModule;\n            Language = Compiler.Language.Parse(i.Language);')
+          replace(internal,
+              '            projectInfo.BuildXamlModules = BuildXamlModules;\n            projectInfo.PrecompiledHeaderFile = PrecompiledHeaderFile;',
+              '            projectInfo.BuildXamlModules = BuildXamlModules;\n            projectInfo.XamlCodeBehindModule = XamlCodeBehindModule;\n            projectInfo.PrecompiledHeaderFile = PrecompiledHeaderFile;')
+          replace(internal,
+              '''                IEnumerable<string> supportNamespaces = CppWinRTProjectionDependency.BindingSupportNamespaces;\n                var supportHeaders = new List<string> { "XamlBindingInfo.xaml.g.h" };\n                if (!ShouldSuppressTypeInfoCodeGen())\n                {\n                    supportNamespaces = supportNamespaces.Concat(CppWinRTProjectionDependency.TypeInfoSupportNamespaces);\n                    supportHeaders.Add("XamlTypeInfo.xaml.g.h");\n                }''',
+              '''                IEnumerable<string> supportNamespaces = CppWinRTProjectionDependency.BindingSupportNamespaces;\n                var supportHeaders = new List<string> { "XamlBindingInfo.xaml.g.h" };\n                if (!ShouldSuppressTypeInfoCodeGen())\n                {\n                    supportNamespaces = supportNamespaces.Concat(CppWinRTProjectionDependency.TypeInfoSupportNamespaces);\n                    if (!String.IsNullOrWhiteSpace(RootNamespace))\n                    {\n                        supportNamespaces = supportNamespaces.Concat(new[] { RootNamespace });\n                    }\n                    supportHeaders.Add("XamlTypeInfo.xaml.g.h");\n                    supportHeaders.Add("XamlMetaDataProvider.h");\n                }''')
+
+          metadata_tt = 'src/XamlCompiler/BuildTasks/Microsoft/Xaml/XamlCompiler/CodeGenerators/CppWinRT/CppWinRT_XamlMetaDataProviderPass1.tt'
+          replace(metadata_tt,
+              '''#pragma once\n\n#include <unknwn.h>\n#undef GetCurrentTime\n#include <functional>\n#include <map>\n#include <memory>\n#include <vector>\n#include "XamlTypeInfo.xaml.g.h"\n#include "XamlMetaDataProvider.g.h"\n''',
+              '''#pragma once\n#ifndef XAML_IMPL_MODULE\n#include <unknwn.h>\n#undef GetCurrentTime\n#include <functional>\n#include <map>\n#include <memory>\n#include <vector>\n#include "XamlTypeInfo.xaml.g.h"\n#include "XamlMetaDataProvider.g.h"\n#endif\n\n#ifdef XAML_IMPL_MODULE\n#define XAML_EXPORT export extern "C++"\n#else\n#define XAML_EXPORT\n#endif\n''')
+          replace(metadata_tt,
+              'namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation',
+              'XAML_EXPORT namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation')
+          replace(metadata_tt,
+              'namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::factory_implementation',
+              'XAML_EXPORT namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::factory_implementation')
+          p, text, bom = read(metadata_tt)
+          if not text.rstrip().endswith('}'):
+              raise RuntimeError(f'{metadata_tt}: unexpected end')
+          text = text.rstrip() + '\n\n#undef XAML_EXPORT\n'
+          write(p, text, bom)
+
+          pass1impl = 'src/XamlCompiler/BuildTasks/Microsoft/Xaml/XamlCompiler/CodeGenerators/CppWinRT/CppWinRT_TypeInfoPass1Impl.tt'
+          old = '''<#  if(!ProjectInfo.BuildXamlModules && !String.IsNullOrEmpty(ProjectInfo.PrecompiledHeaderFile)) { #>\n#include "<#=ProjectInfo.PrecompiledHeaderFile#>"\n<#  }#>\n<#=GetCppWinRTConsumerPreamble()#>\n\n#if !defined(XAML_USE_MODULE) && !defined(WINRT_IMPORT_MODULE)\n#include <unknwn.h>\n#include <memory>\n#include <string>\n#include <regex>\n#include <mutex>\n#include <cstdint>\n#endif\n\n// Undefine GetCurrentTime macro to prevent\n// conflict with Storyboard::GetCurrentTime\n#undef GetCurrentTime\n\n<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsFoundation)#>\n<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsXamlInterop)#>\n<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlMarkup)#>\n\n#include "XamlTypeInfo.xaml.g.h"\n#include "XamlMetaDataProvider.h"\n#ifdef XAML_USE_MODULE\nimport <#=CppWinRTProjectionDependency.GetXamlPrimaryModuleName(ProjectInfo.RootNamespace)#>;\n#endif\n'''
+          new = '''<#  if(!ProjectInfo.BuildXamlModules && !String.IsNullOrEmpty(ProjectInfo.PrecompiledHeaderFile)) { #>\n#include "<#=ProjectInfo.PrecompiledHeaderFile#>"\n<#  }#>\n<#=GetCppWinRTConsumerPreamble()#>\n<#  if (!ProjectInfo.BuildXamlModules) { #>\n#include <unknwn.h>\n#include <memory>\n#include <string>\n#include <regex>\n#include <mutex>\n#include <cstdint>\n<#  } else { #>\nimport std;\n<#  } #>\n\n// Undefine GetCurrentTime macro to prevent\n// conflict with Storyboard::GetCurrentTime\n#undef GetCurrentTime\n\n<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsFoundation)#>\n<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsXamlInterop)#>\n<#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlMarkup)#>\n\n<#  if (!ProjectInfo.BuildXamlModules) { #>\n#include "XamlTypeInfo.xaml.g.h"\n#include "XamlMetaDataProvider.h"\n<#  } else { #>\nimport <#=CppWinRTProjectionDependency.GetXamlPrimaryModuleName(ProjectInfo.RootNamespace)#>.Support;\nimport <#=CppWinRTProjectionDependency.GetXamlPrimaryModuleName(ProjectInfo.RootNamespace)#>;\n<#  } #>\n'''
+          replace(pass1impl, old, new)
+
+          pass2 = 'src/XamlCompiler/BuildTasks/Microsoft/Xaml/XamlCompiler/CodeGenerators/CppWinRT/CppWinRT_TypeInfoPass2.tt'
+          old = '''<#  if(!ProjectInfo.BuildXamlModules && !String.IsNullOrEmpty(ProjectInfo.PrecompiledHeaderFile)) { #>\n#include "<#=ProjectInfo.PrecompiledHeaderFile#>"\n<#  }#>\n<#=GetCppWinRTConsumerPreamble()#>\n<#  if (!ProjectInfo.BuildXamlModules) { #>\n#if !defined(WINRT_IMPORT_MODULE)\n#include <unknwn.h>\n#include <algorithm>\n#include <cstddef>\n#include <cstdint>\n#include <memory>\n#include <mutex>\n#include <type_traits>\n#include <vector>\n#include <functional>\n#include <map>\n#include <regex>\n#include <string>\n#include <utility>\n#endif\n<#  } #>\n\n// Undefine GetCurrentTime macro to prevent\n// conflict with Storyboard::GetCurrentTime\n#undef GetCurrentTime\n\n<#  if (!ProjectInfo.GenerateIncrementalTypeInfo) { #>\n<#      foreach(string includeFile in Model.AllLocalXamlHeaderFiles) { #>\n#include "<#=includeFile#>"\n<#      } #>\n<#  } #>\n<#  if (ProjectInfo.GenerateIncrementalTypeInfo) { #>\n#ifdef XAML_TYPE_INFO_INC\n#include XAML_TYPE_INFO_INC\n#endif\n<#  } #>\n<#  foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { #>\n<#=GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)#>\n<#  } #>\n#include "XamlTypeInfo.xaml.g.h"\n#include "XamlBindingInfo.xaml.g.h"\n<#  if (ProjectInfo.BuildXamlModules) { #>\nimport <#=CppWinRTProjectionDependency.GetXamlPrimaryModuleName(ProjectInfo.RootNamespace)#>;\n<#  } #>\n#include "XamlBindingInfo.xaml.g.hpp"\n'''
+          new = '''<#  if(!ProjectInfo.BuildXamlModules && !String.IsNullOrEmpty(ProjectInfo.PrecompiledHeaderFile)) { #>\n#include "<#=ProjectInfo.PrecompiledHeaderFile#>"\n<#  }#>\n<#=GetCppWinRTConsumerPreamble()#>\n<#  if (!ProjectInfo.BuildXamlModules) { #>\n#include <unknwn.h>\n#include <algorithm>\n#include <cstddef>\n#include <cstdint>\n#include <memory>\n#include <mutex>\n#include <type_traits>\n#include <vector>\n#include <functional>\n#include <map>\n#include <regex>\n#include <string>\n#include <utility>\n<#  } #>\n\n// Undefine GetCurrentTime macro to prevent\n// conflict with Storyboard::GetCurrentTime\n#undef GetCurrentTime\n\n<#  if (!ProjectInfo.GenerateIncrementalTypeInfo) { #>\n<#      foreach(var additionalHeader in ProjectInfo.AdditionalXamlTypeInfoIncludes) { #>\n#include "<#=additionalHeader.ItemSpec#>"\n<#      } #>\n<#      if (!ProjectInfo.BuildXamlModules || String.IsNullOrWhiteSpace(ProjectInfo.XamlCodeBehindModule)) { #>\n<#          foreach(string includeFile in ProjectInfo.ClassToHeaderFileMap.Values) { #>\n#include "<#=includeFile#>"\n<#          } #>\n<#      } #>\n<#  } #>\n<#  if (ProjectInfo.GenerateIncrementalTypeInfo) { #>\n#ifdef XAML_TYPE_INFO_INC\n#include XAML_TYPE_INFO_INC\n#endif\n<#  } #>\n<#  if (ProjectInfo.BuildXamlModules) { #>\nimport std;\n<#  } #>\n<#  foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { #>\n<#=GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)#>\n<#  } #>\n<#  if (!ProjectInfo.BuildXamlModules) { #>\n#include "XamlTypeInfo.xaml.g.h"\n#include "XamlBindingInfo.xaml.g.h"\n<#  } else { #>\n<#      if (!String.IsNullOrWhiteSpace(ProjectInfo.XamlCodeBehindModule)) { #>\nimport <#=ProjectInfo.XamlCodeBehindModule#>;\n<#      } #>\nimport <#=CppWinRTProjectionDependency.GetXamlPrimaryModuleName(ProjectInfo.RootNamespace)#>.Support;\nimport <#=CppWinRTProjectionDependency.GetXamlPrimaryModuleName(ProjectInfo.RootNamespace)#>;\n<#  } #>\n#include "XamlBindingInfo.xaml.g.hpp"\n'''
+          replace(pass2, old, new)
+
+          binding2 = 'src/XamlCompiler/BuildTasks/Microsoft/Xaml/XamlCompiler/CodeGenerators/CppWinRT/CppWinRT_BindingInfoPass2.tt'
+          replace(binding2,
+              '''<#  if(!String.IsNullOrEmpty(ProjectInfo.PrecompiledHeaderFile)) { #>\n#include "<#=ProjectInfo.PrecompiledHeaderFile#>"\n<#  }#>\n#include <cstdint>\n#include <memory>\n#include <utility>\n\n#include "XamlBindingInfo.xaml.g.h"\n''',
+              '''<#  if (!ProjectInfo.BuildXamlModules) { #>\n<#      if(!String.IsNullOrEmpty(ProjectInfo.PrecompiledHeaderFile)) { #>\n#include "<#=ProjectInfo.PrecompiledHeaderFile#>"\n<#      }#>\n#include <cstdint>\n#include <memory>\n#include <utility>\n\n#include "XamlBindingInfo.xaml.g.h"\n<#  } #>\n''')
+
+          page2 = 'src/XamlCompiler/BuildTasks/Microsoft/Xaml/XamlCompiler/CodeGenerators/CppWinRT/CppWinRT_PagePass2.tt'
+          old = '''<#  if(!ProjectInfo.BuildXamlModules && !String.IsNullOrEmpty(ProjectInfo.PrecompiledHeaderFile)) { #>\n#include "<#=ProjectInfo.PrecompiledHeaderFile#>"\n<#  }#>\n<#=GetCppWinRTConsumerPreamble()#>\n\n#if !defined(XAML_USE_MODULE) && !defined(WINRT_IMPORT_MODULE)\n#include <cstdint>\n#include <memory>\n#include <type_traits>\n#include <utility>\n#endif\n\n<#  foreach (var includeFile in Model.NeededLocalXamlHeaderFiles) { #>\n#include "<#=includeFile#>"\n<#  }#>\n<#  foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { #>\n<#=GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)#>\n<#  } #>\n'''
+          new = '''<#  if(!ProjectInfo.BuildXamlModules && !String.IsNullOrEmpty(ProjectInfo.PrecompiledHeaderFile)) { #>\n#include "<#=ProjectInfo.PrecompiledHeaderFile#>"\n<#  }#>\n<#=GetCppWinRTConsumerPreamble()#>\n\n<#  if (!ProjectInfo.BuildXamlModules || String.IsNullOrWhiteSpace(ProjectInfo.XamlCodeBehindModule)) { #>\n#include <cstdint>\n#include <memory>\n#include <type_traits>\n#include <utility>\n\n<#      foreach (var includeFile in Model.NeededLocalXamlHeaderFiles) { #>\n#include "<#=includeFile#>"\n<#      }#>\n<#  } else { #>\nimport std;\nimport <#=ProjectInfo.XamlCodeBehindModule#>;\n<#  } #>\n<#  foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { #>\n<#=GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)#>\n<#  } #>\n'''
+          replace(page2, old, new)
+
+          targets = 'src/XamlCompiler/Targets/Microsoft.UI.Xaml.Markup.Compiler.interop.targets'
+          p, text, bom = read(targets)
+          pre = 'PrecompiledHeaderFile="$(PrecompiledHeaderFile)"'
+          count = text.count(pre)
+          if count < 4:
+              raise RuntimeError(f'{targets}: expected multiple task/serializer inputs, found {count}')
+          text = text.replace(pre, pre + '\n                XamlCodeBehindModule="$(CppWinRTXamlCodeBehindModule)"')
+          if 'XAML_USE_MODULE;' not in text:
+              raise RuntimeError(f'{targets}: expected transitional XAML_USE_MODULE metadata')
+          text = text.replace('XAML_USE_MODULE;', '')
+          write(p, text, bom)
+
+          tests = 'src/XamlCompiler/Tests/UnitTests/CppWinRTModuleTests.cs'
+          old = '''            StringAssert.Contains(moduleText, "import std;");\n            Assert.IsFalse(moduleText.Contains("#include <vector>"));\n            Assert.IsFalse(moduleText.Contains("XAML_USE_MODULE"));\n            Assert.IsFalse(moduleText.Contains("WINRT_IMPORT_MODULE"));\n            Assert.IsFalse(moduleText.Contains("export module"));\n            Assert.AreNotEqual(headerText, moduleText);\n\n            project.PrecompiledHeaderFile = "pch.h";'''
+          new = '''            StringAssert.Contains(moduleText, "import std;");\n            StringAssert.Contains(moduleText, "import Test.Application_Xaml.Support;");\n            Assert.IsFalse(moduleText.Contains("#include <vector>"));\n            Assert.IsFalse(moduleText.Contains("XAML_USE_MODULE"));\n            Assert.IsFalse(moduleText.Contains("WINRT_IMPORT_MODULE"));\n            Assert.IsFalse(moduleText.Contains("export module"));\n            Assert.AreNotEqual(headerText, moduleText);\n\n            project.XamlCodeBehindModule = "Test.UserXaml";\n            string authoredModuleText = helper.GenerateTypeInfo(false, schema, project, new ClassName("Test.App"), CodeGenLanguage.CppWinRT)\n                .Single(file => file.FileName == "XamlTypeInfo.g.cpp").Contents;\n            StringAssert.Contains(authoredModuleText, "import Test.UserXaml;");\n            Assert.IsFalse(authoredModuleText.Contains("#include \\\"MainPage.xaml.h\\\""));\n            Assert.IsFalse(authoredModuleText.Contains("#include \\\"SecondPage.xaml.h\\\""));\n            project.XamlCodeBehindModule = null;\n\n            project.PrecompiledHeaderFile = "pch.h";'''
+          replace(tests, old, new)
+
+          print('Applied module-first XamlC source cleanup.')
+          PY
+
+          rm .github/workflows/apply-xaml-module-first-redesign.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Refactor XamlC consumers around named modules"
+          git push origin HEAD:feat/xamlccppmodule/product-validation
