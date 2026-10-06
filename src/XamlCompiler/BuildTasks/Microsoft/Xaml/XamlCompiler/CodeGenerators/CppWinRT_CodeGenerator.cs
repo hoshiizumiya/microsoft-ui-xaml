@@ -247,9 +247,8 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                 return String.Empty;
             }
 
-            // Module/header selection is a generation-time decision. Keep only the platform
-            // declarations needed before importing the standard-library module.
-            return "#include <windows.h>\n#include <unknwn.h>\n#include <winrt/base_macros.h>\n#undef GetCurrentTime\nimport std;";
+            // TypeInfo is a conventional translation unit; establish textual library declarations before projection imports.
+            return "#include <windows.h>\n#include <unknwn.h>\n#include <memory>\n#include <string>\n#include <regex>\n#include <mutex>\n#include <cstdint>\n#include <winrt/base_macros.h>\n#undef GetCurrentTime";
         }
 
         public static String Projection(string typeName)

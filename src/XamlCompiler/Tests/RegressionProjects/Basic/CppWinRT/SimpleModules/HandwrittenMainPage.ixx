@@ -13,6 +13,7 @@ module;
 #include <utility>
 #include <vector>
 #include <winrt/base_macros.h>
+#include "MainPage.h"
 #undef GetCurrentTime
 export module Simple.HandwrittenMainPage;
 #ifndef WINRT_IMPORT_MODULE
@@ -30,11 +31,7 @@ import winrt.Microsoft.UI.Xaml.Interop;
 import winrt.Microsoft.UI.Xaml.Markup;
 import winrt.Simple;
 import winrt.Simple.Models;
-// The component headers contain imports: include them outside an export sequence.
-extern "C++"
-{
-#include "MainPage.h"
-}
+// MainPage.h is textual and therefore belongs to the global module fragment above.
 export extern "C++" namespace winrt::Simple::implementation
 {
     struct MainPage;
