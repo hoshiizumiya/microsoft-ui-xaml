@@ -1,0 +1,377 @@
+name: Apply authored XAML module fixture
+
+on:
+  push:
+    paths:
+      - .github/workflows/apply-authored-xaml-module-fixture.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/xamlccppmodule/product-validation
+          fetch-depth: 0
+      - name: Convert user XAML code-behind to modules
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          ROOT = Path('.')
+          BASE = ROOT / 'src/XamlCompiler/Tests/RegressionProjects/Basic/CppWinRT/SimpleModules'
+
+          def read(path):
+              p = ROOT / path
+              data = p.read_bytes()
+              bom = data.startswith(b'\xef\xbb\xbf')
+              return p, data.decode('utf-8-sig'), bom
+
+          def write_preserve(path, text):
+              p, _, bom = read(path)
+              p.write_bytes(text.encode('utf-8-sig' if bom else 'utf-8'))
+
+          def replace(path, old, new, expected=1):
+              p, text, bom = read(path)
+              count = text.count(old)
+              if count != expected:
+                  raise RuntimeError(f'{path}: expected {expected} occurrences, found {count}')
+              text = text.replace(old, new)
+              p.write_bytes(text.encode('utf-8-sig' if bom else 'utf-8'))
+
+          (BASE / 'HandwrittenMainPage.ixx').write_text(r'''module;
+#include <windows.h>
+#include <unknwn.h>
+#include <winrt/base_macros.h>
+#undef GetCurrentTime
+
+export module Simple.HandwrittenMainPage;
+import std;
+export import Simple.Application_Xaml.MainPage;
+export import winrt.Microsoft.UI.Xaml.Input;
+export import winrt.Simple.Models;
+
+export extern "C++" namespace winrt::Simple::implementation
+{
+    struct MainPage : MainPageT<MainPage>
+    {
+        MainPage();
+        friend struct MainPageT<MainPage>;
+
+        hstring StringProperty() { return L""; }
+        ::winrt::Simple::Models::BindModel Model() const noexcept { return m_model; }
+
+    protected:
+        void ClickHandler(IInspectable const& sender, ::winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
+        void TappedHandler(IInspectable const& sender, ::winrt::Microsoft::UI::Xaml::Input::TappedRoutedEventArgs const& e);
+
+    private:
+        ::winrt::Simple::Models::BindModel m_model{ nullptr };
+    };
+}
+
+export extern "C++" namespace winrt::Simple::factory_implementation
+{
+    struct MainPage : MainPageT<MainPage, implementation::MainPage>
+    {
+    };
+}
+''', encoding='utf-8')
+
+          new_modules = {
+              'HandwrittenApp.ixx': r'''module;
+#include <windows.h>
+#include <unknwn.h>
+#include <winrt/base_macros.h>
+#undef GetCurrentTime
+
+export module Simple.HandwrittenApp;
+import std;
+export import Simple.Application_Xaml.App;
+export import winrt.Windows.ApplicationModel;
+export import winrt.Microsoft.UI.Xaml.Navigation;
+
+export extern "C++" namespace winrt::Simple::implementation
+{
+    struct App : AppT<App>
+    {
+        App();
+        void OnLaunched(Microsoft::UI::Xaml::LaunchActivatedEventArgs const&);
+        void OnSuspending(IInspectable const&, ::winrt::Windows::ApplicationModel::SuspendingEventArgs const&);
+        void OnNavigationFailed(IInspectable const&, Microsoft::UI::Xaml::Navigation::NavigationFailedEventArgs const&);
+    };
+}
+''',
+              'HandwrittenEmptyPage.ixx': r'''module;
+#include <unknwn.h>
+#include <winrt/base_macros.h>
+#undef GetCurrentTime
+
+export module Simple.HandwrittenEmptyPage;
+import std;
+export import Simple.Application_Xaml.EmptyPage;
+
+export extern "C++" namespace winrt::Simple::implementation
+{
+    struct EmptyPage : EmptyPageT<EmptyPage>
+    {
+        EmptyPage();
+        hstring Marker() const { return L"EmptyPage"; }
+    };
+}
+
+export extern "C++" namespace winrt::Simple::factory_implementation
+{
+    struct EmptyPage : EmptyPageT<EmptyPage, implementation::EmptyPage> {};
+}
+''',
+              'HandwrittenViewsPanelPage.ixx': r'''module;
+#include <unknwn.h>
+#include <winrt/base_macros.h>
+#undef GetCurrentTime
+
+export module Simple.HandwrittenViewsPanelPage;
+import std;
+export import Simple.Application_Xaml.Views.PanelPage;
+
+export extern "C++" namespace winrt::Simple::Views::implementation
+{
+    struct PanelPage : PanelPageT<PanelPage>
+    {
+        PanelPage();
+        winrt::hstring Marker() const { return L"Views"; }
+    };
+}
+
+export extern "C++" namespace winrt::Simple::Views::factory_implementation
+{
+    struct PanelPage : PanelPageT<PanelPage, implementation::PanelPage> {};
+}
+''',
+              'HandwrittenControlsPanelPage.ixx': r'''module;
+#include <unknwn.h>
+#include <winrt/base_macros.h>
+#undef GetCurrentTime
+
+export module Simple.HandwrittenControlsPanelPage;
+import std;
+export import Simple.Application_Xaml.Controls.PanelPage;
+
+export extern "C++" namespace winrt::Simple::Controls::implementation
+{
+    struct PanelPage : PanelPageT<PanelPage>
+    {
+        PanelPage();
+        winrt::hstring Marker() const { return L"Controls"; }
+    };
+}
+
+export extern "C++" namespace winrt::Simple::Controls::factory_implementation
+{
+    struct PanelPage : PanelPageT<PanelPage, implementation::PanelPage> {};
+}
+'''
+          }
+          for name, contents in new_modules.items():
+              target = BASE / name
+              if target.exists():
+                  raise RuntimeError(f'{target} already exists')
+              target.write_text(contents, encoding='utf-8')
+
+          (BASE / 'HandwrittenXaml.ixx').write_text(r'''export module Simple.HandwrittenXaml;
+export import Simple.HandwrittenApp;
+export import Simple.HandwrittenMainPage;
+export import Simple.HandwrittenViewsPanelPage;
+export import Simple.HandwrittenControlsPanelPage;
+#ifndef XAML_MODULE_EXCLUDE_EMPTY_PAGE
+export import Simple.HandwrittenEmptyPage;
+#endif
+''', encoding='utf-8')
+
+          write_preserve('src/XamlCompiler/Tests/RegressionProjects/Basic/CppWinRT/SimpleModules/App.cpp', r'''// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+//
+// App.xaml.cpp
+// Implementation of the App class.
+//
+
+#include <windows.h>
+#include <unknwn.h>
+import std;
+import Simple.HandwrittenXaml;
+import winrt.Windows.Foundation;
+import winrt.Windows.ApplicationModel.Activation;
+import winrt.Microsoft.UI.Xaml.Controls;
+import winrt.Microsoft.UI.Xaml.Interop;
+
+using namespace ::winrt::Simple::implementation;
+
+using namespace winrt;
+using namespace winrt::Windows::ApplicationModel::Activation;
+using namespace winrt::Windows::Foundation;
+using namespace winrt::Microsoft::UI::Xaml;
+using namespace winrt::Microsoft::UI::Xaml::Controls;
+using namespace winrt::Microsoft::UI::Xaml::Interop;
+
+// The Blank Application template is documented at http://go.microsoft.com/fwlink/?LinkId=402347&clcid=0x409
+
+App::App()
+{
+    InitializeComponent();
+    Suspending({ this, &App::OnSuspending });
+
+#if defined _DEBUG && !defined DISABLE_XAML_GENERATED_BREAK_ON_UNHANDLED_EXCEPTION
+    UnhandledException([this](IInspectable const&, ::winrt::Microsoft::UI::Xaml::UnhandledExceptionEventArgs const& e)
+    {
+        if (IsDebuggerPresent())
+        {
+            auto errorMessage = e.Message();
+            __debugbreak();
+        }
+    });
+#endif
+}
+
+void App::OnLaunched(winrt::Microsoft::UI::Xaml::LaunchActivatedEventArgs const& e)
+{
+    Frame rootFrame(nullptr);
+    auto content = Window::Current().Content();
+    if (content)
+    {
+        rootFrame = content.try_as<Frame>();
+    }
+
+    if (rootFrame == nullptr)
+    {
+        rootFrame = Frame();
+        rootFrame.NavigationFailed({ this, &App::OnNavigationFailed });
+
+        if (e.UWPLaunchActivatedEventArgs().PreviousExecutionState() == ApplicationExecutionState::Terminated)
+        {
+        }
+
+        if (e.UWPLaunchActivatedEventArgs().PrelaunchActivated() == false)
+        {
+            if (rootFrame.Content() == nullptr)
+            {
+                rootFrame.Navigate(xaml_typename<winrt::Simple::MainPage>(), winrt::box_value(e.Arguments()));
+            }
+            Window::Current().Content(rootFrame);
+            Window::Current().Activate();
+        }
+    }
+    else if (e.UWPLaunchActivatedEventArgs().PrelaunchActivated() == false)
+    {
+        if (rootFrame.Content() == nullptr)
+        {
+            rootFrame.Navigate(xaml_typename<winrt::Simple::MainPage>(), winrt::box_value(e.Arguments()));
+        }
+        Window::Current().Activate();
+    }
+}
+
+void App::OnSuspending(winrt::Windows::Foundation::IInspectable const&, winrt::Windows::ApplicationModel::SuspendingEventArgs const&)
+{
+}
+
+void App::OnNavigationFailed(winrt::Windows::Foundation::IInspectable const&, winrt::Microsoft::UI::Xaml::Navigation::NavigationFailedEventArgs const& e)
+{
+    std::wstring message(L"Failed to load Page ");
+    throw hresult_error(E_FAIL, message.append(e.SourcePageType().Name));
+}
+''')
+
+          write_preserve('src/XamlCompiler/Tests/RegressionProjects/Basic/CppWinRT/SimpleModules/MainPage.cpp', r'''#include <unknwn.h>
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+import std;
+import Simple.HandwrittenMainPage;
+import winrt.Microsoft.UI.Xaml;
+import winrt.Microsoft.UI.Xaml.Input;
+import winrt.Simple.Models;
+
+#include "MainPage.g.cpp"
+
+namespace winrt::Simple::implementation
+{
+    MainPage::MainPage()
+        : MainPageT<MainPage>(hstring(L"This is MainPage"))
+    {
+        m_model = ::winrt::Simple::Models::BindModel();
+        InitializeComponent();
+    }
+
+    void MainPage::ClickHandler(IInspectable const&, ::winrt::Microsoft::UI::Xaml::RoutedEventArgs const&)
+    {
+        Button1().Content(::winrt::box_value(::winrt::hstring(L"Bad things will happen now")));
+    }
+
+    void MainPage::TappedHandler(IInspectable const&, ::winrt::Microsoft::UI::Xaml::Input::TappedRoutedEventArgs const&)
+    {}
+}
+''')
+
+          write_preserve('src/XamlCompiler/Tests/RegressionProjects/Basic/CppWinRT/SimpleModules/EmptyPage.cpp', r'''#include <unknwn.h>
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+import Simple.HandwrittenEmptyPage;
+#include "EmptyPage.g.cpp"
+
+namespace winrt::Simple::implementation
+{
+    EmptyPage::EmptyPage()
+    {
+        // Intentionally does not call InitializeComponent(). The regression removes and
+        // restores EmptyPage.xaml without cleaning, so the runtime class must remain a
+        // valid non-XAML component when the Page item is temporarily absent.
+    }
+}
+''')
+
+          write_preserve('src/XamlCompiler/Tests/RegressionProjects/Basic/CppWinRT/SimpleModules/Views/PanelPage.cpp', r'''#include <unknwn.h>
+import Simple.HandwrittenViewsPanelPage;
+#include "Views/PanelPage.g.cpp"
+namespace winrt::Simple::Views::implementation
+{
+    PanelPage::PanelPage() { InitializeComponent(); }
+}
+''')
+
+          write_preserve('src/XamlCompiler/Tests/RegressionProjects/Basic/CppWinRT/SimpleModules/Controls/PanelPage.cpp', r'''#include <unknwn.h>
+import Simple.HandwrittenControlsPanelPage;
+#include "Controls/PanelPage.g.cpp"
+namespace winrt::Simple::Controls::implementation
+{
+    PanelPage::PanelPage() { InitializeComponent(); }
+}
+''')
+
+          proj = 'src/XamlCompiler/Tests/RegressionProjects/Basic/CppWinRT/SimpleModules/SimpleCppWinRTModules.vcxproj'
+          replace(proj,
+              '    <CppWinRTBuildModule>true</CppWinRTBuildModule>\n    <CppWinRTUsePrefixes>false</CppWinRTUsePrefixes>',
+              '    <CppWinRTBuildModule>true</CppWinRTBuildModule>\n    <CppWinRTXamlCodeBehindModule>Simple.HandwrittenXaml</CppWinRTXamlCodeBehindModule>\n    <CppWinRTUsePrefixes>false</CppWinRTUsePrefixes>')
+          replace(proj,
+              '''    <ClCompile Include="HandwrittenMainPage.ixx" Condition="'$(CppWinRTBuildModule)' == 'true'" />\n    <ClCompile Include="HandwrittenXaml.ixx" Condition="'$(CppWinRTBuildModule)' == 'true'" />''',
+              '''    <ClCompile Include="HandwrittenApp.ixx" Condition="'$(CppWinRTBuildModule)' == 'true'" />\n    <ClCompile Include="HandwrittenMainPage.ixx" Condition="'$(CppWinRTBuildModule)' == 'true'" />\n    <ClCompile Include="HandwrittenEmptyPage.ixx" Condition="'$(CppWinRTBuildModule)' == 'true' and '$(IncludeIncrementalEmptyPage)' != 'false'" />\n    <ClCompile Include="HandwrittenViewsPanelPage.ixx" Condition="'$(CppWinRTBuildModule)' == 'true'" />\n    <ClCompile Include="HandwrittenControlsPanelPage.ixx" Condition="'$(CppWinRTBuildModule)' == 'true'" />\n    <ClCompile Include="HandwrittenXaml.ixx" Condition="'$(CppWinRTBuildModule)' == 'true'">\n      <PreprocessorDefinitions Condition="'$(IncludeIncrementalEmptyPage)' == 'false'">XAML_MODULE_EXCLUDE_EMPTY_PAGE;%(PreprocessorDefinitions)</PreprocessorDefinitions>\n    </ClCompile>''')
+          old_target = '''  <Target Name="ConfigureCppWinRTModuleConsumerCompileItems"\n          Condition="'$(CppWinRTBuildModule)' == 'true'"\n          AfterTargets="CppWinRTAddModuleInterfaces;XamlCppWinRTAddModuleInterfaces"\n          BeforeTargets="FixupCLCompileOptions">\n    <ItemGroup>\n      <ClCompile Condition="'%(ClCompile.CompileAs)' != 'CompileAsCppModule'">\n        <PreprocessorDefinitions>WINRT_IMPORT_MODULE;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>\n      </ClCompile>\n    </ItemGroup>\n  </Target>\n'''
+          replace(proj, old_target, '')
+          replace(proj,
+              '      <ClCompile Remove="CustomEmptyPage.ixx;HandwrittenMainPage.ixx;HandwrittenXaml.ixx" />',
+              '      <ClCompile Remove="CustomEmptyPage.ixx;HandwrittenApp.ixx;HandwrittenMainPage.ixx;HandwrittenEmptyPage.ixx;HandwrittenViewsPanelPage.ixx;HandwrittenControlsPanelPage.ixx;HandwrittenXaml.ixx" />')
+
+          print('Converted SimpleModules authored XAML code-behind to named modules.')
+          PY
+
+          rm .github/workflows/apply-authored-xaml-module-fixture.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Test authored XAML code-behind as named modules"
+          git push origin HEAD:feat/xamlccppmodule/product-validation
