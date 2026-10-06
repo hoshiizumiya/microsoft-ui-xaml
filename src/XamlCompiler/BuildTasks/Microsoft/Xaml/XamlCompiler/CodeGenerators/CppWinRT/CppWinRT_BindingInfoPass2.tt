@@ -8,20 +8,15 @@
 //     the code is regenerated.
 // </auto-generated>
 //------------------------------------------------------------------------------
-<#  if (!ProjectInfo.BuildXamlModules && !String.IsNullOrEmpty(ProjectInfo.PrecompiledHeaderFile)) { #>
-#include "<#=ProjectInfo.PrecompiledHeaderFile#>"
-<#  } #>
-<#=GetCppWinRTConsumerPreamble()#>
-#include "XamlBindingInfo.xaml.g.h"
 <#  if (!ProjectInfo.BuildXamlModules) { #>
+<#      if(!String.IsNullOrEmpty(ProjectInfo.PrecompiledHeaderFile)) { #>
+#include "<#=ProjectInfo.PrecompiledHeaderFile#>"
+<#      }#>
 #include <cstdint>
 #include <memory>
 #include <utility>
-<#  } else { #>
-import std;
-<#      foreach (var projectionNamespace in CppWinRTProjectionDependency.BindingSupportNamespaces) { #>
-<#=GetCppWinRTProjectionDependencyDirective(projectionNamespace)#>
-<#      } #>
+
+#include "XamlBindingInfo.xaml.g.h"
 <#  } #>
 
 namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation
