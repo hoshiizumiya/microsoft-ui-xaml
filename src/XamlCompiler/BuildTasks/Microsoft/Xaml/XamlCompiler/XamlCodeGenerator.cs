@@ -26,6 +26,16 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             _schemaInfo = schemaInfo;
         }
 
+        private static string KeepFrom(string code, string marker)
+        {
+            int index = code.IndexOf(marker, StringComparison.Ordinal);
+            if (index < 0)
+            {
+                throw new InvalidOperationException("Expected generated C++ marker was not found: " + marker);
+            }
+            return code.Substring(index);
+        }
+
         public List<FileNameAndContentPair> GenerateCodeBehind(XamlClassCodeInfo codeInfo, out IEnumerable<FileNameAndChecksumPair> xamlFilesChecksumPairs)
         {
             CodeGeneratorDelegate codeGenDelegate;
@@ -48,7 +58,24 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             var model = new PageDefinition(_projectInfo, _schemaInfo) { CodeInfo = codeInfo };
             codeGenerator.SetModel(_projectInfo, _schemaInfo, model);
 
-            string code = codeGenerator.TransformText();
+            string originalCodeBehindModule = _projectInfo.XamlCodeBehindModule;
+            if (_language.Name == ProgrammingLanguage.CppWinRT && _projectInfo.BuildXamlModules && !_isPass1 && !codeInfo.IsApplication && String.IsNullOrWhiteSpace(_projectInfo.XamlCodeBehindModule))
+            {
+                // Force the old PagePass2 template down its import branch while the template
+                // companion is being removed. The actual authored declaration comes from the
+                // Implementation.<class> partition added by the implementation-unit preamble.
+                _projectInfo.XamlCodeBehindModule = CppWinRTProjectionDependency.GetModuleName(_projectInfo.RootNamespace);
+            }
+
+            string code;
+            try
+            {
+                code = codeGenerator.TransformText();
+            }
+            finally
+            {
+                _projectInfo.XamlCodeBehindModule = originalCodeBehindModule;
+            }
             xamlFilesChecksumPairs = model.XamlFileFullPathAndCheckSums;
             Debug.Assert(!String.IsNullOrEmpty(codeInfo.BaseFileName));
 
@@ -57,21 +84,26 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                 var retList = new List<FileNameAndContentPair>();
                 if (_isPass1)
                 {
-                    string legacyCompanionName = codeInfo.BaseFileName + _language.Pass1Extension;
                     retList.Add(new FileNameAndContentPair(
-                        legacyCompanionName,
+                        codeInfo.BaseFileName + _language.Pass1Extension,
                         CppWinRTProjectionDependency.WriteXamlHeaderSentinel(_projectInfo.RootNamespace, codeInfo.ClassName.FullName)));
 
-                    string implementationPartition = CppWinRTProjectionDependency.WriteClassImplementationPartition(
-                        _projectInfo.RootNamespace,
-                        codeInfo.ClassName.FullName,
-                        model.DeclarationCppWinRTProjectionNamespaces,
-                        codeInfo.BaseFileName + ".g.h",
-                        code);
-                    retList.Add(new FileNameAndContentPair(codeInfo.BaseFileName + ".xaml.g.ixx", implementationPartition));
+                    retList.Add(new FileNameAndContentPair(
+                        codeInfo.BaseFileName + ".xaml.g.ixx",
+                        CppWinRTProjectionDependency.WriteClassImplementationPartition(
+                            _projectInfo.RootNamespace,
+                            codeInfo.ClassName.FullName,
+                            model.DeclarationCppWinRTProjectionNamespaces,
+                            codeInfo.BaseFileName + ".g.h",
+                            code)));
                 }
                 else
                 {
+                    if (codeInfo.IsApplication)
+                    {
+                        code = KeepFrom(code, "#if defined _DEBUG");
+                    }
+
                     var partitions = new List<string>
                     {
                         CppWinRTProjectionDependency.GetCppWinRTImplementationPartitionName(_projectInfo.RootNamespace, codeInfo.ClassName.FullName),
@@ -128,19 +160,10 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                         "XamlTypeInfo.xaml.g.ixx",
                         CppWinRTProjectionDependency.WriteInternalPartition(_projectInfo.RootNamespace, "TypeInfo", namespaces, declarations)));
 
-                    string libraryProvider = GenerateTypeInfoCode(_language.XamlMetaDataProviderPass2, appXamlInfo);
-                    if (libraryProvider != null)
-                    {
-                        string preamble = CppWinRTProjectionDependency.WriteImplementationUnitPreamble(
-                            _projectInfo.RootNamespace,
-                            new[] { "TypeInfo" },
-                            CppWinRTProjectionDependency.TypeInfoSupportNamespaces);
-                        retList.Add(new FileNameAndContentPair("XamlLibMetadataProvider.g.cpp", preamble + "\n" + libraryProvider));
-                    }
-
                     string implementation = GenerateTypeInfoCode(_language.TypeInfoPass1ImplCodeGenerator, appXamlInfo);
-                    if (implementation != null)
+                    if (!String.IsNullOrWhiteSpace(implementation))
                     {
+                        implementation = KeepFrom(implementation, "namespace winrt::");
                         var implNamespaces = CppWinRTProjectionDependency.TypeInfoSupportNamespaces;
                         if (!String.IsNullOrWhiteSpace(_projectInfo.RootNamespace))
                         {
@@ -155,6 +178,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                 }
                 else
                 {
+                    code = KeepFrom(code, "namespace winrt::");
                     var namespaces = CppWinRTProjectionDependency.TypeInfoSupportNamespaces;
                     if (!String.IsNullOrWhiteSpace(_projectInfo.RootNamespace))
                     {
