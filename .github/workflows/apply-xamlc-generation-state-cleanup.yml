@@ -1,0 +1,118 @@
+name: Apply XamlC generation-state cleanup
+
+on:
+  push:
+    branches:
+      - automation/xamlc-generation-state-cleanup-20261006
+    paths:
+      - .github/workflows/apply-xamlc-generation-state-cleanup.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/xamlccppmodule/product-validation
+          fetch-depth: 0
+      - name: Apply cleanup
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8-sig')
+              if old not in text:
+                  raise SystemExit(f'Expected block not found in {path}')
+              p.write_text(text.replace(old, new), encoding='utf-8-sig')
+
+          codegen = 'src/XamlCompiler/BuildTasks/Microsoft/Xaml/XamlCompiler/CodeGenerators/CppWinRT_CodeGenerator.cs'
+          replace(codegen,
+          '''            if (typeof(T) != typeof(TypeInfoDefinition))
+            {
+                // Existing generated implementation fragments stay on their legacy header path.
+                // The target currently carries XAML_USE_MODULE metadata for those files, so
+                // neutralize it until that compatibility metadata is removed from MSBuild.
+                return "#ifdef XAML_USE_MODULE\\n#undef XAML_USE_MODULE\\n#endif";
+            }
+
+''',
+          '''            if (typeof(T) != typeof(TypeInfoDefinition))
+            {
+                return String.Empty;
+            }
+
+''')
+
+          impl = 'src/XamlCompiler/BuildTasks/Microsoft/Xaml/XamlCompiler/CodeGenerators/CppWinRT/CppWinRT_TypeInfoPass1Impl.tt'
+          replace(impl,
+          '''#if !defined(XAML_USE_MODULE) && !defined(WINRT_IMPORT_MODULE)
+#include <unknwn.h>
+#include <memory>
+#include <string>
+#include <regex>
+#include <mutex>
+#include <cstdint>
+#endif
+''',
+          '''<#  if(!ProjectInfo.BuildXamlModules) { #>
+#include <unknwn.h>
+#include <memory>
+#include <string>
+#include <regex>
+#include <mutex>
+#include <cstdint>
+<#  }#>
+''')
+          replace(impl,
+          '''#include "XamlTypeInfo.xaml.g.h"
+#include "XamlMetaDataProvider.h"
+#ifdef XAML_USE_MODULE
+import <#=CppWinRTProjectionDependency.GetXamlPrimaryModuleName(ProjectInfo.RootNamespace)#>;
+#endif
+''',
+          '''#include "XamlTypeInfo.xaml.g.h"
+#include "XamlMetaDataProvider.h"
+<#  if(ProjectInfo.BuildXamlModules) { #>
+import <#=CppWinRTProjectionDependency.GetXamlPrimaryModuleName(ProjectInfo.RootNamespace)#>;
+<#  }#>
+''')
+
+          targets = 'src/XamlCompiler/Targets/Microsoft.UI.Xaml.Markup.Compiler.interop.targets'
+          replace(targets,
+          '''              Update XAML-generated implementation files. XamlMetaDataProvider.cpp is the
+              C++/WinRT wrapper that includes its generated projection header textually; mixing
+              XAML_USE_MODULE imports into that translation unit duplicates CRT/STL declarations.
+''',
+          '''              Update XAML-generated implementation files. Module/header source semantics are
+              already selected by XamlC at generation time; MSBuild only supplies BMI graph metadata.
+''')
+          replace(targets,
+          '''                <PrecompiledHeader>NotUsing</PrecompiledHeader>
+                <PreprocessorDefinitions>XAML_USE_MODULE;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+''',
+          '''                <PrecompiledHeader>NotUsing</PrecompiledHeader>
+''')
+          replace(targets,
+          '''                <PrecompiledHeader>NotUsing</PrecompiledHeader>
+                <PreprocessorDefinitions>XAML_USE_MODULE;$(_XamlGeneratedPreprocessorDefinitions);%(_XamlGeneratedModuleConsumers.PreprocessorDefinitions)</PreprocessorDefinitions>
+''',
+          '''                <PrecompiledHeader>NotUsing</PrecompiledHeader>
+                <PreprocessorDefinitions>$(_XamlGeneratedPreprocessorDefinitions);%(_XamlGeneratedModuleConsumers.PreprocessorDefinitions)</PreprocessorDefinitions>
+''')
+      - name: Commit target branch
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git diff --check
+          git diff --exit-code && { echo 'No changes produced'; exit 1; } || true
+          git add src/XamlCompiler/BuildTasks/Microsoft/Xaml/XamlCompiler/CodeGenerators/CppWinRT_CodeGenerator.cs \
+                  src/XamlCompiler/BuildTasks/Microsoft/Xaml/XamlCompiler/CodeGenerators/CppWinRT/CppWinRT_TypeInfoPass1Impl.tt \
+                  src/XamlCompiler/Targets/Microsoft.UI.Xaml.Markup.Compiler.interop.targets
+          git commit -m "refactor: remove XAML_USE_MODULE consumer switching"
+          git push origin HEAD:feat/xamlccppmodule/product-validation
