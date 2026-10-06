@@ -218,7 +218,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
         public string GetCppWinRTProjectionDependencyDirective(string projectionNamespace, bool optionalHeader = false)
         {
             string header = CppWinRTProjectionDependency.GetHeaderFile(projectionNamespace);
-            bool useModule = typeof(T) == typeof(TypeInfoDefinition) && ProjectInfo.BuildXamlModules;
+            bool useModule = ProjectInfo.BuildXamlModules && (typeof(T) == typeof(TypeInfoDefinition) || !String.IsNullOrWhiteSpace(ProjectInfo.XamlCodeBehindModule));
             string directive = useModule
                 ? $"import {CppWinRTProjectionDependency.GetModuleName(projectionNamespace)};"
                 : $"#include <{header}>";
@@ -234,21 +234,17 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 
         public string GetCppWinRTConsumerPreamble()
         {
-            if (typeof(T) != typeof(TypeInfoDefinition))
-            {
-                // Existing generated implementation fragments stay on their legacy header path.
-                // The target currently carries XAML_USE_MODULE metadata for those files, so
-                // neutralize it until that compatibility metadata is removed from MSBuild.
-                return "#ifdef XAML_USE_MODULE\n#undef XAML_USE_MODULE\n#endif";
-            }
-
-            if (!ProjectInfo.BuildXamlModules)
+            if (typeof(T) != typeof(TypeInfoDefinition) || !ProjectInfo.BuildXamlModules)
             {
                 return String.Empty;
             }
 
-            // TypeInfo is a conventional translation unit; establish textual library declarations before projection imports.
-            return "#include <windows.h>\n#include <unknwn.h>\n#include <memory>\n#include <string>\n#include <regex>\n#include <mutex>\n#include <cstdint>\n#include <winrt/base_macros.h>\n#undef GetCurrentTime";
+            // Keep unavoidable platform/preprocessor state textual and before every import.
+            // The standard library and projections themselves are imported by the generated TU.
+            return "#include <windows.h>
+#include <unknwn.h>
+#include <winrt/base_macros.h>
+#undef GetCurrentTime";
         }
 
         public static String Projection(string typeName)

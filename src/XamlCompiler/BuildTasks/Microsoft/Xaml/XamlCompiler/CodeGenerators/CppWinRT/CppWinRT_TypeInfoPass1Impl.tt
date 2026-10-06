@@ -12,15 +12,16 @@
 #include "<#=ProjectInfo.PrecompiledHeaderFile#>"
 <#  }#>
 <#=GetCppWinRTConsumerPreamble()#>
-
-#if !defined(XAML_USE_MODULE) && !defined(WINRT_IMPORT_MODULE)
+<#  if (!ProjectInfo.BuildXamlModules) { #>
 #include <unknwn.h>
 #include <memory>
 #include <string>
 #include <regex>
 #include <mutex>
 #include <cstdint>
-#endif
+<#  } else { #>
+import std;
+<#  } #>
 
 // Undefine GetCurrentTime macro to prevent
 // conflict with Storyboard::GetCurrentTime
@@ -30,11 +31,13 @@
 <#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.WindowsXamlInterop)#>
 <#=GetCppWinRTProjectionDependencyDirective(KnownNamespaces.XamlMarkup)#>
 
+<#  if (!ProjectInfo.BuildXamlModules) { #>
 #include "XamlTypeInfo.xaml.g.h"
 #include "XamlMetaDataProvider.h"
-#ifdef XAML_USE_MODULE
+<#  } else { #>
+import <#=CppWinRTProjectionDependency.GetXamlPrimaryModuleName(ProjectInfo.RootNamespace)#>.Support;
 import <#=CppWinRTProjectionDependency.GetXamlPrimaryModuleName(ProjectInfo.RootNamespace)#>;
-#endif
+<#  } #>
 
 namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation
 {

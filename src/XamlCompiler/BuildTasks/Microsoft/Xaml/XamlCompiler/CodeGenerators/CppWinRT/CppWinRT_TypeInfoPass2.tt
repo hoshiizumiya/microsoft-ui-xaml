@@ -17,7 +17,6 @@
 <#  }#>
 <#=GetCppWinRTConsumerPreamble()#>
 <#  if (!ProjectInfo.BuildXamlModules) { #>
-#if !defined(WINRT_IMPORT_MODULE)
 #include <unknwn.h>
 #include <algorithm>
 #include <cstddef>
@@ -31,7 +30,6 @@
 #include <regex>
 #include <string>
 #include <utility>
-#endif
 <#  } #>
 
 // Undefine GetCurrentTime macro to prevent
@@ -39,8 +37,13 @@
 #undef GetCurrentTime
 
 <#  if (!ProjectInfo.GenerateIncrementalTypeInfo) { #>
-<#      foreach(string includeFile in Model.AllLocalXamlHeaderFiles) { #>
+<#      foreach(var additionalHeader in ProjectInfo.AdditionalXamlTypeInfoIncludes) { #>
+#include "<#=additionalHeader.ItemSpec#>"
+<#      } #>
+<#      if (!ProjectInfo.BuildXamlModules || String.IsNullOrWhiteSpace(ProjectInfo.XamlCodeBehindModule)) { #>
+<#          foreach(string includeFile in ProjectInfo.ClassToHeaderFileMap.Values) { #>
 #include "<#=includeFile#>"
+<#          } #>
 <#      } #>
 <#  } #>
 <#  if (ProjectInfo.GenerateIncrementalTypeInfo) { #>
@@ -48,12 +51,20 @@
 #include XAML_TYPE_INFO_INC
 #endif
 <#  } #>
+<#  if (ProjectInfo.BuildXamlModules) { #>
+import std;
+<#  } #>
 <#  foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { #>
 <#=GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)#>
 <#  } #>
+<#  if (!ProjectInfo.BuildXamlModules) { #>
 #include "XamlTypeInfo.xaml.g.h"
 #include "XamlBindingInfo.xaml.g.h"
-<#  if (ProjectInfo.BuildXamlModules) { #>
+<#  } else { #>
+<#      if (!String.IsNullOrWhiteSpace(ProjectInfo.XamlCodeBehindModule)) { #>
+import <#=ProjectInfo.XamlCodeBehindModule#>;
+<#      } #>
+import <#=CppWinRTProjectionDependency.GetXamlPrimaryModuleName(ProjectInfo.RootNamespace)#>.Support;
 import <#=CppWinRTProjectionDependency.GetXamlPrimaryModuleName(ProjectInfo.RootNamespace)#>;
 <#  } #>
 #include "XamlBindingInfo.xaml.g.hpp"

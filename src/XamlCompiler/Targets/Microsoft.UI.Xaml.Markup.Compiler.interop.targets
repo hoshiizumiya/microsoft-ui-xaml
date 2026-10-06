@@ -431,6 +431,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                 VCInstallPath64="$(VCInstallPath64)"
                 GenXbfPath="$(GenXbfPath)"
                 PrecompiledHeaderFile="$(PrecompiledHeaderFile)"
+                XamlCodeBehindModule="$(CppWinRTXamlCodeBehindModule)"
                 EnabledXamlOptionalChanges="$(EnabledXamlOptionalChanges)"
                 DisabledXamlOptionalChanges="$(DisabledXamlOptionalChanges)" >
 
@@ -484,6 +485,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             VCInstallPath64="$(VCInstallPath64)"
             GenXbfPath="$(GenXbfPath)"
             PrecompiledHeaderFile="$(PrecompiledHeaderFile)"
+                XamlCodeBehindModule="$(CppWinRTXamlCodeBehindModule)"
             EnabledXamlOptionalChanges="$(EnabledXamlOptionalChanges)"
             DisabledXamlOptionalChanges="$(DisabledXamlOptionalChanges)" />
 
@@ -561,6 +563,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                 VCInstallPath64="$(VCInstallPath64)"
                 GenXbfPath="$(GenXbfPath)"
                 PrecompiledHeaderFile="$(PrecompiledHeaderFile)"
+                XamlCodeBehindModule="$(CppWinRTXamlCodeBehindModule)"
                 EnabledXamlOptionalChanges="$(EnabledXamlOptionalChanges)"
                 DisabledXamlOptionalChanges="$(DisabledXamlOptionalChanges)" >
 
@@ -614,6 +617,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                 VCInstallPath64="$(VCInstallPath64)"
                 GenXbfPath="$(GenXbfPath)"
                 PrecompiledHeaderFile="$(PrecompiledHeaderFile)"
+                XamlCodeBehindModule="$(CppWinRTXamlCodeBehindModule)"
                 EnabledXamlOptionalChanges="$(EnabledXamlOptionalChanges)"
                 DisabledXamlOptionalChanges="$(DisabledXamlOptionalChanges)" />
 
@@ -854,6 +858,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                 VCInstallPath64="$(VCInstallPath64)"
                 GenXbfPath="$(GenXbfPath)"
                 PrecompiledHeaderFile="$(PrecompiledHeaderFile)"
+                XamlCodeBehindModule="$(CppWinRTXamlCodeBehindModule)"
                 EnabledXamlOptionalChanges="$(EnabledXamlOptionalChanges)"
                 DisabledXamlOptionalChanges="$(DisabledXamlOptionalChanges)" >
 
@@ -916,6 +921,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             VCInstallPath64="$(VCInstallPath64)"
             GenXbfPath="$(GenXbfPath)"
             PrecompiledHeaderFile="$(PrecompiledHeaderFile)"
+                XamlCodeBehindModule="$(CppWinRTXamlCodeBehindModule)"
             EnabledXamlOptionalChanges="$(EnabledXamlOptionalChanges)"
             DisabledXamlOptionalChanges="$(DisabledXamlOptionalChanges)" />
 
@@ -993,7 +999,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                        Condition="'$(CppWinRTBuildModule)' == 'true' and '%(ClCompile.CompilerIteration)' == 'XamlGenerated' and '%(ClCompile.Filename)%(ClCompile.Extension)' != 'XamlMetaDataProvider.cpp'">
                 <AdditionalBMIDirectories>$(IntDir);$(XamlCppWinRTModuleIfcDir);$(_XamlGeneratedAdditionalBMIDirectories);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
                 <PrecompiledHeader>NotUsing</PrecompiledHeader>
-                <PreprocessorDefinitions>XAML_USE_MODULE;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+                <PreprocessorDefinitions>%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
             </_XamlGeneratedModuleConsumers>
             <ClCompile Remove="@(_XamlGeneratedModuleConsumers)" />
             <ClCompile Include="@(_XamlGeneratedModuleConsumers)" />
@@ -1029,7 +1035,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <_XamlGeneratedModuleConsumers>
                 <AdditionalBMIDirectories>$(IntDir);$(XamlCppWinRTModuleIfcDir);$(_XamlGeneratedAdditionalBMIDirectories);%(_XamlGeneratedModuleConsumers.AdditionalBMIDirectories)</AdditionalBMIDirectories>
                 <PrecompiledHeader>NotUsing</PrecompiledHeader>
-                <PreprocessorDefinitions>XAML_USE_MODULE;$(_XamlGeneratedPreprocessorDefinitions);%(_XamlGeneratedModuleConsumers.PreprocessorDefinitions)</PreprocessorDefinitions>
+                <PreprocessorDefinitions>$(_XamlGeneratedPreprocessorDefinitions);%(_XamlGeneratedModuleConsumers.PreprocessorDefinitions)</PreprocessorDefinitions>
             </_XamlGeneratedModuleConsumers>
             <ClCompile Remove="@(_XamlGeneratedModuleConsumers)" />
             <ClCompile Include="@(_XamlGeneratedModuleConsumers)" />

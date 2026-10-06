@@ -133,6 +133,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
         public string GenXbfPath { get; set; }
 
         public string PrecompiledHeaderFile { get; set; }
+        public string XamlCodeBehindModule { get; set; }
 
         // For compatability, if we aren't explicitly given a target platform from the targets file, assume it's UWP only
         public string XamlPlatformString
@@ -296,6 +297,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
             IsPass1 = i.IsPass1;
             GenXbfPath = i.GenXbfPath;
             PrecompiledHeaderFile = i.PrecompiledHeaderFile;
+            XamlCodeBehindModule = i.XamlCodeBehindModule;
             Language = Compiler.Language.Parse(i.Language);
             LanguageSourceExtension = i.LanguageSourceExtension;
             LocalAssembly = i.LocalAssembly?[0] != null ? i.LocalAssembly[0] : null;
@@ -818,7 +820,12 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
                 if (!ShouldSuppressTypeInfoCodeGen())
                 {
                     supportNamespaces = supportNamespaces.Concat(CppWinRTProjectionDependency.TypeInfoSupportNamespaces);
+                    if (!String.IsNullOrWhiteSpace(RootNamespace))
+                    {
+                        supportNamespaces = supportNamespaces.Concat(new[] { RootNamespace });
+                    }
                     supportHeaders.Add("XamlTypeInfo.xaml.g.h");
+                    supportHeaders.Add("XamlMetaDataProvider.h");
                 }
                 var shared = new List<FileNameAndContentPair>
                 {
@@ -2230,6 +2237,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
             projectInfo.IsWin32App = EnableWin32Codegen;
             projectInfo.UsingCSWinRT = UsingCSWinRT;
             projectInfo.BuildXamlModules = BuildXamlModules;
+            projectInfo.XamlCodeBehindModule = XamlCodeBehindModule;
             projectInfo.PrecompiledHeaderFile = PrecompiledHeaderFile;
             projectInfo.EnabledXamlOptionalChanges = ParseCommaSeparatedList(EnabledXamlOptionalChanges);
             projectInfo.DisabledXamlOptionalChanges = ParseCommaSeparatedList(DisabledXamlOptionalChanges);

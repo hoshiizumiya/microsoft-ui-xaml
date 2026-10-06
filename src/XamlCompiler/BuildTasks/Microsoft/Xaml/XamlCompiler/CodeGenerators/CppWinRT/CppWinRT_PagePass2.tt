@@ -17,16 +17,19 @@
 <#  }#>
 <#=GetCppWinRTConsumerPreamble()#>
 
-#if !defined(XAML_USE_MODULE) && !defined(WINRT_IMPORT_MODULE)
+<#  if (!ProjectInfo.BuildXamlModules || String.IsNullOrWhiteSpace(ProjectInfo.XamlCodeBehindModule)) { #>
 #include <cstdint>
 #include <memory>
 #include <type_traits>
 #include <utility>
-#endif
 
-<#  foreach (var includeFile in Model.NeededLocalXamlHeaderFiles) { #>
+<#      foreach (var includeFile in Model.NeededLocalXamlHeaderFiles) { #>
 #include "<#=includeFile#>"
-<#  }#>
+<#      }#>
+<#  } else { #>
+import std;
+import <#=ProjectInfo.XamlCodeBehindModule#>;
+<#  } #>
 <#  foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { #>
 <#=GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)#>
 <#  } #>

@@ -106,6 +106,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.Tasks
 
         public string GenXbfPath { get; set; }
         public string PrecompiledHeaderFile { get; set; }
+        public string XamlCodeBehindModule { get; set; }
         public string XamlResourceMapName { get; set; }
         public string XamlComponentResourceLocation { get; set; }
         public string XamlPlatform { get; set; }
