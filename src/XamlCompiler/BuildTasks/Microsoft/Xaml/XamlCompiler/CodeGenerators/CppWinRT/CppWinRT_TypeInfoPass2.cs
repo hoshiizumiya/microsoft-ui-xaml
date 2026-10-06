@@ -43,8 +43,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTConsumerPreamble()));
             this.Write("\r\n");
   if (!ProjectInfo.BuildXamlModules) { 
-            this.Write(@"#if !defined(WINRT_IMPORT_MODULE)
-#include <unknwn.h>
+            this.Write(@"#include <unknwn.h>
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -57,28 +56,45 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 #include <regex>
 #include <string>
 #include <utility>
-#endif
 ");
   } 
             this.Write("\r\n// Undefine GetCurrentTime macro to prevent\r\n// conflict with Storyboard::GetCu" +
                     "rrentTime\r\n#undef GetCurrentTime\r\n\r\n");
   if (!ProjectInfo.GenerateIncrementalTypeInfo) { 
-      foreach(string includeFile in Model.AllLocalXamlHeaderFiles) { 
+      foreach(var additionalHeader in ProjectInfo.AdditionalXamlTypeInfoIncludes) { 
+            this.Write("#include \"");
+            this.Write(this.ToStringHelper.ToStringWithCulture(additionalHeader.ItemSpec));
+            this.Write("\"\r\n");
+      } 
+      if (!ProjectInfo.BuildXamlModules || String.IsNullOrWhiteSpace(ProjectInfo.XamlCodeBehindModule)) { 
+          foreach(string includeFile in ProjectInfo.ClassToHeaderFileMap.Values) { 
             this.Write("#include \"");
             this.Write(this.ToStringHelper.ToStringWithCulture(includeFile));
             this.Write("\"\r\n");
+          } 
       } 
   } 
   if (ProjectInfo.GenerateIncrementalTypeInfo) { 
             this.Write("#ifdef XAML_TYPE_INFO_INC\r\n#include XAML_TYPE_INFO_INC\r\n#endif\r\n");
   } 
+  if (ProjectInfo.BuildXamlModules) { 
+            this.Write("import std;\r\n");
+  } 
   foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { 
             this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)));
             this.Write("\r\n");
   } 
+  if (!ProjectInfo.BuildXamlModules) { 
             this.Write("#include \"XamlTypeInfo.xaml.g.h\"\r\n#include \"XamlBindingInfo.xaml.g.h\"\r\n");
-  if (ProjectInfo.BuildXamlModules) { 
+  } else { 
+      if (!String.IsNullOrWhiteSpace(ProjectInfo.XamlCodeBehindModule)) { 
             this.Write("import ");
+            this.Write(this.ToStringHelper.ToStringWithCulture(ProjectInfo.XamlCodeBehindModule));
+            this.Write(";\r\n");
+      } 
+            this.Write("import ");
+            this.Write(this.ToStringHelper.ToStringWithCulture(CppWinRTProjectionDependency.GetXamlPrimaryModuleName(ProjectInfo.RootNamespace)));
+            this.Write(".Support;\r\nimport ");
             this.Write(this.ToStringHelper.ToStringWithCulture(CppWinRTProjectionDependency.GetXamlPrimaryModuleName(ProjectInfo.RootNamespace)));
             this.Write(";\r\n");
   } 

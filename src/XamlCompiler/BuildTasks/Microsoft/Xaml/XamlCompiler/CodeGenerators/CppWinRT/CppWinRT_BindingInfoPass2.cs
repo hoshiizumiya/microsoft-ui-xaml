@@ -31,13 +31,16 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 // </auto-generated>
 //------------------------------------------------------------------------------
 ");
-  if(!String.IsNullOrEmpty(ProjectInfo.PrecompiledHeaderFile)) { 
+  if (!ProjectInfo.BuildXamlModules) { 
+      if(!String.IsNullOrEmpty(ProjectInfo.PrecompiledHeaderFile)) { 
             this.Write("#include \"");
             this.Write(this.ToStringHelper.ToStringWithCulture(ProjectInfo.PrecompiledHeaderFile));
             this.Write("\"\r\n");
-  }
+      }
             this.Write("#include <cstdint>\r\n#include <memory>\r\n#include <utility>\r\n\r\n#include \"XamlBindin" +
-                    "gInfo.xaml.g.h\"\r\n\r\nnamespace winrt::");
+                    "gInfo.xaml.g.h\"\r\n");
+  } 
+            this.Write("\r\nnamespace winrt::");
             this.Write(this.ToStringHelper.ToStringWithCulture(Colonize(ProjectInfo.RootNamespace)));
             this.Write("::implementation\r\n{\r\n\r\nusing DataContextChangedEventArgs = ");
             this.Write(this.ToStringHelper.ToStringWithCulture(Projection(KnownNamespaces.Xaml)));
