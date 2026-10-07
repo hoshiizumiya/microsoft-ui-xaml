@@ -807,6 +807,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
                     {
                         continue;
                     }
+
                     string path = Path.Combine(codeFile.TargetFolderFullPath, codeFile.BaseFileName + ".xaml.g.ixx");
                     activePaths.Add(path);
                     GeneratedModuleNames[path] = CppWinRTProjectionDependency.GetXamlClassModuleName(RootNamespace, codeFile.XamlTaskItems.First().ClassFullName);
@@ -815,41 +816,58 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
                         _generatedCodeFiles.Add(path);
                     }
                 }
-                IEnumerable<string> supportNamespaces = CppWinRTProjectionDependency.BindingSupportNamespaces;
-                var supportHeaders = new List<string> { "XamlBindingInfo.xaml.g.h" };
+
+                // BindingInfo and TypeInfo are independent generated module interfaces.
+                // Keep them in the active-file set and the logical module manifest so
+                // stale cleanup never removes a freshly generated interface.
+                string bindingInfoPath = Path.Combine(OutputFolderFullpath, "XamlBindingInfo.xaml.g.ixx");
+                if (File.Exists(bindingInfoPath))
+                {
+                    activePaths.Add(bindingInfoPath);
+                    GeneratedModuleNames[bindingInfoPath] = CppWinRTProjectionDependency.GetBindingInfoModuleName(RootNamespace);
+                    if (!_generatedCodeFiles.Contains(bindingInfoPath))
+                    {
+                        _generatedCodeFiles.Add(bindingInfoPath);
+                    }
+                    modules.Add(CppWinRTProjectionDependency.GetBindingInfoModuleName(RootNamespace));
+                }
+
                 if (!ShouldSuppressTypeInfoCodeGen())
                 {
-                    supportNamespaces = supportNamespaces.Concat(CppWinRTProjectionDependency.TypeInfoSupportNamespaces);
-                    if (!String.IsNullOrWhiteSpace(RootNamespace))
+                    string typeInfoPath = Path.Combine(OutputFolderFullpath, "XamlTypeInfo.xaml.g.ixx");
+                    if (File.Exists(typeInfoPath))
                     {
-                        supportNamespaces = supportNamespaces.Concat(new[] { RootNamespace });
+                        activePaths.Add(typeInfoPath);
+                        GeneratedModuleNames[typeInfoPath] = CppWinRTProjectionDependency.GetTypeInfoModuleName(RootNamespace);
+                        if (!_generatedCodeFiles.Contains(typeInfoPath))
+                        {
+                            _generatedCodeFiles.Add(typeInfoPath);
+                        }
+                        modules.Add(CppWinRTProjectionDependency.GetTypeInfoModuleName(RootNamespace));
                     }
-                    supportHeaders.Add("XamlTypeInfo.xaml.g.h");
-                    supportHeaders.Add("XamlMetaDataProvider.h");
                 }
+
+                // The public root is only an aggregator over independent per-class interfaces.
+                // There is deliberately no Application_Xaml.Support contract.
                 var shared = new List<FileNameAndContentPair>
                 {
-                    new FileNameAndContentPair("Application_Xaml.Support.g.ixx", CppWinRTProjectionDependency.WriteInterface(rootModule + ".Support", supportNamespaces, supportHeaders)),
                     new FileNameAndContentPair("Application_Xaml.g.ixx", CppWinRTProjectionDependency.WriteAggregator(RootNamespace, classNames))
                 };
-                // Remove the previous support filename so the module scanner cannot
-                // compile a stale second interface with the same logical module name.
-                DeleteGeneratedCodeFileAndBackup(Path.Combine(OutputFolderFullpath, "XamlSupport.g.ixx"));
                 WriteOutputFilesToDisk(shared, OutputFolderFullpath, true);
-                foreach (var file in shared)
+                string aggregatorPath = Path.Combine(OutputFolderFullpath, "Application_Xaml.g.ixx");
+                if (!_generatedCodeFiles.Contains(aggregatorPath))
                 {
-                    string path = Path.Combine(OutputFolderFullpath, file.FileName);
-                    if (!_generatedCodeFiles.Contains(path))
-                    {
-                        _generatedCodeFiles.Add(path);
-                    }
+                    _generatedCodeFiles.Add(aggregatorPath);
                 }
-                GeneratedModuleNames[Path.Combine(OutputFolderFullpath, "Application_Xaml.g.ixx")] = rootModule;
-                GeneratedModuleNames[Path.Combine(OutputFolderFullpath, "Application_Xaml.Support.g.ixx")] = rootModule + ".Support";
+                GeneratedModuleNames[aggregatorPath] = rootModule;
                 modules.Add(rootModule);
-                modules.Add(rootModule + ".Support");
                 modules.AddRange(classNames.Select(name => CppWinRTProjectionDependency.GetXamlClassModuleName(RootNamespace, name)));
+
+                // Delete obsolete support-module artifacts from earlier revisions.
+                DeleteGeneratedCodeFileAndBackup(Path.Combine(OutputFolderFullpath, "Application_Xaml.Support.g.ixx"));
+                DeleteGeneratedCodeFileAndBackup(Path.Combine(OutputFolderFullpath, "XamlSupport.g.ixx"));
             }
+
             if (Directory.Exists(OutputFolderFullpath))
             {
                 foreach (var path in Directory.GetFiles(OutputFolderFullpath, "*.xaml.g.ixx", SearchOption.AllDirectories))
@@ -860,6 +878,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
                     }
                 }
             }
+
             if (!buildModules)
             {
                 foreach (string name in new[] { "Application_Xaml.Support.g.ixx", "XamlSupport.g.ixx", "Application_Xaml.g.ixx", "XamlModules.list" })
@@ -868,9 +887,10 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
                 }
                 return;
             }
+
             WriteOutputFilesToDisk(new List<FileNameAndContentPair>
             {
-                new FileNameAndContentPair("XamlModules.list", String.Join(Environment.NewLine, modules.OrderBy(name => name, StringComparer.Ordinal)) + Environment.NewLine)
+                new FileNameAndContentPair("XamlModules.list", String.Join(Environment.NewLine, modules.Distinct(StringComparer.Ordinal).OrderBy(name => name, StringComparer.Ordinal)) + Environment.NewLine)
             }, OutputFolderFullpath, true);
             _generatedCodeFiles.Add(Path.Combine(OutputFolderFullpath, "XamlModules.list"));
         }

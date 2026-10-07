@@ -100,7 +100,8 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                         CppWinRTProjectionDependency.WriteSourceInterface(
                             moduleName,
                             projectionNamespaces,
-                            code)));
+                            code,
+                            cppWinRTProducerHeader: codeInfo.BaseFileName + ".g.h")));
                     return retList;
                 }
 
