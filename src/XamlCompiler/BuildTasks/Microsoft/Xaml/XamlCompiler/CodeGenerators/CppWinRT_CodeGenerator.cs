@@ -251,14 +251,27 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             text.AppendLine("#include <windows.h>");
             text.AppendLine("#include <unknwn.h>");
             text.AppendLine("#include <winrt/base_macros.h>");
+            text.AppendLine("#include <algorithm>");
+            text.AppendLine("#include <cstddef>");
+            text.AppendLine("#include <cstdint>");
+            text.AppendLine("#include <functional>");
+            text.AppendLine("#include <list>");
+            text.AppendLine("#include <map>");
+            text.AppendLine("#include <memory>");
+            text.AppendLine("#include <mutex>");
+            text.AppendLine("#include <regex>");
+            text.AppendLine("#include <string>");
+            text.AppendLine("#include <type_traits>");
+            text.AppendLine("#include <unordered_map>");
+            text.AppendLine("#include <utility>");
+            text.AppendLine("#include <vector>");
             text.AppendLine("#undef GetCurrentTime");
-            // C++/WinRT 3.x implementation mode uses an ordinary translation unit
-            // with explicit imports. Do not emit a global module fragment or attach
-            // generated implementation code to a named module.
+            // C++/WinRT 3.x implementation mode uses an ordinary translation unit.
+            // The standard library is owned textually here, before any imports; only
+            // C++/WinRT and XamlC named modules are imported below.
             text.AppendLine("#ifndef WINRT_IMPORT_MODULE");
             text.AppendLine("#define WINRT_IMPORT_MODULE");
             text.AppendLine("#endif");
-            text.AppendLine("import std;");
             text.AppendLine("import winrt_base;");
 
             if (importedModules != null)
