@@ -108,10 +108,8 @@ function Assert-XamlGraph([string]$Directory, [string]$Namespace, [string[]]$Cla
     if (-not $text.Contains("export module $Namespace.Application_Xaml;")) { throw 'Incorrect root module identity.' }
     Assert-NoSupportModule $Directory $Namespace
 
-    $expectedExports = @()
     foreach ($class in $Classes) {
         $identity = Get-XamlClassModuleName $Namespace $class
-        $expectedExports += "export import $identity;"
         if (-not $text.Contains("export import $identity;")) { throw "Root is missing $identity." }
 
         $source = @(Get-ChildItem $Directory -Filter '*.xaml.g.ixx' -File -Recurse | Where-Object {
@@ -126,7 +124,7 @@ function Assert-XamlGraph([string]$Directory, [string]$Namespace, [string[]]$Cla
             throw "$identity is not using the C++/WinRT module-interface preamble."
         }
 
-        $producerHeader = [IO.Path]::GetFileNameWithoutExtension([IO.Path]::GetFileNameWithoutExtension($source[0].Name)) -replace '\.xaml\.g$', ''
+        $producerHeader = $source[0].Name -replace '\.xaml\.g\.ixx$', ''
         if (-not $interface.Contains("#include `"$producerHeader.g.h`"")) {
             throw "$identity does not absorb its C++/WinRT producer scaffold."
         }
