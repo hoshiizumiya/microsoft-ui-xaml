@@ -253,8 +253,7 @@ namespace UnitTests
             var project = new XamlProjectInfo
             {
                 RootNamespace = "Test", ProjectName = "Test", TargetPlatformMinVersion = new Version(KnownVersions.Latest),
-                ClassToHeaderFileMap = new Dictionary<string, string> { { "Test.MainPage", "MainPage.xaml.h" }, { "Test.SecondPage", "SecondPage.xaml.h" } },
-                XamlClassNames = new[] { "Test.MainPage", "Test.SecondPage" }
+                ClassToHeaderFileMap = new Dictionary<string, string> { { "Test.MainPage", "MainPage.xaml.h" }, { "Test.SecondPage", "SecondPage.xaml.h" } }
             };
             project.SetEmptyAdditionalXamlTypeInfoIncludes();
             var schema = new XamlSchemaCodeInfo();
@@ -270,15 +269,21 @@ namespace UnitTests
             string moduleText = helper.GenerateTypeInfo(false, schema, project, new ClassName("Test.App"), CodeGenLanguage.CppWinRT)
                 .Single(file => file.FileName == "XamlTypeInfo.g.cpp").Contents;
             int firstImport = moduleText.IndexOf("import winrt.", StringComparison.Ordinal);
+            int rootImport = moduleText.IndexOf("import Test.Application_Xaml;", StringComparison.Ordinal);
             Assert.IsTrue(firstImport >= 0);
-            StringAssert.Contains(moduleText, "import Test.MainPage;");
-            StringAssert.Contains(moduleText, "import Test.SecondPage;");
-            Assert.IsFalse(moduleText.Contains("import Test.Application_Xaml.Support;"));
-            Assert.IsFalse(moduleText.Contains("import Test.Application_Xaml;"));
-            Assert.IsFalse(moduleText.Contains("#include \"MainPage.xaml.h\""));
-            Assert.IsFalse(moduleText.Contains("#include \"SecondPage.xaml.h\""));
+            Assert.IsTrue(rootImport > firstImport);
+            StringAssert.Contains(moduleText, "import Test.Application_Xaml.TypeInfo;");
+            StringAssert.Contains(moduleText, "import Test.Application_Xaml.BindingInfo;");
+            Assert.IsFalse(moduleText.Contains("Application_Xaml.Support"));
+            foreach (string header in new[] { "MainPage.xaml.h", "SecondPage.xaml.h" })
+            {
+                int local = moduleText.IndexOf("#include \"" + header + "\"", StringComparison.Ordinal);
+                Assert.IsTrue(local > rootImport);
+            }
+            StringAssert.Contains(moduleText, "#define WINRT_IMPORT_MODULE");
             StringAssert.Contains(moduleText, "import std;");
             Assert.IsFalse(moduleText.Contains("#include <vector>"));
+            Assert.IsFalse(moduleText.Contains("module Test.Application_Xaml.TypeInfo;"));
             Assert.IsFalse(moduleText.Contains("XAML_USE_MODULE"));
             Assert.IsFalse(moduleText.Contains("WINRT_IMPORT_MODULE"));
             Assert.IsFalse(moduleText.Contains("export module"));

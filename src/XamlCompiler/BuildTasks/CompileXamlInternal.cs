@@ -2258,11 +2258,6 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
             projectInfo.UsingCSWinRT = UsingCSWinRT;
             projectInfo.BuildXamlModules = BuildXamlModules;
             projectInfo.XamlCodeBehindModule = XamlCodeBehindModule;
-            projectInfo.XamlClassNames = SourceFileManager?.ProjectXamlTaskItems?
-                .Select(item => item.ClassFullName)
-                .Where(name => !String.IsNullOrWhiteSpace(name))
-                .Distinct(StringComparer.Ordinal)
-                .ToList() ?? new List<string>();
             projectInfo.PrecompiledHeaderFile = PrecompiledHeaderFile;
             projectInfo.EnabledXamlOptionalChanges = ParseCommaSeparatedList(EnabledXamlOptionalChanges);
             projectInfo.DisabledXamlOptionalChanges = ParseCommaSeparatedList(DisabledXamlOptionalChanges);

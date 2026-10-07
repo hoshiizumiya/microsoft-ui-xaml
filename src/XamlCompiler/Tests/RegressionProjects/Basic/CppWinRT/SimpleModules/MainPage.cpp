@@ -10,6 +10,9 @@ import winrt.Simple.Models;
 #include <winrt/Simple.Models.h>
 #endif
 
+#ifdef WINRT_IMPORT_MODULE
+import Simple.Application_Xaml.MainPage;
+#endif
 #include "MainPage.h"
 #include "MainPage.g.cpp"
 

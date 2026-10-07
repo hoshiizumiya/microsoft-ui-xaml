@@ -23,6 +23,9 @@ import winrt.Simple.Models;
 #include <winrt/Simple.Models.h>
 #endif
 
+#ifdef WINRT_IMPORT_MODULE
+import Simple.Application_Xaml.App;
+#endif
 #include "App.h"
 #include "MainPage.h"
 
