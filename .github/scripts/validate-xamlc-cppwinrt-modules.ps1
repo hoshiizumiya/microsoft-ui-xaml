@@ -117,16 +117,26 @@ function Assert-XamlGraph([string]$Directory, [string]$Namespace, [string[]]$Cla
         })
         if ($source.Count -ne 1) { throw "Expected one independent interface for $identity, found $($source.Count)." }
         $interface = Get-Content $source[0].FullName -Raw
-        foreach ($required in @('#define XAML_IMPL_MODULE', '#undef XAML_IMPL_MODULE', '#define WINRT_IMPORT_MODULE')) {
+        foreach ($required in @('#define XAML_IMPL_MODULE', '#undef XAML_IMPL_MODULE')) {
             if (-not $interface.Contains($required)) { throw "$identity lacks '$required'." }
         }
         if (-not $interface.Contains('import std;') -or -not $interface.Contains('import winrt_base;')) {
             throw "$identity is not using the C++/WinRT module-interface preamble."
         }
 
-        $producerHeader = $source[0].Name -replace '\.xaml\.g\.ixx$', ''
-        if (-not $interface.Contains("#include `"$producerHeader.g.h`"")) {
-            throw "$identity does not absorb its C++/WinRT producer scaffold."
+        $shortName = ($class -split '\.')[-1]
+        if ($shortName -eq 'App') {
+            if ($interface.Contains('#include "App.g.h"')) {
+                throw 'App module incorrectly depends on a C++/WinRT App.g.h producer scaffold.'
+            }
+        } else {
+            if (-not $interface.Contains('#define WINRT_IMPORT_MODULE')) {
+                throw "$identity does not enable WINRT_IMPORT_MODULE for its producer scaffold."
+            }
+            $producerHeader = $source[0].Name -replace '\.xaml\.g\.ixx$', ''
+            if (-not $interface.Contains("#include `"$producerHeader.g.h`"")) {
+                throw "$identity does not absorb its C++/WinRT producer scaffold."
+            }
         }
 
         $sentinelPath = $source[0].FullName -replace '\.ixx$', '.h'
