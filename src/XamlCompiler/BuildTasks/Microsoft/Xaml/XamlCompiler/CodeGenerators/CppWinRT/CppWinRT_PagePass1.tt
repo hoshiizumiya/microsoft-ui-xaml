@@ -8,8 +8,27 @@
 //     the code is regenerated.
 //------------------------------------------------------------------------------
 
+#pragma once
+#ifndef XAML_IMPL_MODULE
+#include <unknwn.h>
+#undef GetCurrentTime
+#include <cstdint>
+<#  foreach (var projectionNamespace in Model.DeclarationCppWinRTProjectionNamespaces) { #>
+<#=GetCppWinRTProjectionHeaderDirective(projectionNamespace, optionalHeader: true)#>
+<#  } #>
 <#  if (Model.CodeInfo.BindStatus != BindStatus.None) { #>
-namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation
+#include "XamlBindingInfo.xaml.g.h"
+<#  } #>
+#endif
+
+#ifdef XAML_IMPL_MODULE
+#define XAML_EXPORT export extern "C++"
+#else
+#define XAML_EXPORT
+#endif
+
+<#  if (Model.CodeInfo.BindStatus != BindStatus.None) { #>
+XAML_EXPORT namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation
 {
     struct XamlBindings;
 }
@@ -21,18 +40,24 @@ namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation
         var baseTypeNamespace = baseTypeName.Substring(0, baseTypeSeparator);
         var baseTypeShortName = baseTypeName.Substring(baseTypeSeparator + 1);
 #>
-namespace winrt::<#=Colonize(baseTypeNamespace)#>::implementation
+XAML_EXPORT namespace winrt::<#=Colonize(baseTypeNamespace)#>::implementation
 {
     struct <#=baseTypeShortName#>;
 }
 <#  } #>
 
-namespace winrt::<#=Colonize(Model.CodeInfo.ClassName.Namespace)#>::implementation
+XAML_EXPORT namespace winrt::<#=Colonize(Model.CodeInfo.ClassName.Namespace)#>::implementation
 {
+<#  if (Model.CodeInfo.HasInComponentBase) { #>
+    template <typename D, typename B, typename... I>
+    struct <#=Model.CodeInfo.ClassName.ShortName#>_base;
+<#  } else { #>
+    template <typename D, typename... I>
+    struct <#=Model.CodeInfo.ClassName.ShortName#>_base;
+<#  } #>
+
     using IInspectable = <#=Projection(KnownNamespaces.WindowsFoundation)#>::IInspectable;
 
-    // C++/WinRT's generated <Type>.g.h owns <Type>_base and the factory scaffolding.
-    // XamlC extends that producer base inside the same named-module partition.
     template <typename D, typename ... I>
     struct <#=Model.CodeInfo.ClassName.ShortName#>T : public ::winrt::<#=Colonize(Model.CodeInfo.ClassName.Namespace)#>::implementation::<#=Model.CodeInfo.ClassName.ShortName#>_base<D,
 <#  if (Model.CodeInfo.HasInComponentBase) { #>
@@ -72,9 +97,9 @@ namespace winrt::<#=Colonize(Model.CodeInfo.ClassName.Namespace)#>::implementati
 #pragma warning(pop)
 <#      }#>
 <#  }#>
-<#  if (Model.CodeInfo.BindStatus != BindStatus.None) { #>
+        <#  if (Model.CodeInfo.BindStatus != BindStatus.None) { #>
 
-        ::winrt::com_ptr<<#=Projection(ProjectInfo.RootNamespace)#>::implementation::XamlBindings> Bindings;
+         ::winrt::com_ptr<<#=Projection(ProjectInfo.RootNamespace)#>::implementation::XamlBindings> Bindings;
 <#  } #>
 
     protected:
@@ -97,3 +122,4 @@ namespace winrt::<#=Colonize(Model.CodeInfo.ClassName.Namespace)#>::implementati
 <#  }#>
     };
 }
+#undef XAML_EXPORT

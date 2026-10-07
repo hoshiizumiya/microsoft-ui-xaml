@@ -36,6 +36,20 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             return code.Substring(index);
         }
 
+        private IEnumerable<string> GetAuthoredXamlModules()
+        {
+            if (_projectInfo.ClassToHeaderFileMap == null)
+            {
+                return Enumerable.Empty<string>();
+            }
+
+            return _projectInfo.ClassToHeaderFileMap.Keys
+                .Where(className => !String.IsNullOrWhiteSpace(className))
+                .Select(CppWinRTProjectionDependency.GetAuthoredXamlModuleName)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(moduleName => moduleName, StringComparer.Ordinal);
+        }
+
         public List<FileNameAndContentPair> GenerateCodeBehind(XamlClassCodeInfo codeInfo, out IEnumerable<FileNameAndChecksumPair> xamlFilesChecksumPairs)
         {
             CodeGeneratorDelegate codeGenDelegate;
@@ -58,72 +72,60 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             var model = new PageDefinition(_projectInfo, _schemaInfo) { CodeInfo = codeInfo };
             codeGenerator.SetModel(_projectInfo, _schemaInfo, model);
 
-            string originalCodeBehindModule = _projectInfo.XamlCodeBehindModule;
-            if (_language.Name == ProgrammingLanguage.CppWinRT && _projectInfo.BuildXamlModules && !_isPass1 && !codeInfo.IsApplication && String.IsNullOrWhiteSpace(_projectInfo.XamlCodeBehindModule))
-            {
-                // Force the old PagePass2 template down its import branch while the template
-                // companion is being removed. The actual authored declaration comes from the
-                // Implementation.<class> partition added by the implementation-unit preamble.
-                _projectInfo.XamlCodeBehindModule = CppWinRTProjectionDependency.GetModuleName(_projectInfo.RootNamespace);
-            }
-
-            string code;
-            try
-            {
-                code = codeGenerator.TransformText();
-            }
-            finally
-            {
-                _projectInfo.XamlCodeBehindModule = originalCodeBehindModule;
-            }
+            string code = codeGenerator.TransformText();
             xamlFilesChecksumPairs = model.XamlFileFullPathAndCheckSums;
             Debug.Assert(!String.IsNullOrEmpty(codeInfo.BaseFileName));
 
             if (_language.Name == ProgrammingLanguage.CppWinRT && _projectInfo.BuildXamlModules)
             {
+                string moduleName = CppWinRTProjectionDependency.GetXamlClassModuleName(_projectInfo.RootNamespace, codeInfo.ClassName.FullName);
                 var retList = new List<FileNameAndContentPair>();
+
                 if (_isPass1)
                 {
+                    // C++/WinRT probes for <Type>.xaml.g.h before emitting its legacy TypeT = Type_base
+                    // fallback. Keep that physical probe file, but move every XamlC declaration into the BMI.
                     retList.Add(new FileNameAndContentPair(
                         codeInfo.BaseFileName + _language.Pass1Extension,
-                        CppWinRTProjectionDependency.WriteXamlHeaderSentinel(_projectInfo.RootNamespace, codeInfo.ClassName.FullName)));
+                        CppWinRTProjectionDependency.WriteXamlHeaderSentinel(moduleName)));
+
+                    IEnumerable<string> projectionNamespaces = model.DeclarationCppWinRTProjectionNamespaces;
+                    if (!String.IsNullOrWhiteSpace(_projectInfo.RootNamespace))
+                    {
+                        projectionNamespaces = projectionNamespaces.Concat(new[] { _projectInfo.RootNamespace });
+                    }
 
                     retList.Add(new FileNameAndContentPair(
                         codeInfo.BaseFileName + ".xaml.g.ixx",
-                        CppWinRTProjectionDependency.WriteClassImplementationPartition(
-                            _projectInfo.RootNamespace,
-                            codeInfo.ClassName.FullName,
-                            model.DeclarationCppWinRTProjectionNamespaces,
-                            codeInfo.BaseFileName + ".g.h",
+                        CppWinRTProjectionDependency.WriteSourceInterface(
+                            moduleName,
+                            projectionNamespaces,
                             code)));
+                    return retList;
                 }
-                else
+
+                // The T4 body still contains the legacy preamble so header builds remain unchanged.
+                // Module builds own the TU preamble here and keep only the implementation body.
+                code = KeepFrom(code, codeInfo.IsApplication ? "#if defined _DEBUG" : "#pragma warning(push)");
+
+                var importedModules = new List<string>
                 {
-                    if (codeInfo.IsApplication)
-                    {
-                        code = KeepFrom(code, "#if defined _DEBUG");
-                    }
-
-                    var partitions = new List<string>
-                    {
-                        CppWinRTProjectionDependency.GetCppWinRTImplementationPartitionName(_projectInfo.RootNamespace, codeInfo.ClassName.FullName),
-                        CppWinRTProjectionDependency.GetAuthoredImplementationPartitionName(_projectInfo.RootNamespace, codeInfo.ClassName.FullName),
-                    };
-                    if (codeInfo.BindStatus != BindStatus.None)
-                    {
-                        partitions.Add("BindingInfo");
-                    }
-                    if (codeInfo.IsApplication && _projectInfo.ShouldGenerateTypeInfoCode)
-                    {
-                        partitions.Add("TypeInfo");
-                    }
-
-                    string implementationUnit = CppWinRTProjectionDependency.WriteImplementationUnitPreamble(
-                        _projectInfo.RootNamespace,
-                        partitions,
-                        model.NeededCppWinRTProjectionNamespaces) + "\n" + code;
-                    retList.Add(new FileNameAndContentPair(codeInfo.BaseFileName + ".xaml.g.cpp", implementationUnit));
+                    CppWinRTProjectionDependency.GetAuthoredXamlModuleName(codeInfo.ClassName.FullName),
+                };
+                if (codeInfo.BindStatus != BindStatus.None)
+                {
+                    importedModules.Add(CppWinRTProjectionDependency.GetBindingInfoModuleName(_projectInfo.RootNamespace));
                 }
+                if (codeInfo.IsApplication && _projectInfo.ShouldGenerateTypeInfoCode)
+                {
+                    importedModules.Add(CppWinRTProjectionDependency.GetTypeInfoModuleName(_projectInfo.RootNamespace));
+                }
+
+                string preamble = CppWinRTProjectionDependency.WriteImplementationUnitPreamble(
+                    moduleName,
+                    model.NeededCppWinRTProjectionNamespaces,
+                    importedModules);
+                retList.Add(new FileNameAndContentPair(codeInfo.BaseFileName + ".xaml.g.cpp", preamble + "\n" + code));
                 return retList;
             }
 
@@ -142,54 +144,59 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 
             if (_language.Name == ProgrammingLanguage.CppWinRT && _projectInfo.BuildXamlModules)
             {
+                string moduleName = CppWinRTProjectionDependency.GetTypeInfoModuleName(_projectInfo.RootNamespace);
                 var retList = new List<FileNameAndContentPair>();
+                var projectionNamespaces = CppWinRTProjectionDependency.TypeInfoSupportNamespaces.ToList();
+                if (!String.IsNullOrWhiteSpace(_projectInfo.RootNamespace))
+                {
+                    projectionNamespaces.Add(_projectInfo.RootNamespace);
+                }
+
                 if (_isPass1)
                 {
                     string providerDeclarations = GenerateTypeInfoCode(_language.XamlMetaDataProviderPass1, appXamlInfo) ?? String.Empty;
-                    string declarations =
-                        "#define WINRT_IMPORT_MODULE\n"
-                        + "#include \"XamlMetaDataProvider.g.h\"\n"
-                        + "#undef WINRT_IMPORT_MODULE\n\n"
-                        + code + Environment.NewLine + providerDeclarations;
-                    var namespaces = CppWinRTProjectionDependency.TypeInfoSupportNamespaces;
-                    if (!String.IsNullOrWhiteSpace(_projectInfo.RootNamespace))
-                    {
-                        namespaces = namespaces.Concat(new[] { _projectInfo.RootNamespace });
-                    }
+                    string declarations = code + Environment.NewLine + providerDeclarations;
                     retList.Add(new FileNameAndContentPair(
                         "XamlTypeInfo.xaml.g.ixx",
-                        CppWinRTProjectionDependency.WriteInternalPartition(_projectInfo.RootNamespace, "TypeInfo", namespaces, declarations)));
+                        CppWinRTProjectionDependency.WriteSourceInterface(
+                            moduleName,
+                            projectionNamespaces,
+                            declarations,
+                            cppWinRTProducerHeader: "XamlMetaDataProvider.g.h",
+                            exportProjectionDependencies: false)));
+
+                    string libraryProvider = GenerateTypeInfoCode(_language.XamlMetaDataProviderPass2, appXamlInfo);
+                    if (!String.IsNullOrWhiteSpace(libraryProvider))
+                    {
+                        string body = libraryProvider.Contains("namespace winrt::")
+                            ? KeepFrom(libraryProvider, "namespace winrt::")
+                            : libraryProvider;
+                        string preamble = CppWinRTProjectionDependency.WriteImplementationUnitPreamble(
+                            moduleName,
+                            projectionNamespaces);
+                        retList.Add(new FileNameAndContentPair("XamlLibMetadataProvider.g.cpp", preamble + "\n" + body));
+                    }
 
                     string implementation = GenerateTypeInfoCode(_language.TypeInfoPass1ImplCodeGenerator, appXamlInfo);
                     if (!String.IsNullOrWhiteSpace(implementation))
                     {
                         implementation = KeepFrom(implementation, "namespace winrt::");
-                        var implNamespaces = CppWinRTProjectionDependency.TypeInfoSupportNamespaces;
-                        if (!String.IsNullOrWhiteSpace(_projectInfo.RootNamespace))
-                        {
-                            implNamespaces = implNamespaces.Concat(new[] { _projectInfo.RootNamespace });
-                        }
                         string preamble = CppWinRTProjectionDependency.WriteImplementationUnitPreamble(
-                            _projectInfo.RootNamespace,
-                            new[] { "TypeInfo" },
-                            implNamespaces);
+                            moduleName,
+                            projectionNamespaces);
                         retList.Add(new FileNameAndContentPair("XamlTypeInfo.Impl.g.cpp", preamble + "\n" + implementation));
                     }
+                    return retList;
                 }
-                else
-                {
-                    code = KeepFrom(code, "namespace winrt::");
-                    var namespaces = CppWinRTProjectionDependency.TypeInfoSupportNamespaces;
-                    if (!String.IsNullOrWhiteSpace(_projectInfo.RootNamespace))
-                    {
-                        namespaces = namespaces.Concat(new[] { _projectInfo.RootNamespace });
-                    }
-                    string preamble = CppWinRTProjectionDependency.WriteImplementationUnitPreamble(
-                        _projectInfo.RootNamespace,
-                        new[] { "TypeInfo", "BindingInfo" },
-                        namespaces);
-                    retList.Add(new FileNameAndContentPair("XamlTypeInfo.g.cpp", preamble + "\n" + code));
-                }
+
+                code = KeepFrom(code, "namespace winrt::");
+                var importedModules = GetAuthoredXamlModules().ToList();
+                importedModules.Add(CppWinRTProjectionDependency.GetBindingInfoModuleName(_projectInfo.RootNamespace));
+                string typeInfoPreamble = CppWinRTProjectionDependency.WriteImplementationUnitPreamble(
+                    moduleName,
+                    projectionNamespaces,
+                    importedModules);
+                retList.Add(new FileNameAndContentPair("XamlTypeInfo.g.cpp", typeInfoPreamble + "\n" + code));
                 return retList;
             }
 
@@ -251,23 +258,24 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 
             if (_language.Name == ProgrammingLanguage.CppWinRT && _projectInfo.BuildXamlModules)
             {
+                string moduleName = CppWinRTProjectionDependency.GetBindingInfoModuleName(_projectInfo.RootNamespace);
                 if (_isPass1)
                 {
                     return new List<FileNameAndContentPair>
                     {
                         new FileNameAndContentPair(
                             "XamlBindingInfo.xaml.g.ixx",
-                            CppWinRTProjectionDependency.WriteInternalPartition(
-                                _projectInfo.RootNamespace,
-                                "BindingInfo",
+                            CppWinRTProjectionDependency.WriteSourceInterface(
+                                moduleName,
                                 CppWinRTProjectionDependency.BindingSupportNamespaces,
-                                code))
+                                code,
+                                exportProjectionDependencies: false))
                     };
                 }
 
+                code = KeepFrom(code, "namespace winrt::");
                 string preamble = CppWinRTProjectionDependency.WriteImplementationUnitPreamble(
-                    _projectInfo.RootNamespace,
-                    new[] { "BindingInfo" },
+                    moduleName,
                     CppWinRTProjectionDependency.BindingSupportNamespaces);
                 return new List<FileNameAndContentPair>
                 {

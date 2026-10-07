@@ -1,7 +1,23 @@
 ﻿<#@ template language="C#" inherits="CppWinRT_CodeGenerator<PageDefinition>" visibility="internal" linePragmas="false"#>
 <#@ assembly name="System.Core" #>
+#pragma once
+#ifndef XAML_IMPL_MODULE
+#include <unknwn.h>
+#undef GetCurrentTime
+<#  foreach (var projectionNamespace in Model.DeclarationCppWinRTProjectionNamespaces) { #>
+<#=GetCppWinRTProjectionHeaderDirective(projectionNamespace)#>
+<#  } #>
+#include "XamlTypeInfo.xaml.g.h"
+#include "XamlMetaDataProvider.h"
+#endif
 
-namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation
+#ifdef XAML_IMPL_MODULE
+#define XAML_EXPORT export extern "C++"
+#else
+#define XAML_EXPORT
+#endif
+
+XAML_EXPORT namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation
 {
     struct XamlMetaDataProvider;
     template <typename D> struct XamlAppMetadataProvider
@@ -10,31 +26,27 @@ namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation
     };
 }
 
-namespace winrt::<#=Colonize(Model.CodeInfo.ClassName.Namespace)#>::implementation
+XAML_EXPORT namespace winrt::<#=Colonize(Model.CodeInfo.ClassName.Namespace)#>::implementation
 {
     template <typename D, typename ... Interfaces>
-    struct AppT : public ::winrt::<#=Colonize(Model.CodeInfo.ClassName.Namespace)#>::implementation::App_base<D,
-        <#=Projection(KnownNamespaces.XamlMarkup)#>::IXamlMetadataProvider,
-        Interfaces...>
+    struct AppT: public <#=Projection(Model.CodeInfo.BaseTypeName)#>T<D, <#=Projection(KnownNamespaces.XamlMarkup)#>::IXamlMetadataProvider, Interfaces...>
     {
-        using base_type = typename AppT::base_type;
-        using base_type::base_type;
         using XamlMetaDataProvider = typename ::winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation::XamlAppMetadataProvider<D>::type;
         using IXamlType = <#=Projection(KnownNamespaces.XamlMarkup)#>::IXamlType;
 
         void InitializeComponent()
         {
             if (_contentLoaded)
-            {
                 return;
-            }
-
+           
             _contentLoaded = true;
+
             ::winrt::Windows::Foundation::Uri resourceLocator{ L"<#=Model.GetLoadComponentUri(Model.CodeInfo.PriIndexName, Model.CodeInfo.BaseApparentRelativePath)#>" };
             <#=Projection(KnownNamespaces.Xaml)#>::Application::LoadComponent(*this, resourceLocator);
         }
 
 <#  if(!ProjectInfo.GenerateProviderCode) { #>
+
         void AddOtherProvider(<#=Projection(KnownNamespaces.XamlMarkup)#>::IXamlMetadataProvider const& otherProvider)
         {
             AppProvider()->AddOtherProvider(otherProvider);
@@ -69,3 +81,5 @@ namespace winrt::<#=Colonize(Model.CodeInfo.ClassName.Namespace)#>::implementati
         }
     };
 }
+
+#undef XAML_EXPORT

@@ -9,7 +9,24 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation
+#pragma once
+#ifndef XAML_IMPL_MODULE
+#include <unknwn.h>
+#undef GetCurrentTime
+#include <cstdint>
+#include <memory>
+<#  foreach (var projectionNamespace in CppWinRTProjectionDependency.BindingSupportNamespaces) { #>
+<#=GetCppWinRTProjectionHeaderDirective(projectionNamespace, optionalHeader: true)#>
+<#  } #>
+#endif
+
+#ifdef XAML_IMPL_MODULE
+#define XAML_EXPORT export extern "C++"
+#else
+#define XAML_EXPORT
+#endif
+
+XAML_EXPORT namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation
 {
     using DataContextChangedEventArgs = <#=Projection(KnownNamespaces.Xaml)#>::DataContextChangedEventArgs;
     using DependencyObject = <#=Projection(KnownNamespaces.Xaml)#>::DependencyObject;
@@ -32,7 +49,7 @@ namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation
 
     struct IXamlBindings
     {
-        virtual ~IXamlBindings() {}
+        virtual ~IXamlBindings() {};
         virtual bool IsInitialized() = 0;
         virtual void Update() = 0;
         virtual bool SetDataRoot(IInspectable const& data) = 0;
@@ -63,13 +80,19 @@ namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation
     {
         XamlBindings(std::shared_ptr<IXamlBindings>&& pBindings);
 
+        // IComponentConnector
         void Connect(int connectionId, IInspectable const& target);
         IComponentConnector GetBindingConnector(std::int32_t, IInspectable const&);
+
+        // IDataTemplateComponent
         virtual void ProcessBindings(IInspectable const& item, int itemIndex, int phase, std::int32_t& nextPhase);
         virtual void Recycle();
+
+        // IDataTemplateExtension
         bool ProcessBinding(std::uint32_t phase);
         int ProcessBindings(ContainerContentChangingEventArgs const& args);
         void ResetTemplate();
+
         void Initialize();
         void Update();
         void StopTracking();
@@ -93,7 +116,9 @@ namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation
         static const int NOT_PHASED = (1 << 31);
         static const int DATA_CHANGED = (1 << 30);
 
+    protected:
         XamlBindingsBase() = default;
+
         virtual ~XamlBindingsBase()
         {
             if (_bindingsTracking)
@@ -103,7 +128,10 @@ namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation
             }
         }
 
-        virtual void ReleaseAllListeners() {}
+        virtual void ReleaseAllListeners()
+        {
+            // Overridden in the binding class as needed.
+        }
 
     public:
         void InitializeTracking(IXamlBindingTracking* pBindingsTracking)
@@ -128,10 +156,14 @@ namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation
             this->_dataContextChangedToken = object.DataContextChanged({ &handler, &XamlBindings::DataContextChanged });
         }
 
-        virtual void Recycle() override {}
+        virtual void Recycle() override
+        {
+            // Overridden in the binding class as needed.
+        }
 
         virtual void ProcessBindings(IInspectable const&, int, int, std::int32_t& nextPhase) override
         {
+            // Overridden in the binding class as needed.
             nextPhase = -1;
         }
     };
@@ -140,6 +172,8 @@ namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation
     {
         XamlBindingTrackingBase();
         void SetListener(IXamlBindingTracking* pBindings);
+        
+        // Event handlers
         void PropertyChanged(IInspectable const& sender, PropertyChangedEventArgs const& e);
         void CollectionChanged(IInspectable const& sender, NotifyCollectionChangedEventArgs const& e);
         void DependencyPropertyChanged(DependencyObject const& sender, DependencyProperty const& prop);
@@ -148,10 +182,12 @@ namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation
 <# if (ProjectInfo.IsInputValidationEnabled) {#>
         void ErrorsChanged(IInspectable const& sender, DataErrorsChangedEventArgs const& e);
 <# } #>
+
+        // Listener update functions
         void UpdatePropertyChangedListener(INotifyPropertyChanged const& obj, INotifyPropertyChanged& cache, ::winrt::event_token& token);
         void UpdatePropertyChangedListener(INotifyPropertyChanged const& obj, ::winrt::weak_ref<<#=Projection(KnownNamespaces.XamlData)#>::INotifyPropertyChanged>& cache, ::winrt::event_token& token);
         void UpdateCollectionChangedListener(INotifyCollectionChanged const& obj, INotifyCollectionChanged& cache, ::winrt::event_token& token);
-        void UpdateDependencyPropertyChangedListener(DependencyObject const& obj, DependencyProperty const& property, DependencyObject& cache, std::int64_t& token);
+        void UpdateDependencyPropertyChangedListener(DependencyObject const& obj, DependencyProperty const& property, DependencyObject&  cache, std::int64_t& token);
         void UpdateDependencyPropertyChangedListener(DependencyObject const& obj, DependencyProperty const& property, ::winrt::weak_ref<<#=Projection(KnownNamespaces.Xaml)#>::DependencyObject>& cache, std::int64_t& token);
 <# if (ProjectInfo.IsInputValidationEnabled) {#>
         void UpdateErrorsChangedListener(INotifyDataErrorInfo const& obj, INotifyDataErrorInfo& cache, ::winrt::event_token& token);
@@ -181,12 +217,16 @@ namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation
         }
     };
 
-    template<typename T, typename TBindingsTracking>
+    template<typename T, typename TBindingsTracking> 
     struct ReferenceTypeXamlBindings : public XamlBindingsBase<TBindingsTracking>
     {
     protected:
         ReferenceTypeXamlBindings() {}
-        virtual void Update_(T, int) {}
+
+        virtual void Update_(T, int)
+        {
+            // Overridden in the binding class as needed.
+        }
 
     public:
         T GetDataRoot()
@@ -211,15 +251,19 @@ namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation
         }
 
     private:
-        ::winrt::weak_ref<T> _dataRoot;
+         ::winrt::weak_ref<T> _dataRoot;
     };
 
-    template<typename T, typename TBindingsTracking>
+    template<typename T, typename TBindingsTracking> 
     struct ValueTypeXamlBindings : public XamlBindingsBase<TBindingsTracking>
     {
     protected:
         ValueTypeXamlBindings() {}
-        virtual void Update_(T, int) {}
+
+        virtual void Update_(T, int)
+        {
+            // Overridden in the binding class as needed.
+        }
 
     public:
         T GetDataRoot()
@@ -247,3 +291,4 @@ namespace winrt::<#=Colonize(ProjectInfo.RootNamespace)#>::implementation
         T _dataRoot;
     };
 }
+#undef XAML_EXPORT
