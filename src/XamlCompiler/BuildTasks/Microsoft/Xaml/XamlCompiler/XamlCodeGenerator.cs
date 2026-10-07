@@ -87,7 +87,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                             moduleName,
                             projectionNamespaces,
                             code,
-                            cppWinRTProducerHeader: codeInfo.BaseFileName + ".g.h")));
+                            cppWinRTProducerHeader: codeInfo.IsApplication ? null : codeInfo.BaseFileName + ".g.h")));
                     return retList;
                 }
 
