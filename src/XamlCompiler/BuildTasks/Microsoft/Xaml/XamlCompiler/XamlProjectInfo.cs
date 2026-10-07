@@ -125,7 +125,6 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
 
         public bool UsingCSWinRT { get; set; }
         public bool BuildXamlModules { get; set; }
-        public string XamlCodeBehindModule { get; set; }
 
         public string PrecompiledHeaderFile { get; set; }
 

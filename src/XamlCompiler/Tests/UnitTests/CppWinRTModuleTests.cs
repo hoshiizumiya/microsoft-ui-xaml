@@ -274,14 +274,6 @@ namespace UnitTests
             Assert.IsFalse(moduleText.Contains("export module"));
             Assert.AreNotEqual(headerText, moduleText);
 
-            project.XamlCodeBehindModule = "Test.UserXaml";
-            string authoredModuleText = helper.GenerateTypeInfo(false, schema, project, new ClassName("Test.App"), CodeGenLanguage.CppWinRT)
-                .Single(file => file.FileName == "XamlTypeInfo.g.cpp").Contents;
-            StringAssert.Contains(authoredModuleText, "import Test.UserXaml;");
-            Assert.IsFalse(authoredModuleText.Contains("#include \"MainPage.xaml.h\""));
-            Assert.IsFalse(authoredModuleText.Contains("#include \"SecondPage.xaml.h\""));
-            project.XamlCodeBehindModule = null;
-
             project.PrecompiledHeaderFile = "pch.h";
             foreach (bool pass1 in new[] { true, false })
             {

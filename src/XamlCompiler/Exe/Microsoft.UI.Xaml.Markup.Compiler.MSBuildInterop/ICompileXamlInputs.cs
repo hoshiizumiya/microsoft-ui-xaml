@@ -98,7 +98,6 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.MSBuildInterop
 
         string GenXbfPath { get; set; }
         string PrecompiledHeaderFile { get; set; }
-        string XamlCodeBehindModule { get; set; }
         string XamlResourceMapName { get; set; }
         string XamlComponentResourceLocation { get; set; }
         string XamlPlatform { get; set; }

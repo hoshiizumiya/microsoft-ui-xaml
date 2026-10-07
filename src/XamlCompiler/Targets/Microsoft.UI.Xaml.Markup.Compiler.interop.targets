@@ -431,7 +431,6 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                 VCInstallPath64="$(VCInstallPath64)"
                 GenXbfPath="$(GenXbfPath)"
                 PrecompiledHeaderFile="$(PrecompiledHeaderFile)"
-                XamlCodeBehindModule="$(CppWinRTXamlCodeBehindModule)"
                 EnabledXamlOptionalChanges="$(EnabledXamlOptionalChanges)"
                 DisabledXamlOptionalChanges="$(DisabledXamlOptionalChanges)" >
 
@@ -485,7 +484,6 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             VCInstallPath64="$(VCInstallPath64)"
             GenXbfPath="$(GenXbfPath)"
             PrecompiledHeaderFile="$(PrecompiledHeaderFile)"
-                XamlCodeBehindModule="$(CppWinRTXamlCodeBehindModule)"
             EnabledXamlOptionalChanges="$(EnabledXamlOptionalChanges)"
             DisabledXamlOptionalChanges="$(DisabledXamlOptionalChanges)" />
 
@@ -563,7 +561,6 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                 VCInstallPath64="$(VCInstallPath64)"
                 GenXbfPath="$(GenXbfPath)"
                 PrecompiledHeaderFile="$(PrecompiledHeaderFile)"
-                XamlCodeBehindModule="$(CppWinRTXamlCodeBehindModule)"
                 EnabledXamlOptionalChanges="$(EnabledXamlOptionalChanges)"
                 DisabledXamlOptionalChanges="$(DisabledXamlOptionalChanges)" >
 
@@ -617,7 +614,6 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                 VCInstallPath64="$(VCInstallPath64)"
                 GenXbfPath="$(GenXbfPath)"
                 PrecompiledHeaderFile="$(PrecompiledHeaderFile)"
-                XamlCodeBehindModule="$(CppWinRTXamlCodeBehindModule)"
                 EnabledXamlOptionalChanges="$(EnabledXamlOptionalChanges)"
                 DisabledXamlOptionalChanges="$(DisabledXamlOptionalChanges)" />
 
@@ -858,7 +854,6 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                 VCInstallPath64="$(VCInstallPath64)"
                 GenXbfPath="$(GenXbfPath)"
                 PrecompiledHeaderFile="$(PrecompiledHeaderFile)"
-                XamlCodeBehindModule="$(CppWinRTXamlCodeBehindModule)"
                 EnabledXamlOptionalChanges="$(EnabledXamlOptionalChanges)"
                 DisabledXamlOptionalChanges="$(DisabledXamlOptionalChanges)" >
 
@@ -921,7 +916,6 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             VCInstallPath64="$(VCInstallPath64)"
             GenXbfPath="$(GenXbfPath)"
             PrecompiledHeaderFile="$(PrecompiledHeaderFile)"
-                XamlCodeBehindModule="$(CppWinRTXamlCodeBehindModule)"
             EnabledXamlOptionalChanges="$(EnabledXamlOptionalChanges)"
             DisabledXamlOptionalChanges="$(DisabledXamlOptionalChanges)" />
 
