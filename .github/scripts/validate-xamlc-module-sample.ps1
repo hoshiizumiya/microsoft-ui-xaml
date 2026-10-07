@@ -11,7 +11,7 @@ if (-not $smoke.Contains('import XamlCppWinRTModulesSample.Application_Xaml;') -
 $package = @(Get-ChildItem (Join-Path $repoRoot 'PackageStore') -Filter 'Microsoft.WindowsAppSDK.WinUI.*.nupkg' -File)
 if ($package.Count -ne 1) { throw 'Expected one freshly built WinUI package.' }
 $version = $package[0].BaseName.Substring('Microsoft.WindowsAppSDK.WinUI.'.Length)
-$sampleCommit = '139aad9a373b183030789f97797b1838f1685afb'
+$sampleCommit = 'a68afc06378f2d7e459bf81aa61b5aa7b499d5f5'
 git clone https://github.com/hoshiizumiya/WinUICppwinrtModuleSample.git $SampleRoot
 if ($LASTEXITCODE -ne 0) { throw 'Sample clone failed.' }
 git -C $SampleRoot checkout --detach $sampleCommit
@@ -59,6 +59,7 @@ foreach ($configuration in @('Debug', 'Release')) {
         $interfaceText = Get-Content $interface[0].FullName -Raw
         if (-not $interfaceText.Contains("export module $identity;")) { throw "$class interface has the wrong module identity." }
         if (-not $rootText.Contains("export import $identity;")) { throw "Root does not re-export $identity." }
+        if ($class -eq 'App' -and $interfaceText.Contains('#include "App.g.h"')) { throw 'App interface incorrectly requires App.g.h.' }
         if (@(Get-ChildItem $intermediate -Filter "$identity.ifc" -Recurse -File).Count -ne 1) { throw "Sample lacks $class IFC." }
     }
 
