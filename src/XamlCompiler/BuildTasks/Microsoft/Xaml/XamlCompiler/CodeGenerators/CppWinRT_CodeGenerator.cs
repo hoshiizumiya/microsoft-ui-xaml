@@ -277,35 +277,6 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             return text.ToString();
         }
 
-        // Transitional helper retained only until CompileXamlInternal stops producing
-        // Application_Xaml.Support. New generation paths use WriteSourceInterface.
-        public static string WriteInterface(string moduleName, IEnumerable<string> namespaces, IEnumerable<string> headers, string supportModule = null)
-        {
-            var text = new StringBuilder();
-            text.AppendLine("module;");
-            text.AppendLine("#include <unknwn.h>");
-            text.AppendLine("#include <winrt/base_macros.h>");
-            text.AppendLine("#undef GetCurrentTime");
-            text.AppendLine($"export module {moduleName};");
-            text.AppendLine("import std;");
-            text.AppendLine("import winrt_base;");
-            foreach (var ns in namespaces.Distinct(StringComparer.Ordinal).OrderBy(ns => ns, StringComparer.Ordinal))
-            {
-                text.AppendLine($"import {GetModuleName(ns)};");
-            }
-            if (!String.IsNullOrWhiteSpace(supportModule))
-            {
-                text.AppendLine($"import {supportModule};");
-            }
-            text.AppendLine("#define XAML_IMPL_MODULE");
-            foreach (var header in headers)
-            {
-                text.AppendLine($"#include \"{header}\"");
-            }
-            text.AppendLine("#undef XAML_IMPL_MODULE");
-            return text.ToString();
-        }
-
         public static string WriteAggregator(string rootNamespace, IEnumerable<string> classNames)
         {
             string moduleName = GetXamlPrimaryModuleName(rootNamespace);

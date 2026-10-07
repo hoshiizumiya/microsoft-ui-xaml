@@ -17,7 +17,6 @@ namespace Win8Xaml.CompilerProxies
         static readonly MethodInfo _getNamespacesWithFallback;
         static readonly MethodInfo _getXamlPrimaryModuleName;
         static readonly MethodInfo _getXamlClassModuleName;
-        static readonly MethodInfo _writeInterface;
         static readonly MethodInfo _writeAggregator;
 
         static CppWinRTProjectionDependency()
@@ -29,7 +28,6 @@ namespace Win8Xaml.CompilerProxies
             _getNamespacesWithFallback = _projectionDependencyType.GetStaticMethod("GetNamespaces", 2);
             _getXamlPrimaryModuleName = _projectionDependencyType.GetStaticMethod("GetXamlPrimaryModuleName", 1);
             _getXamlClassModuleName = _projectionDependencyType.GetStaticMethod("GetXamlClassModuleName", 2);
-            _writeInterface = _projectionDependencyType.GetStaticMethod("WriteInterface", 4);
             _writeAggregator = _projectionDependencyType.GetStaticMethod("WriteAggregator", 2);
         }
 
@@ -75,11 +73,6 @@ namespace Win8Xaml.CompilerProxies
         public static string GetXamlClassModuleName(string rootNamespace, string runtimeClassName)
         {
             return (string)_getXamlClassModuleName.Invoke(null, new object[] { rootNamespace, runtimeClassName });
-        }
-
-        public static string WriteInterface(string name, IEnumerable<string> namespaces, IEnumerable<string> headers, string supportModule = null)
-        {
-            return (string)_writeInterface.Invoke(null, new object[] { name, namespaces, headers, supportModule });
         }
 
         public static string WriteAggregator(string rootNamespace, IEnumerable<string> classes)

@@ -164,21 +164,6 @@ namespace UnitTests
         }
 
         [TestMethod]
-        public void Interface_PackagesAnOrdinaryHeaderWithSemanticReExports()
-        {
-            string text = CppWinRTProjectionDependency.WriteInterface("Test.Page", new[] { "Microsoft.UI.Xaml", "Windows.Foundation", "Microsoft.UI.Xaml" }, new[] { "Page.xaml.g.h" });
-            StringAssert.Contains(text, "module;");
-            StringAssert.Contains(text, "export module Test.Page;");
-            StringAssert.Contains(text, "export import winrt.Microsoft.UI.Xaml;");
-            Assert.AreEqual(1, text.Split(new[] { "export import winrt.Microsoft.UI.Xaml;" }, StringSplitOptions.None).Length - 1);
-            StringAssert.Contains(text, "#define XAML_IMPL_MODULE");
-            StringAssert.Contains(text, "#include \"Page.xaml.g.h\"");
-            StringAssert.Contains(text, "#undef XAML_IMPL_MODULE");
-            Assert.IsFalse(text.Contains("WINRT_XAML"));
-            Assert.IsFalse(text.Contains("export module Test.Page:"));
-        }
-
-        [TestMethod]
         public void Aggregator_OnlyReExportsIndependentInterfacesFromTheFullClassSet()
         {
             string text = CppWinRTProjectionDependency.WriteAggregator("Test", new[] { "Test.SecondPage", "Test.App", "Test.MainPage", "Test.MainPage" });
