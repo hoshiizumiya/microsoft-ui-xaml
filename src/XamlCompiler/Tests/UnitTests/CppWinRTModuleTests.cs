@@ -206,38 +206,44 @@ namespace UnitTests
         }
 
         [TestMethod]
-        public void Header_IsModuleAwareAndIdenticalWithModulesEnabledOrDisabled()
+        public void ModuleBuild_MovesXamlDeclarationsOutOfTheLegacyHeaderContract()
         {
             var traditional = GeneratePage(false);
             var modules = GeneratePage(true);
             Assert.AreEqual(1, traditional.Count);
             Assert.AreEqual(2, modules.Count);
-            string header = traditional.Single().Contents;
-            Assert.AreEqual(header, modules.Single(file => file.FileName.EndsWith(".h")).Contents);
-            StringAssert.Contains(header, "#ifndef XAML_IMPL_MODULE");
-            StringAssert.Contains(header, "#include <winrt/Microsoft.UI.Xaml.h>");
-            StringAssert.Contains(header, "#define XAML_EXPORT export extern \"C++\"");
-            StringAssert.Contains(header, "struct MainPageT");
-            Assert.IsFalse(header.Contains("export module"));
-            Assert.IsFalse(header.Contains("Application_Xaml"));
-            Assert.IsFalse(header.Contains("WINRT_XAML_SKIP_BODY"));
-            Assert.IsFalse(header.Contains("XAML_USE_MODULE"));
-            Assert.IsFalse(header.Contains("WINRT_IMPORT_MODULE"));
+
+            string traditionalHeader = traditional.Single().Contents;
+            StringAssert.Contains(traditionalHeader, "struct MainPageT");
+
+            string sentinel = modules.Single(file => file.FileName.EndsWith(".h")).Contents;
+            StringAssert.Contains(sentinel, "named-module sentinel");
+            Assert.IsFalse(sentinel.Contains("struct MainPageT"));
+            Assert.IsFalse(sentinel.Contains("#include <winrt/"));
+
             string module = modules.Single(file => file.FileName.EndsWith(".ixx")).Contents;
             StringAssert.Contains(module, "export module Test.Application_Xaml.MainPage;");
+            StringAssert.Contains(module, "#define WINRT_IMPORT_MODULE");
+            StringAssert.Contains(module, "#include \"MainPage.g.h\"");
+            StringAssert.Contains(module, "#define XAML_IMPL_MODULE");
+            StringAssert.Contains(module, "struct MainPageT");
             StringAssert.Contains(module, "export import winrt.Microsoft.UI.Xaml.Controls;");
-            Assert.IsFalse(module.Contains("Controls.Primitives"));
+            Assert.IsFalse(module.Contains("WINRT_XAML"));
+            Assert.IsFalse(module.Contains("XAML_USE_MODULE"));
         }
 
         [TestMethod]
-        public void App_PreservesInlineMethodsAndDefersHandwrittenProviderInstantiation()
+        public void App_ModuleOwnsTheGeneratedAppTemplate()
         {
-            string header = GeneratePage(true, true).Single(file => file.FileName.EndsWith(".h")).Contents;
-            StringAssert.Contains(header, "XamlAppMetadataProvider<D>::type");
-            StringAssert.Contains(header, "winrt::make_self<XamlMetaDataProvider>()");
-            Assert.IsFalse(header.Contains("AppT();"));
-            Assert.IsFalse(header.Contains("~AppT();"));
-            Assert.IsFalse(header.Contains("export module"));
+            var files = GeneratePage(true, true);
+            string sentinel = files.Single(file => file.FileName.EndsWith(".h")).Contents;
+            Assert.IsFalse(sentinel.Contains("XamlAppMetadataProvider<D>::type"));
+
+            string module = files.Single(file => file.FileName.EndsWith(".ixx")).Contents;
+            StringAssert.Contains(module, "XamlAppMetadataProvider<D>::type");
+            StringAssert.Contains(module, "winrt::make_self<XamlMetaDataProvider>()");
+            Assert.IsFalse(module.Contains("AppT();"));
+            Assert.IsFalse(module.Contains("~AppT();"));
         }
 
         [TestMethod]
@@ -247,7 +253,8 @@ namespace UnitTests
             var project = new XamlProjectInfo
             {
                 RootNamespace = "Test", ProjectName = "Test", TargetPlatformMinVersion = new Version(KnownVersions.Latest),
-                ClassToHeaderFileMap = new Dictionary<string, string> { { "Test.MainPage", "MainPage.xaml.h" }, { "Test.SecondPage", "SecondPage.xaml.h" } }
+                ClassToHeaderFileMap = new Dictionary<string, string> { { "Test.MainPage", "MainPage.xaml.h" }, { "Test.SecondPage", "SecondPage.xaml.h" } },
+                XamlClassNames = new[] { "Test.MainPage", "Test.SecondPage" }
             };
             project.SetEmptyAdditionalXamlTypeInfoIncludes();
             var schema = new XamlSchemaCodeInfo();
@@ -263,16 +270,14 @@ namespace UnitTests
             string moduleText = helper.GenerateTypeInfo(false, schema, project, new ClassName("Test.App"), CodeGenLanguage.CppWinRT)
                 .Single(file => file.FileName == "XamlTypeInfo.g.cpp").Contents;
             int firstImport = moduleText.IndexOf("import winrt.", StringComparison.Ordinal);
-            int rootImport = moduleText.IndexOf("import Test.Application_Xaml;", StringComparison.Ordinal);
             Assert.IsTrue(firstImport >= 0);
-            Assert.IsTrue(rootImport > firstImport);
-            foreach (string header in new[] { "MainPage.xaml.h", "SecondPage.xaml.h" })
-            {
-                int local = moduleText.IndexOf("#include \"" + header + "\"", StringComparison.Ordinal);
-                Assert.IsTrue(local >= 0 && local < firstImport && local < rootImport);
-            }
+            StringAssert.Contains(moduleText, "import Test.MainPage;");
+            StringAssert.Contains(moduleText, "import Test.SecondPage;");
+            Assert.IsFalse(moduleText.Contains("import Test.Application_Xaml.Support;"));
+            Assert.IsFalse(moduleText.Contains("import Test.Application_Xaml;"));
+            Assert.IsFalse(moduleText.Contains("#include \"MainPage.xaml.h\""));
+            Assert.IsFalse(moduleText.Contains("#include \"SecondPage.xaml.h\""));
             StringAssert.Contains(moduleText, "import std;");
-            StringAssert.Contains(moduleText, "import Test.Application_Xaml.Support;");
             Assert.IsFalse(moduleText.Contains("#include <vector>"));
             Assert.IsFalse(moduleText.Contains("XAML_USE_MODULE"));
             Assert.IsFalse(moduleText.Contains("WINRT_IMPORT_MODULE"));
