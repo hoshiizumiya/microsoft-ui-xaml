@@ -31,7 +31,23 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace winrt::");
+#pragma once
+#ifndef XAML_IMPL_MODULE
+#include <unknwn.h>
+#undef GetCurrentTime
+#include <functional>
+#include <map>
+#include <memory>
+#include <vector>
+#include <mutex>
+#include <cstdint>
+");
+  foreach (var projectionNamespace in CppWinRTProjectionDependency.TypeInfoSupportNamespaces) { 
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionHeaderDirective(projectionNamespace, optionalHeader: true)));
+            this.Write("\r\n");
+  } 
+            this.Write("#endif\r\n\r\n#ifdef XAML_IMPL_MODULE\r\n#define XAML_EXPORT export extern \"C++\"\r\n#else" +
+                    "\r\n#define XAML_EXPORT\r\n#endif\r\n\r\nXAML_EXPORT namespace winrt::");
             this.Write(this.ToStringHelper.ToStringWithCulture(Colonize(ProjectInfo.RootNamespace)));
             this.Write("::implementation\r\n{\r\n    using IInspectable = ");
             this.Write(this.ToStringHelper.ToStringWithCulture(Projection(KnownNamespaces.WindowsFoundation)));
@@ -58,13 +74,14 @@ namespace winrt::");
         std::map<std::wstring, IXamlMember> _xamlMembers;
         IXamlType CreateXamlType(::winrt::hstring const& typeName);
         IXamlMember CreateXamlMember(::winrt::hstring const& longMemberName);
+
         std::vector<");
             this.Write(this.ToStringHelper.ToStringWithCulture(Projection(KnownNamespaces.XamlMarkup)));
             this.Write("::IXamlMetadataProvider> _otherProviders;\r\n        std::vector<");
             this.Write(this.ToStringHelper.ToStringWithCulture(Projection(KnownNamespaces.XamlMarkup)));
-            this.Write("::IXamlMetadataProvider> const& OtherProviders();\r\n        IXamlType CheckOtherMe" +
-                    "tadataProvidersForName(::winrt::hstring const& typeName);\r\n        IXamlType Che" +
-                    "ckOtherMetadataProvidersForType(");
+            this.Write("::IXamlMetadataProvider> const& OtherProviders();\r\n\r\n        IXamlType CheckOther" +
+                    "MetadataProvidersForName(::winrt::hstring const& typeName);\r\n        IXamlType C" +
+                    "heckOtherMetadataProvidersForType(");
             this.Write(this.ToStringHelper.ToStringWithCulture(Projection(KnownNamespaces.WindowsXamlInterop)));
             this.Write("::TypeName const& t);\r\n    };\r\n\r\n    struct XamlSystemBaseType : public ::winrt::" +
                     "implements<XamlSystemBaseType, ");
@@ -72,6 +89,8 @@ namespace winrt::");
             this.Write(@"::IXamlType>
     {
         explicit XamlSystemBaseType(::winrt::hstring const& name);
+
+        // IXamlType
         IXamlType BaseType() const;
         IXamlMember ContentProperty() const;
         ::winrt::hstring FullName() const;
@@ -87,6 +106,7 @@ namespace winrt::");
         IXamlType ItemType() const;
         IXamlType KeyType() const;
         IXamlType BoxedType() const;
+
         ");
             this.Write(this.ToStringHelper.ToStringWithCulture(Projection(KnownNamespaces.WindowsXamlInterop)));
             this.Write(@"::TypeName UnderlyingType() const;
@@ -114,8 +134,14 @@ namespace winrt::");
             this.Write(this.ToStringHelper.ToStringWithCulture(xamlTypeInterfaces));
             this.Write(@">
     {
-        explicit XamlUserType(std::shared_ptr<XamlTypeInfoProvider> const& provider, ::winrt::hstring const& fullName, IXamlType baseType);
+        explicit XamlUserType(
+            std::shared_ptr<XamlTypeInfoProvider> const& provider, 
+            ::winrt::hstring const& fullName, 
+            IXamlType baseType);
+
         ::winrt::hstring GetRuntimeClassName() const;
+
+        // IXamlType
         IXamlType BaseType() const;
         IXamlMember ContentProperty() const;
         ::winrt::hstring FullName() const;
@@ -140,19 +166,23 @@ namespace winrt::");
         void AddToVector(IInspectable const& instance, IInspectable const& value) const;
         void AddToMap(IInspectable const& instance, IInspectable const& key, IInspectable const& value) const;
         void RunInitializer() const;
+
+        // Additional Setters
         void IsArray(bool value);
         void IsMarkupExtension(bool value);
         void IsEnum(bool value);
         void IsBindable(bool value);
+
         bool IsReturnTypeStub() const;
         void IsReturnTypeStub(bool value);
+
         bool IsLocalType() const;
         void IsLocalType(bool value);
 
         typedef IInspectable(*ActivatorFn)();
         typedef void(*AddToCollectionFn)(IInspectable const& instance, IInspectable const& item);
         typedef void(*AddToDictionaryFn)(IInspectable const& instance, IInspectable const& key, IInspectable const& item);
-        typedef IInspectable(*CreateFromStringFn)(::winrt::hstring const& input);
+        typedef IInspectable (*CreateFromStringFn)(::winrt::hstring const& input);
         typedef IInspectable(*StringConverterFn)(XamlUserType const& userType, ::winrt::hstring const& input);
 
         ActivatorFn _activator{};
@@ -194,13 +224,18 @@ namespace winrt::");
             this.Write(this.ToStringHelper.ToStringWithCulture(Projection(KnownNamespaces.XamlMarkup)));
             this.Write(@"::IXamlMember>
     {
-        explicit XamlMember(std::shared_ptr<XamlTypeInfoProvider> const& provider, ::winrt::hstring const& name, ::winrt::hstring const& typeName);
+        explicit XamlMember(
+            std::shared_ptr<XamlTypeInfoProvider> const& provider, 
+            ::winrt::hstring const& name, 
+            ::winrt::hstring const& typeName);
 
         typedef IInspectable(*PropertyGetterFn)(IInspectable const& instance);
         typedef void(*PropertySetterFn)(IInspectable const& instance, IInspectable const& value);
+
         PropertyGetterFn _getter{};
         PropertySetterFn _setter{};
 
+        // IXamlMember
         bool IsAttachable() const;
         bool IsDependencyProperty() const;
         bool IsReadOnly() const;
@@ -209,6 +244,8 @@ namespace winrt::");
         IXamlType Type() const;
         IInspectable GetValue(IInspectable const& instance) const;
         void SetValue(IInspectable const& instance, IInspectable const& value);
+
+        // Additional Setters
         void TargetTypeName(::winrt::hstring const& value);
         void IsAttachable(bool value);
         void IsDependencyProperty(bool value);
@@ -224,6 +261,7 @@ namespace winrt::");
         std::shared_ptr<XamlTypeInfoProvider> _provider;
     };
 }
+#undef XAML_EXPORT
 ");
             return this.GenerationEnvironment.ToString();
         }

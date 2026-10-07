@@ -22,33 +22,39 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
         /// </summary>
         public override string TransformText()
         {
-            this.Write("\r\nnamespace winrt::");
+            this.Write("#pragma once\r\n#ifndef XAML_IMPL_MODULE\r\n#include <unknwn.h>\r\n#undef GetCurrentTim" +
+                    "e\r\n");
+  foreach (var projectionNamespace in Model.DeclarationCppWinRTProjectionNamespaces) { 
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionHeaderDirective(projectionNamespace)));
+            this.Write("\r\n");
+  } 
+            this.Write("#include \"XamlTypeInfo.xaml.g.h\"\r\n#include \"XamlMetaDataProvider.h\"\r\n#endif\r\n\r\n#i" +
+                    "fdef XAML_IMPL_MODULE\r\n#define XAML_EXPORT export extern \"C++\"\r\n#else\r\n#define X" +
+                    "AML_EXPORT\r\n#endif\r\n\r\nXAML_EXPORT namespace winrt::");
             this.Write(this.ToStringHelper.ToStringWithCulture(Colonize(ProjectInfo.RootNamespace)));
             this.Write("::implementation\r\n{\r\n    struct XamlMetaDataProvider;\r\n    template <typename D> " +
                     "struct XamlAppMetadataProvider\r\n    {\r\n        using type = XamlMetaDataProvider" +
-                    ";\r\n    };\r\n}\r\n\r\nnamespace winrt::");
+                    ";\r\n    };\r\n}\r\n\r\nXAML_EXPORT namespace winrt::");
             this.Write(this.ToStringHelper.ToStringWithCulture(Colonize(Model.CodeInfo.ClassName.Namespace)));
             this.Write("::implementation\r\n{\r\n    template <typename D, typename ... Interfaces>\r\n    stru" +
-                    "ct AppT : public ::winrt::");
-            this.Write(this.ToStringHelper.ToStringWithCulture(Colonize(Model.CodeInfo.ClassName.Namespace)));
-            this.Write("::implementation::App_base<D,\r\n        ");
+                    "ct AppT: public ");
+            this.Write(this.ToStringHelper.ToStringWithCulture(Projection(Model.CodeInfo.BaseTypeName)));
+            this.Write("T<D, ");
             this.Write(this.ToStringHelper.ToStringWithCulture(Projection(KnownNamespaces.XamlMarkup)));
-            this.Write("::IXamlMetadataProvider,\r\n        Interfaces...>\r\n    {\r\n        using base_type " +
-                    "= typename AppT::base_type;\r\n        using base_type::base_type;\r\n        using " +
-                    "XamlMetaDataProvider = typename ::winrt::");
+            this.Write("::IXamlMetadataProvider, Interfaces...>\r\n    {\r\n        using XamlMetaDataProvide" +
+                    "r = typename ::winrt::");
             this.Write(this.ToStringHelper.ToStringWithCulture(Colonize(ProjectInfo.RootNamespace)));
             this.Write("::implementation::XamlAppMetadataProvider<D>::type;\r\n        using IXamlType = ");
             this.Write(this.ToStringHelper.ToStringWithCulture(Projection(KnownNamespaces.XamlMarkup)));
             this.Write("::IXamlType;\r\n\r\n        void InitializeComponent()\r\n        {\r\n            if (_c" +
-                    "ontentLoaded)\r\n            {\r\n                return;\r\n            }\r\n\r\n        " +
-                    "    _contentLoaded = true;\r\n            ::winrt::Windows::Foundation::Uri resour" +
-                    "ceLocator{ L\"");
+                    "ontentLoaded)\r\n                return;\r\n           \r\n            _contentLoaded " +
+                    "= true;\r\n\r\n            ::winrt::Windows::Foundation::Uri resourceLocator{ L\"");
             this.Write(this.ToStringHelper.ToStringWithCulture(Model.GetLoadComponentUri(Model.CodeInfo.PriIndexName, Model.CodeInfo.BaseApparentRelativePath)));
             this.Write("\" };\r\n            ");
             this.Write(this.ToStringHelper.ToStringWithCulture(Projection(KnownNamespaces.Xaml)));
             this.Write("::Application::LoadComponent(*this, resourceLocator);\r\n        }\r\n\r\n");
   if(!ProjectInfo.GenerateProviderCode) { 
-            this.Write("        void AddOtherProvider(");
+            this.Write("\r\n        void AddOtherProvider(");
             this.Write(this.ToStringHelper.ToStringWithCulture(Projection(KnownNamespaces.XamlMarkup)));
             this.Write("::IXamlMetadataProvider const& otherProvider)\r\n        {\r\n            AppProvider" +
                     "()->AddOtherProvider(otherProvider);\r\n        }\r\n");
@@ -85,6 +91,8 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
         }
     };
 }
+
+#undef XAML_EXPORT
 ");
             return this.GenerationEnvironment.ToString();
         }

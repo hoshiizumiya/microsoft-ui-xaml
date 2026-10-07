@@ -30,9 +30,23 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 //     the code is regenerated.
 //------------------------------------------------------------------------------
 
+#pragma once
+#ifndef XAML_IMPL_MODULE
+#include <unknwn.h>
+#undef GetCurrentTime
+#include <cstdint>
 ");
+  foreach (var projectionNamespace in Model.DeclarationCppWinRTProjectionNamespaces) { 
+            this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionHeaderDirective(projectionNamespace, optionalHeader: true)));
+            this.Write("\r\n");
+  } 
   if (Model.CodeInfo.BindStatus != BindStatus.None) { 
-            this.Write("namespace winrt::");
+            this.Write("#include \"XamlBindingInfo.xaml.g.h\"\r\n");
+  } 
+            this.Write("#endif\r\n\r\n#ifdef XAML_IMPL_MODULE\r\n#define XAML_EXPORT export extern \"C++\"\r\n#else" +
+                    "\r\n#define XAML_EXPORT\r\n#endif\r\n\r\n");
+  if (Model.CodeInfo.BindStatus != BindStatus.None) { 
+            this.Write("XAML_EXPORT namespace winrt::");
             this.Write(this.ToStringHelper.ToStringWithCulture(Colonize(ProjectInfo.RootNamespace)));
             this.Write("::implementation\r\n{\r\n    struct XamlBindings;\r\n}\r\n");
   } 
@@ -43,20 +57,27 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
         var baseTypeNamespace = baseTypeName.Substring(0, baseTypeSeparator);
         var baseTypeShortName = baseTypeName.Substring(baseTypeSeparator + 1);
 
-            this.Write("namespace winrt::");
+            this.Write("XAML_EXPORT namespace winrt::");
             this.Write(this.ToStringHelper.ToStringWithCulture(Colonize(baseTypeNamespace)));
             this.Write("::implementation\r\n{\r\n    struct ");
             this.Write(this.ToStringHelper.ToStringWithCulture(baseTypeShortName));
             this.Write(";\r\n}\r\n");
   } 
-            this.Write("\r\nnamespace winrt::");
+            this.Write("\r\nXAML_EXPORT namespace winrt::");
             this.Write(this.ToStringHelper.ToStringWithCulture(Colonize(Model.CodeInfo.ClassName.Namespace)));
-            this.Write("::implementation\r\n{\r\n    using IInspectable = ");
+            this.Write("::implementation\r\n{\r\n");
+  if (Model.CodeInfo.HasInComponentBase) { 
+            this.Write("    template <typename D, typename B, typename... I>\r\n    struct ");
+            this.Write(this.ToStringHelper.ToStringWithCulture(Model.CodeInfo.ClassName.ShortName));
+            this.Write("_base;\r\n");
+  } else { 
+            this.Write("    template <typename D, typename... I>\r\n    struct ");
+            this.Write(this.ToStringHelper.ToStringWithCulture(Model.CodeInfo.ClassName.ShortName));
+            this.Write("_base;\r\n");
+  } 
+            this.Write("\r\n    using IInspectable = ");
             this.Write(this.ToStringHelper.ToStringWithCulture(Projection(KnownNamespaces.WindowsFoundation)));
-            this.Write("::IInspectable;\r\n\r\n    // C++/WinRT\'s generated <Type>.g.h owns <Type>_base and t" +
-                    "he factory scaffolding.\r\n    // XamlC extends that producer base inside the same" +
-                    " named-module partition.\r\n    template <typename D, typename ... I>\r\n    struct " +
-                    "");
+            this.Write("::IInspectable;\r\n\r\n    template <typename D, typename ... I>\r\n    struct ");
             this.Write(this.ToStringHelper.ToStringWithCulture(Model.CodeInfo.ClassName.ShortName));
             this.Write("T : public ::winrt::");
             this.Write(this.ToStringHelper.ToStringWithCulture(Colonize(Model.CodeInfo.ClassName.Namespace)));
@@ -112,8 +133,9 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             this.Write("#pragma warning(pop)\r\n");
       }
   }
+            this.Write("        ");
   if (Model.CodeInfo.BindStatus != BindStatus.None) { 
-            this.Write("\r\n        ::winrt::com_ptr<");
+            this.Write("\r\n         ::winrt::com_ptr<");
             this.Write(this.ToStringHelper.ToStringWithCulture(Projection(ProjectInfo.RootNamespace)));
             this.Write("::implementation::XamlBindings> Bindings;\r\n");
   } 
@@ -137,7 +159,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             this.Write("#pragma warning(pop)\r\n");
       }
   }
-            this.Write("    };\r\n}\r\n");
+            this.Write("    };\r\n}\r\n#undef XAML_EXPORT\r\n");
             return this.GenerationEnvironment.ToString();
         }
     }
