@@ -253,25 +253,27 @@ namespace UnitTests
             project.BuildXamlModules = true;
             string moduleText = helper.GenerateTypeInfo(false, schema, project, new ClassName("Test.App"), CodeGenLanguage.CppWinRT)
                 .Single(file => file.FileName == "XamlTypeInfo.g.cpp").Contents;
-            int firstImport = moduleText.IndexOf("import winrt.", StringComparison.Ordinal);
+            int firstImport = moduleText.IndexOf("import ", StringComparison.Ordinal);
             int rootImport = moduleText.IndexOf("import Test.Application_Xaml;", StringComparison.Ordinal);
+            int vectorInclude = moduleText.IndexOf("#include <vector>", StringComparison.Ordinal);
             Assert.IsTrue(firstImport >= 0);
-            Assert.IsTrue(rootImport > firstImport);
+            Assert.IsTrue(rootImport >= 0);
+            Assert.IsTrue(vectorInclude >= 0 && vectorInclude < firstImport);
             StringAssert.Contains(moduleText, "import Test.Application_Xaml.TypeInfo;");
             StringAssert.Contains(moduleText, "import Test.Application_Xaml.BindingInfo;");
+            StringAssert.Contains(moduleText, "import winrt_base;");
+            StringAssert.Contains(moduleText, "#define WINRT_IMPORT_MODULE");
             Assert.IsFalse(moduleText.Contains("Application_Xaml.Support"));
+            Assert.IsFalse(moduleText.Contains("import std;"));
+            Assert.IsFalse(moduleText.Contains("\nmodule;"));
+            Assert.IsFalse(moduleText.Contains("module Test.Application_Xaml.TypeInfo;"));
+            Assert.IsFalse(moduleText.Contains("XAML_USE_MODULE"));
+            Assert.IsFalse(moduleText.Contains("export module"));
             foreach (string header in new[] { "MainPage.xaml.h", "SecondPage.xaml.h" })
             {
                 int local = moduleText.IndexOf("#include \"" + header + "\"", StringComparison.Ordinal);
-                Assert.IsTrue(local > rootImport);
+                Assert.IsTrue(local > firstImport);
             }
-            StringAssert.Contains(moduleText, "#define WINRT_IMPORT_MODULE");
-            StringAssert.Contains(moduleText, "import std;");
-            Assert.IsFalse(moduleText.Contains("#include <vector>"));
-            Assert.IsFalse(moduleText.Contains("module Test.Application_Xaml.TypeInfo;"));
-            Assert.IsFalse(moduleText.Contains("XAML_USE_MODULE"));
-            Assert.IsFalse(moduleText.Contains("WINRT_IMPORT_MODULE"));
-            Assert.IsFalse(moduleText.Contains("export module"));
             Assert.AreNotEqual(headerText, moduleText);
 
             project.PrecompiledHeaderFile = "pch.h";
