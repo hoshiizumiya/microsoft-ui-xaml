@@ -248,14 +248,13 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             IEnumerable<string> importedModules = null)
         {
             var text = new StringBuilder();
-            text.AppendLine("module;");
             text.AppendLine("#include <windows.h>");
             text.AppendLine("#include <unknwn.h>");
             text.AppendLine("#include <winrt/base_macros.h>");
             text.AppendLine("#undef GetCurrentTime");
             // C++/WinRT 3.x implementation mode uses an ordinary translation unit
-            // with explicit imports. Do not attach generated implementation code or
-            // user implementation headers to a named module with 'module <name>;'.
+            // with explicit imports. Do not emit a global module fragment or attach
+            // generated implementation code to a named module.
             text.AppendLine("#ifndef WINRT_IMPORT_MODULE");
             text.AppendLine("#define WINRT_IMPORT_MODULE");
             text.AppendLine("#endif");
