@@ -76,9 +76,13 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                         CppWinRTProjectionDependency.WriteXamlHeaderSentinel(moduleName)));
 
                     IEnumerable<string> projectionNamespaces = model.DeclarationCppWinRTProjectionNamespaces;
-                    if (!String.IsNullOrWhiteSpace(_projectInfo.RootNamespace))
+                    // A C++/WinRT producer <Type>.g.h defines <Type>_base in terms of the
+                    // runtimeclass projection that owns x:Class. Import that exact namespace,
+                    // not the project root: nested namespaces can have their own projection
+                    // modules and a bare winrt.<RootNamespace> module need not exist.
+                    if (!codeInfo.IsApplication && !String.IsNullOrWhiteSpace(codeInfo.ClassName.Namespace))
                     {
-                        projectionNamespaces = projectionNamespaces.Concat(new[] { _projectInfo.RootNamespace });
+                        projectionNamespaces = projectionNamespaces.Concat(new[] { codeInfo.ClassName.Namespace });
                     }
 
                     retList.Add(new FileNameAndContentPair(
