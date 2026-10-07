@@ -1,4 +1,5 @@
-// Direct consumer of the public XAML module contract. The root import is sufficient.
+// Direct consumer of the public XAML declaration aggregator.
 import XamlCppWinRTModulesSample.Application_Xaml;
 
-static_assert(sizeof(winrt::XamlCppWinRTModulesSample::implementation::XamlBindings) > 0);
+static_assert(sizeof(
+    winrt::XamlCppWinRTModulesSample::implementation::MainWindowT<struct ModuleSmokeMainWindow>) > 0);
