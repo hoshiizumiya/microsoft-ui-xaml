@@ -42,7 +42,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
   }
             this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTConsumerPreamble()));
             this.Write("\r\n\r\n");
-  if (!ProjectInfo.BuildXamlModules || String.IsNullOrWhiteSpace(ProjectInfo.XamlCodeBehindModule)) { 
+  if (!ProjectInfo.BuildXamlModules) { 
             this.Write("#include <cstdint>\r\n#include <memory>\r\n#include <type_traits>\r\n#include <utility>" +
                     "\r\n\r\n");
       foreach (var includeFile in Model.NeededLocalXamlHeaderFiles) { 
@@ -50,10 +50,6 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             this.Write(this.ToStringHelper.ToStringWithCulture(includeFile));
             this.Write("\"\r\n");
       }
-  } else { 
-            this.Write("import std;\r\nimport ");
-            this.Write(this.ToStringHelper.ToStringWithCulture(ProjectInfo.XamlCodeBehindModule));
-            this.Write(";\r\n");
   } 
   foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { 
             this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)));

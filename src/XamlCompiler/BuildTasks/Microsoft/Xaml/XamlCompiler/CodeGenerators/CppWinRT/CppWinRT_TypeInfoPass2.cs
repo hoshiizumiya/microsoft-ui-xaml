@@ -66,7 +66,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             this.Write(this.ToStringHelper.ToStringWithCulture(additionalHeader.ItemSpec));
             this.Write("\"\r\n");
       } 
-      if (!ProjectInfo.BuildXamlModules || String.IsNullOrWhiteSpace(ProjectInfo.XamlCodeBehindModule)) { 
+      if (!ProjectInfo.BuildXamlModules) { 
           foreach(string includeFile in ProjectInfo.ClassToHeaderFileMap.Values) { 
             this.Write("#include \"");
             this.Write(this.ToStringHelper.ToStringWithCulture(includeFile));
@@ -87,14 +87,11 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
   if (!ProjectInfo.BuildXamlModules) { 
             this.Write("#include \"XamlTypeInfo.xaml.g.h\"\r\n#include \"XamlBindingInfo.xaml.g.h\"\r\n");
   } else { 
-      if (!String.IsNullOrWhiteSpace(ProjectInfo.XamlCodeBehindModule)) { 
             this.Write("import ");
-            this.Write(this.ToStringHelper.ToStringWithCulture(ProjectInfo.XamlCodeBehindModule));
-            this.Write(";\r\n");
-      } 
-            this.Write("import ");
-            this.Write(this.ToStringHelper.ToStringWithCulture(CppWinRTProjectionDependency.GetXamlPrimaryModuleName(ProjectInfo.RootNamespace)));
-            this.Write(".Support;\r\nimport ");
+            this.Write(this.ToStringHelper.ToStringWithCulture(CppWinRTProjectionDependency.GetTypeInfoModuleName(ProjectInfo.RootNamespace)));
+            this.Write(";\r\nimport ");
+            this.Write(this.ToStringHelper.ToStringWithCulture(CppWinRTProjectionDependency.GetBindingInfoModuleName(ProjectInfo.RootNamespace)));
+            this.Write(";\r\nimport ");
             this.Write(this.ToStringHelper.ToStringWithCulture(CppWinRTProjectionDependency.GetXamlPrimaryModuleName(ProjectInfo.RootNamespace)));
             this.Write(";\r\n");
   } 
