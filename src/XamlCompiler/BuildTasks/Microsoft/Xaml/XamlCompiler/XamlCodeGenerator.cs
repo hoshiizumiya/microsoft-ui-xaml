@@ -38,12 +38,12 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 
         private IEnumerable<string> GetAuthoredXamlModules()
         {
-            if (_projectInfo.ClassToHeaderFileMap == null)
+            if (!String.IsNullOrWhiteSpace(_projectInfo.XamlCodeBehindModule))
             {
-                return Enumerable.Empty<string>();
+                return new[] { _projectInfo.XamlCodeBehindModule };
             }
 
-            return _projectInfo.ClassToHeaderFileMap.Keys
+            return (_projectInfo.XamlClassNames ?? Enumerable.Empty<string>())
                 .Where(className => !String.IsNullOrWhiteSpace(className))
                 .Select(CppWinRTProjectionDependency.GetAuthoredXamlModuleName)
                 .Distinct(StringComparer.Ordinal)
@@ -111,7 +111,9 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
 
                 var importedModules = new List<string>
                 {
-                    CppWinRTProjectionDependency.GetAuthoredXamlModuleName(codeInfo.ClassName.FullName),
+                    !String.IsNullOrWhiteSpace(_projectInfo.XamlCodeBehindModule)
+                        ? _projectInfo.XamlCodeBehindModule
+                        : CppWinRTProjectionDependency.GetAuthoredXamlModuleName(codeInfo.ClassName.FullName),
                 };
                 if (codeInfo.BindStatus != BindStatus.None)
                 {
