@@ -223,7 +223,18 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                         "algorithm", "cstddef", "cstdint", "functional", "map", "memory",
                         "mutex", "regex", "string", "type_traits", "utility", "vector",
                     });
-                string localHeaders = ! _projectInfo.GenerateIncrementalTypeInfo && _projectInfo.ClassToHeaderFileMap != null
+                // CppWinRT emits this ordinary source wrapper for the metadata provider IDL.
+                // Replace its legacy XamlMetaDataProvider.h include with an explicit TypeInfo
+                // module import, then compile the generated producer scaffold in the same TU.
+                string metadataProviderPreamble = CppWinRTProjectionDependency.WriteImplementationUnitPreamble(
+                    moduleName,
+                    projectionNamespaces,
+                    new[] { moduleName });
+                retList.Add(new FileNameAndContentPair(
+                    "XamlMetaDataProvider.cpp",
+                    metadataProviderPreamble + "\n#include \"XamlMetaDataProvider.g.cpp\"\n"));
+
+                string localHeaders = !_projectInfo.GenerateIncrementalTypeInfo && _projectInfo.ClassToHeaderFileMap != null
                     ? String.Join(Environment.NewLine, _projectInfo.ClassToHeaderFileMap.Values.Distinct(StringComparer.Ordinal).Select(header => "#include \"" + header + "\""))
                     : String.Empty;
                 retList.Add(new FileNameAndContentPair("XamlTypeInfo.g.cpp", typeInfoPreamble + "\n" + localHeaders + "\n" + code));
