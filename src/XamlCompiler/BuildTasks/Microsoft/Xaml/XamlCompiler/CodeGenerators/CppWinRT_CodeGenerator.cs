@@ -203,6 +203,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             IEnumerable<string> namespaces,
             string generatedSource,
             IEnumerable<string> importedModules = null,
+            IEnumerable<string> exportedModules = null,
             string cppWinRTProducerHeader = null,
             bool exportProjectionDependencies = true)
         {
@@ -221,9 +222,17 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                 text.AppendLine($"{(exportProjectionDependencies ? "export " : String.Empty)}import {GetModuleName(ns)};");
             }
 
+            var exportedModuleNames = exportedModules == null
+                ? new string[0]
+                : exportedModules.Where(name => !String.IsNullOrWhiteSpace(name)).Distinct(StringComparer.Ordinal).OrderBy(name => name, StringComparer.Ordinal).ToArray();
+            foreach (var exportedModule in exportedModuleNames)
+            {
+                text.AppendLine($"export import {exportedModule};");
+            }
+
             if (importedModules != null)
             {
-                foreach (var importedModule in importedModules.Where(name => !String.IsNullOrWhiteSpace(name)).Distinct(StringComparer.Ordinal).OrderBy(name => name, StringComparer.Ordinal))
+                foreach (var importedModule in importedModules.Where(name => !String.IsNullOrWhiteSpace(name) && !exportedModuleNames.Contains(name)).Distinct(StringComparer.Ordinal).OrderBy(name => name, StringComparer.Ordinal))
                 {
                     text.AppendLine($"import {importedModule};");
                 }
@@ -245,26 +254,20 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
         public static string WriteImplementationUnitPreamble(
             string moduleName,
             IEnumerable<string> projectionNamespaces,
-            IEnumerable<string> importedModules = null)
+            IEnumerable<string> importedModules = null,
+            IEnumerable<string> textualHeaders = null)
         {
             var text = new StringBuilder();
             text.AppendLine("#include <windows.h>");
             text.AppendLine("#include <unknwn.h>");
             text.AppendLine("#include <winrt/base_macros.h>");
-            text.AppendLine("#include <algorithm>");
-            text.AppendLine("#include <cstddef>");
-            text.AppendLine("#include <cstdint>");
-            text.AppendLine("#include <functional>");
-            text.AppendLine("#include <list>");
-            text.AppendLine("#include <map>");
-            text.AppendLine("#include <memory>");
-            text.AppendLine("#include <mutex>");
-            text.AppendLine("#include <regex>");
-            text.AppendLine("#include <string>");
-            text.AppendLine("#include <type_traits>");
-            text.AppendLine("#include <unordered_map>");
-            text.AppendLine("#include <utility>");
-            text.AppendLine("#include <vector>");
+            if (textualHeaders != null)
+            {
+                foreach (var header in textualHeaders.Where(name => !String.IsNullOrWhiteSpace(name)).Distinct(StringComparer.Ordinal).OrderBy(name => name, StringComparer.Ordinal))
+                {
+                    text.AppendLine($"#include <{header}>");
+                }
+            }
             text.AppendLine("#undef GetCurrentTime");
             // C++/WinRT 3.x implementation mode uses an ordinary translation unit.
             // The standard library is owned textually here, before any imports; only
