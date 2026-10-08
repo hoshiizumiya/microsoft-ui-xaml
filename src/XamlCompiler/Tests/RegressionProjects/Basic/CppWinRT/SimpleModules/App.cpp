@@ -25,6 +25,7 @@ import winrt.Simple.Models;
 
 #ifdef WINRT_IMPORT_MODULE
 import Simple.Application_Xaml.App;
+import Simple.Application_Xaml.MainPage;
 #endif
 #include "App.h"
 #include "MainPage.h"
