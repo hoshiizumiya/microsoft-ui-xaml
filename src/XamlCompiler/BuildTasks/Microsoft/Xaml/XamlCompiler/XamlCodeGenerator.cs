@@ -91,7 +91,10 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                             moduleName,
                             projectionNamespaces,
                             code,
-                            cppWinRTProducerHeader: codeInfo.IsApplication ? null : codeInfo.BaseFileName + ".g.h")));
+                            // cppwinrt names the producer scaffold after the runtimeclass, not the
+                            // XAML item. These names can differ (for example DummyFile.xaml can
+                            // declare Test.MainPage), so derive <Type>.g.h from x:Class.
+                            cppWinRTProducerHeader: codeInfo.IsApplication ? null : codeInfo.ClassName.ShortName + ".g.h")));
                     return retList;
                 }
 

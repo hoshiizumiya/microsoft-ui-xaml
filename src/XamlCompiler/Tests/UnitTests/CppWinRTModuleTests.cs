@@ -209,7 +209,10 @@ namespace UnitTests
             string module = modules.Single(file => file.FileName.EndsWith(".ixx")).Contents;
             StringAssert.Contains(module, "export module Test.Application_Xaml.MainPage;");
             StringAssert.Contains(module, "#define WINRT_IMPORT_MODULE");
+            // TestHelper intentionally materializes DummyFile.xaml. The producer scaffold is
+            // nevertheless named from x:Class (Test.MainPage), as cppwinrt emits MainPage.g.h.
             StringAssert.Contains(module, "#include \"MainPage.g.h\"");
+            Assert.IsFalse(module.Contains("#include \"DummyFile.g.h\""));
             StringAssert.Contains(module, "#define XAML_IMPL_MODULE");
             StringAssert.Contains(module, "struct MainPageT");
             StringAssert.Contains(module, "export import winrt.Microsoft.UI.Xaml.Controls;");

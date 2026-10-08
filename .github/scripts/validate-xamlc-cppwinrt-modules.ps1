@@ -133,8 +133,7 @@ function Assert-XamlGraph([string]$Directory, [string]$Namespace, [string[]]$Cla
             if (-not $interface.Contains('#define WINRT_IMPORT_MODULE')) {
                 throw "$identity does not enable WINRT_IMPORT_MODULE for its producer scaffold."
             }
-            $producerHeader = $source[0].Name -replace '\.xaml\.g\.ixx$', ''
-            if (-not $interface.Contains("#include `"$producerHeader.g.h`"")) {
+            if (-not $interface.Contains("#include `"$shortName.g.h`"")) {
                 throw "$identity does not absorb its C++/WinRT producer scaffold."
             }
         }
