@@ -103,6 +103,11 @@
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(CppWinRTBuildModule)'=='true'">
+    <ClCompile>
+      <PreprocessorDefinitions>NUGETMODULES_USE_MODULES;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <ItemGroup Condition="'$(WindowsPackageType)'!='None' and Exists('Package.appxmanifest')">
     <AppxManifest Include="Package.appxmanifest">
       <SubType>Designer</SubType>

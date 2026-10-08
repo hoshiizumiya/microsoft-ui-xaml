@@ -1,5 +1,12 @@
 #include <windows.h>
 
+#if defined(NUGETMODULES_USE_MODULES)
+#define WINRT_IMPORT_MODULE
+import winrt_base;
+import NuGetModules.Application_Xaml.App;
+import NuGetModules.Application_Xaml.MainPage;
+#endif
+
 #include "App.xaml.h"
 #include "MainPage.xaml.h"
 

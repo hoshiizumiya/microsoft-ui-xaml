@@ -23,6 +23,27 @@ $config = Join-Path $testRoot 'nuget.validation.config'
 $common = @('/restore', '/m:2', '/ds:false', '/p:Platform=x64', '/p:VisualStudioVersion=18.0', '/p:PlatformToolset=v145', '/p:WindowsTargetPlatformVersion=10.0.26100.0', '/p:WindowsPackageType=None', "/p:RestoreConfigFile=$config", "/p:RestorePackagesPath=$testRoot\packages", '/v:normal')
 $binlog = Join-Path $repoRoot 'BuildOutput\binlogs'
 
+function Assert-AuthoredModuleConsumer([string]$RelativePath, [string[]]$RequiredImports, [string]$LastRequiredTextualHeader = $null) {
+    $path = Join-Path $testRoot $RelativePath
+    $text = Get-Content $path -Raw
+    if ($text -match '(?m)^module;$' -or $text -match '(?m)^module\s+[^;]+;') {
+        throw "Authored consumer became a module unit: $RelativePath"
+    }
+    if ($text.Contains('import std;')) { throw "Authored consumer imports std: $RelativePath" }
+    if (-not $text.Contains('#define WINRT_IMPORT_MODULE')) { throw "Authored consumer does not enable C++/WinRT module consumption: $RelativePath" }
+    $firstImport = $text.IndexOf('import ', [StringComparison]::Ordinal)
+    if ($firstImport -lt 0) { throw "Authored consumer has no module imports: $RelativePath" }
+    if ($LastRequiredTextualHeader) {
+        $lastHeader = $text.IndexOf($LastRequiredTextualHeader, [StringComparison]::Ordinal)
+        if ($lastHeader -lt 0 -or $lastHeader -gt $firstImport) {
+            throw "Authored consumer does not establish its STL dependencies before imports: $RelativePath"
+        }
+    }
+    foreach ($required in $RequiredImports) {
+        if (-not $text.Contains("import $required;")) { throw "$RelativePath is missing import $required." }
+    }
+}
+
 foreach ($mode in @('Module', 'Header')) {
     foreach ($configuration in @('Debug', 'Release')) {
         $module = if ($mode -eq 'Module') { 'true' } else { 'false' }
@@ -32,6 +53,11 @@ foreach ($mode in @('Module', 'Header')) {
         if ($LASTEXITCODE -ne 0) { throw "NuGet consumer $mode $configuration failed: $LASTEXITCODE" }
 
         if ($mode -eq 'Module') {
+            Assert-AuthoredModuleConsumer 'App.xaml.cpp' @('winrt_base', 'NuGetModules.Application_Xaml.App', 'NuGetModules.Application_Xaml.MainPage')
+            Assert-AuthoredModuleConsumer 'MainPage.xaml.cpp' @('winrt_base', 'NuGetModules.Application_Xaml.MainPage') '#include <cstdint>'
+            Assert-AuthoredModuleConsumer 'EmptyPage.xaml.cpp' @('winrt_base', 'NuGetModules.Application_Xaml.EmptyPage') '#include <cstdint>'
+            Assert-AuthoredModuleConsumer 'RootConsumer.cpp' @('winrt_base', 'NuGetModules.Application_Xaml')
+
             $root = @(Get-ChildItem $intermediate -Filter 'Application_Xaml.g.ixx' -Recurse -File)
             if ($root.Count -ne 1) { throw 'Automatic public root module missing.' }
             $rootText = Get-Content $root[0].FullName -Raw
