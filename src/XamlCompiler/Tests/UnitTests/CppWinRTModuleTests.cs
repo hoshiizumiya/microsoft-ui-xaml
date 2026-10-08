@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Win8Xaml.CompilerProxies;
 
@@ -178,15 +179,39 @@ namespace UnitTests
             Assert.IsFalse(removed.Contains("SecondPage"));
         }
 
-        private static List<FileNameAndContentPair> GeneratePage(bool buildModules, bool app = false)
+        private static void AssertImplementationTextualHeaders(string source, params string[] expectedHeaders)
+        {
+            var actualHeaders = Regex.Matches(source, @"(?m)^#include <([^>]+)>$")
+                .Cast<Match>()
+                .Select(match => match.Groups[1].Value)
+                .Where(header => header != "windows.h" && header != "unknwn.h" && header != "winrt/base_macros.h")
+                .ToArray();
+            var orderedExpectedHeaders = expectedHeaders.OrderBy(header => header, StringComparer.Ordinal).ToArray();
+            CollectionAssert.AreEqual(orderedExpectedHeaders, actualHeaders);
+
+            int firstImport = source.IndexOf("import ", StringComparison.Ordinal);
+            Assert.IsTrue(firstImport >= 0);
+            foreach (string header in expectedHeaders)
+            {
+                int include = source.IndexOf("#include <" + header + ">", StringComparison.Ordinal);
+                Assert.IsTrue(include >= 0 && include < firstImport, "STL header must precede module imports: " + header);
+            }
+            Assert.IsFalse(source.Contains("import std;"));
+            Assert.IsFalse(Regex.IsMatch(source, @"(?m)^module(;|\s+[^;]+;)"));
+        }
+
+        private static List<FileNameAndContentPair> GeneratePage(bool buildModules, bool app = false, bool isPass1 = true, bool includeBinding = false)
         {
             var helper = new TestHelper();
             var context = new CodeGeneratorProjectContext(new Version(KnownVersions.Latest), "Test")
             {
-                RootNamespace = "Test", IsPass1 = true, IsApplication = app, BuildXamlModules = buildModules
+                RootNamespace = "Test", IsPass1 = isPass1, IsApplication = app, BuildXamlModules = buildModules
             };
             string element = app ? "Application" : "Page";
-            string xaml = "<" + element + " xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml' x:Class='Test.MainPage' />";
+            string xamlStart = "<" + element + " xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml' x:Class='Test.MainPage'";
+            string xaml = includeBinding
+                ? xamlStart + "><TextBlock Text='{x:Bind Name}' /></" + element + ">"
+                : xamlStart + " />";
             return helper.GenerateCodeBehind(context, new List<string> { xaml }, helper.LoadSchema(SchemaMode.ManagedRuntime), CodeGenLanguage.CppWinRT);
         }
 
@@ -228,11 +253,30 @@ namespace UnitTests
             Assert.IsFalse(sentinel.Contains("XamlAppMetadataProvider<D>::type"));
 
             string module = files.Single(file => file.FileName.EndsWith(".ixx")).Contents;
-            StringAssert.Contains(module, "import Test.Application_Xaml.TypeInfo;");
+            StringAssert.Contains(module, "export import Test.Application_Xaml.TypeInfo;");
             StringAssert.Contains(module, "XamlAppMetadataProvider<D>::type");
             StringAssert.Contains(module, "winrt::make_self<XamlMetaDataProvider>()");
             Assert.IsFalse(module.Contains("AppT();"));
             Assert.IsFalse(module.Contains("~AppT();"));
+        }
+
+        [TestMethod]
+        public void PageModule_ReExportsBindingInfoUsedByItsPublicTemplate()
+        {
+            var files = GeneratePage(true, app: false, isPass1: true, includeBinding: true);
+            string module = files.Single(file => file.FileName.EndsWith(".ixx")).Contents;
+
+            StringAssert.Contains(module, "export import Test.Application_Xaml.BindingInfo;");
+        }
+
+        [TestMethod]
+        public void GeneratedImplementationUnits_UseOnlyTheirTextualStlDependencies()
+        {
+            var page = GeneratePage(true, isPass1: false).Single().Contents;
+            AssertImplementationTextualHeaders(page, "cstdint", "memory", "type_traits", "utility");
+
+            var app = GeneratePage(true, app: true, isPass1: false).Single().Contents;
+            AssertImplementationTextualHeaders(app, "type_traits");
         }
 
         [TestMethod]
@@ -259,10 +303,12 @@ namespace UnitTests
                 .Single(file => file.FileName == "XamlTypeInfo.g.cpp").Contents;
             int firstImport = moduleText.IndexOf("import ", StringComparison.Ordinal);
             int rootImport = moduleText.IndexOf("import Test.Application_Xaml;", StringComparison.Ordinal);
-            int vectorInclude = moduleText.IndexOf("#include <vector>", StringComparison.Ordinal);
             Assert.IsTrue(firstImport >= 0);
             Assert.IsTrue(rootImport >= 0);
-            Assert.IsTrue(vectorInclude >= 0 && vectorInclude < firstImport);
+            AssertImplementationTextualHeaders(
+                moduleText,
+                "algorithm", "cstddef", "cstdint", "functional", "map", "memory",
+                "mutex", "regex", "string", "type_traits", "utility", "vector");
             StringAssert.Contains(moduleText, "import Test.Application_Xaml.TypeInfo;");
             StringAssert.Contains(moduleText, "import Test.Application_Xaml.BindingInfo;");
             StringAssert.Contains(moduleText, "import winrt_base;");
