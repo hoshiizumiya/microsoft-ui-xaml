@@ -181,7 +181,7 @@ namespace UnitTests
 
         private static void AssertImplementationTextualHeaders(string source, params string[] expectedHeaders)
         {
-            var actualHeaders = Regex.Matches(source, @"(?m)^#include <([^>]+)>$")
+            var actualHeaders = Regex.Matches(source, @"(?m)^#include <([^>]+)>\r?$")
                 .Cast<Match>()
                 .Select(match => match.Groups[1].Value)
                 .Where(header => header != "windows.h" && header != "unknwn.h" && header != "winrt/base_macros.h")
