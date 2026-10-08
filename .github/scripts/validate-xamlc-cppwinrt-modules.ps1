@@ -181,7 +181,7 @@ function Assert-OrdinaryGeneratedConsumer([string]$Path, [string[]]$RequiredImpo
     if (-not $text.Contains('#define WINRT_IMPORT_MODULE')) { throw "Ordinary generated TU lacks WINRT_IMPORT_MODULE: $Path" }
     if (-not $text.Contains('import winrt_base;')) { throw "Ordinary generated TU lacks import winrt_base: $Path" }
 
-    $actualTextualHeaders = @([regex]::Matches($text, '(?m)^#include <([^>]+)>$') | ForEach-Object {
+    $actualTextualHeaders = @([regex]::Matches($text, '(?m)^#include <([^>]+)>\r?$') | ForEach-Object {
         $_.Groups[1].Value
     } | Where-Object {
         $_ -notin @('windows.h', 'unknwn.h', 'winrt/base_macros.h')
