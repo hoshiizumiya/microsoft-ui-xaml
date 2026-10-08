@@ -117,6 +117,12 @@ function Assert-XamlGraph([string]$Directory, [string]$Namespace, [string[]]$Cla
         })
         if ($source.Count -ne 1) { throw "Expected one independent interface for $identity, found $($source.Count)." }
         $interface = Get-Content $source[0].FullName -Raw
+        if ($class -eq 'Simple.MainPage' -and -not $interface.Contains("export import $Namespace.Application_Xaml.BindingInfo;")) {
+            throw 'MainPage must re-export BindingInfo because its public template uses XamlBindings.'
+        }
+        if ($class -eq 'Simple.App' -and $ExpectTypeInfo -and -not $interface.Contains("export import $Namespace.Application_Xaml.TypeInfo;")) {
+            throw 'App must re-export TypeInfo because its public template uses XamlMetaDataProvider.'
+        }
         foreach ($required in @('#define XAML_IMPL_MODULE', '#undef XAML_IMPL_MODULE')) {
             if (-not $interface.Contains($required)) { throw "$identity lacks '$required'." }
         }
@@ -165,17 +171,32 @@ function Assert-XamlGraph([string]$Directory, [string]$Namespace, [string[]]$Cla
     }
 }
 
-function Assert-OrdinaryGeneratedConsumer([string]$Path, [string[]]$RequiredImports) {
+function Assert-OrdinaryGeneratedConsumer([string]$Path, [string[]]$RequiredImports, [string[]]$ExpectedTextualHeaders) {
     $text = Get-Content $Path -Raw
     if ($text -match '(?m)^module;$' -or $text -match '(?m)^module\s+[^;]+;') {
         throw "Ordinary generated TU became a module unit: $Path"
     }
     if ($text.Contains('import std;')) { throw "Ordinary generated TU imports std instead of owning STL textually: $Path" }
+    if ($text -match '\.xaml\.g\.hpp') { throw "Ordinary generated TU refers to the obsolete XAML header contract: $Path" }
     if (-not $text.Contains('#define WINRT_IMPORT_MODULE')) { throw "Ordinary generated TU lacks WINRT_IMPORT_MODULE: $Path" }
+    if (-not $text.Contains('import winrt_base;')) { throw "Ordinary generated TU lacks import winrt_base: $Path" }
+
+    $actualTextualHeaders = @([regex]::Matches($text, '(?m)^#include <([^>]+)>$') | ForEach-Object {
+        $_.Groups[1].Value
+    } | Where-Object {
+        $_ -notin @('windows.h', 'unknwn.h', 'winrt/base_macros.h')
+    })
+    if (-not [string]::Equals(($actualTextualHeaders -join "`n"), ($ExpectedTextualHeaders -join "`n"), [StringComparison]::Ordinal)) {
+        throw "Unexpected textual STL headers in $Path. Expected [$($ExpectedTextualHeaders -join ', ')], found [$($actualTextualHeaders -join ', ')]."
+    }
+
     $firstImport = $text.IndexOf('import ', [StringComparison]::Ordinal)
-    $lastRequiredStl = $text.IndexOf('#include <vector>', [StringComparison]::Ordinal)
-    if ($firstImport -lt 0 -or $lastRequiredStl -lt 0 -or $lastRequiredStl -gt $firstImport) {
-        throw "Textual STL must be established before named-module imports: $Path"
+    if ($firstImport -lt 0) { throw "Ordinary generated TU has no named-module imports: $Path" }
+    foreach ($header in $ExpectedTextualHeaders) {
+        $include = $text.IndexOf("#include <$header>", [StringComparison]::Ordinal)
+        if ($include -lt 0 -or $include -gt $firstImport) {
+            throw "Textual STL header <$header> must precede module imports: $Path"
+        }
     }
     foreach ($required in $RequiredImports) {
         if (-not $text.Contains("import $required;")) { throw "$Path is missing import $required." }
@@ -208,16 +229,45 @@ if ($panelScans.Count -ne 2 -or $panelScans[0].DirectoryName -eq $panelScans[1].
 $mainInterface = Get-OneGeneratedFile $simpleGeneratedRoot 'MainPage.xaml.g.ixx'
 $mainInterfaceText = Get-Content $mainInterface.FullName -Raw
 if (-not $mainInterfaceText.Contains('export import winrt.Simple;')) { throw 'Unresolved local field dependency was not exported.' }
+$appImplementation = Get-Content (Join-Path $simpleModules 'App.cpp') -Raw
+if ($appImplementation -notmatch '(?s)#ifdef WINRT_IMPORT_MODULE\s*import Simple\.Application_Xaml\.App;\s*import Simple\.Application_Xaml\.MainPage;\s*#endif') {
+    throw 'Handwritten App.cpp must explicitly import both its App and MainPage XamlC modules.'
+}
+
+Assert-OrdinaryGeneratedConsumer (Get-OneGeneratedFile $simpleGeneratedRoot 'App.xaml.g.cpp').FullName @(
+    'winrt_base',
+    'Simple.Application_Xaml.App',
+    'Simple.Application_Xaml.TypeInfo'
+) @('type_traits')
 Assert-OrdinaryGeneratedConsumer (Get-OneGeneratedFile $simpleGeneratedRoot 'MainPage.xaml.g.cpp').FullName @(
+    'winrt_base',
     'Simple.Application_Xaml.MainPage',
+    'Simple.Application_Xaml.BindingInfo',
     'winrt.Simple.Models',
     'winrt.Simple.Targets'
-)
+) @('cstdint', 'memory', 'type_traits', 'utility')
+Assert-OrdinaryGeneratedConsumer (Get-OneGeneratedFile $simpleGeneratedRoot 'EmptyPage.xaml.g.cpp').FullName @(
+    'winrt_base',
+    'Simple.Application_Xaml.EmptyPage'
+) @('cstdint', 'memory', 'type_traits', 'utility')
+Assert-OrdinaryGeneratedConsumer (Get-OneGeneratedFile $simpleGeneratedRoot 'XamlBindingInfo.xaml.g.cpp').FullName @(
+    'winrt_base',
+    'Simple.Application_Xaml.BindingInfo'
+) @('cstdint', 'memory', 'utility')
+Assert-OrdinaryGeneratedConsumer (Get-OneGeneratedFile $simpleGeneratedRoot 'XamlLibMetadataProvider.g.cpp').FullName @(
+    'winrt_base',
+    'Simple.Application_Xaml.TypeInfo'
+) @()
+Assert-OrdinaryGeneratedConsumer (Get-OneGeneratedFile $simpleGeneratedRoot 'XamlTypeInfo.Impl.g.cpp').FullName @(
+    'winrt_base',
+    'Simple.Application_Xaml.TypeInfo'
+) @('cstdint', 'memory', 'mutex', 'regex', 'stdexcept', 'string')
 Assert-OrdinaryGeneratedConsumer (Get-OneGeneratedFile $simpleGeneratedRoot 'XamlTypeInfo.g.cpp').FullName @(
+    'winrt_base',
     'Simple.Application_Xaml',
     'Simple.Application_Xaml.BindingInfo',
     'Simple.Application_Xaml.TypeInfo'
-)
+) @('algorithm', 'cstddef', 'cstdint', 'functional', 'map', 'memory', 'mutex', 'regex', 'string', 'type_traits', 'utility', 'vector')
 
 $emptyIdentity = 'Simple.Application_Xaml.EmptyPage'
 $emptySource = Get-OneGeneratedFile $simpleGeneratedRoot 'EmptyPage.xaml.g.ixx'
