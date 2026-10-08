@@ -76,6 +76,9 @@ foreach ($mode in @('Module', 'Header')) {
                 $identity = "NuGetModules.Application_Xaml.$class"
                 $interfaceText = Get-Content $interface[0].FullName -Raw
                 if (-not $interfaceText.Contains("export module $identity;")) { throw "$class interface has the wrong identity." }
+                if ($class -eq 'App' -and -not $interfaceText.Contains('export import NuGetModules.Application_Xaml.TypeInfo;')) {
+                    throw 'App module does not re-export the TypeInfo dependency used by its public template.'
+                }
                 if (-not $rootText.Contains("export import $identity;")) { throw "Root does not re-export $identity." }
                 if (-not $Pass1Only -and @(Get-ChildItem $intermediate -Filter "$identity.ifc" -Recurse -File).Count -ne 1) {
                     throw "$identity IFC was not registered."
