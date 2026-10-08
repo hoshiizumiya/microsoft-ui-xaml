@@ -187,7 +187,10 @@ namespace UnitTests
                 .Where(header => header != "windows.h" && header != "unknwn.h" && header != "winrt/base_macros.h")
                 .ToArray();
             var orderedExpectedHeaders = expectedHeaders.OrderBy(header => header, StringComparer.Ordinal).ToArray();
-            CollectionAssert.AreEqual(orderedExpectedHeaders, actualHeaders);
+            CollectionAssert.AreEqual(
+                orderedExpectedHeaders,
+                actualHeaders,
+                "Expected textual STL headers [" + String.Join(", ", orderedExpectedHeaders) + "] but found [" + String.Join(", ", actualHeaders) + "].");
 
             int firstImport = source.IndexOf("import ", StringComparison.Ordinal);
             Assert.IsTrue(firstImport >= 0);
