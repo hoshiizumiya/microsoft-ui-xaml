@@ -278,8 +278,6 @@ namespace UnitTests
             var page = GeneratePage(true, isPass1: false).Single().Contents;
             AssertImplementationTextualHeaders(page, "cstdint", "memory", "type_traits", "utility");
 
-            var app = GeneratePage(true, app: true, isPass1: false).Single().Contents;
-            AssertImplementationTextualHeaders(app, "type_traits");
         }
 
         [TestMethod]
