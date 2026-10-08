@@ -85,15 +85,23 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                         projectionNamespaces = projectionNamespaces.Concat(new[] { codeInfo.ClassName.Namespace });
                     }
 
+                    var exportedModules = new List<string>();
+                    if (codeInfo.BindStatus != BindStatus.None)
+                    {
+                        exportedModules.Add(CppWinRTProjectionDependency.GetBindingInfoModuleName(_projectInfo.RootNamespace));
+                    }
+                    if (codeInfo.IsApplication && _projectInfo.ShouldGenerateTypeInfoCode)
+                    {
+                        exportedModules.Add(CppWinRTProjectionDependency.GetTypeInfoModuleName(_projectInfo.RootNamespace));
+                    }
+
                     retList.Add(new FileNameAndContentPair(
                         codeInfo.BaseFileName + ".xaml.g.ixx",
                         CppWinRTProjectionDependency.WriteSourceInterface(
                             moduleName,
                             projectionNamespaces,
                             code,
-                            importedModules: codeInfo.IsApplication && _projectInfo.ShouldGenerateTypeInfoCode
-                                ? new[] { CppWinRTProjectionDependency.GetTypeInfoModuleName(_projectInfo.RootNamespace) }
-                                : null,
+                            exportedModules: exportedModules,
                             // cppwinrt names the producer scaffold after the runtimeclass, not the
                             // XAML item. These names can differ (for example DummyFile.xaml can
                             // declare Test.MainPage), so derive <Type>.g.h from x:Class.
@@ -118,10 +126,14 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                     importedModules.Add(CppWinRTProjectionDependency.GetTypeInfoModuleName(_projectInfo.RootNamespace));
                 }
 
+                string[] textualHeaders = codeInfo.IsApplication
+                    ? new[] { "type_traits" }
+                    : new[] { "cstdint", "memory", "type_traits", "utility" };
                 string preamble = CppWinRTProjectionDependency.WriteImplementationUnitPreamble(
                     moduleName,
                     model.NeededCppWinRTProjectionNamespaces,
-                    importedModules);
+                    importedModules,
+                    textualHeaders);
                 string localHeaders = String.Join(
                     Environment.NewLine,
                     model.NeededLocalXamlHeaderFiles.Select(header => "#include \"" + header + "\""));
@@ -176,7 +188,8 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                         string preamble = CppWinRTProjectionDependency.WriteImplementationUnitPreamble(
                             moduleName,
                             projectionNamespaces,
-                            new[] { moduleName });
+                            new[] { moduleName },
+                            textualHeaders: null);
                         retList.Add(new FileNameAndContentPair("XamlLibMetadataProvider.g.cpp", preamble + "\n" + body));
                     }
 
@@ -187,7 +200,8 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                         string preamble = CppWinRTProjectionDependency.WriteImplementationUnitPreamble(
                             moduleName,
                             projectionNamespaces,
-                            new[] { moduleName });
+                            new[] { moduleName },
+                            textualHeaders: new[] { "cstdint", "memory", "mutex", "regex", "stdexcept", "string" });
                         retList.Add(new FileNameAndContentPair("XamlTypeInfo.Impl.g.cpp", preamble + "\n" + implementation));
                     }
                     return retList;
@@ -203,7 +217,12 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                 string typeInfoPreamble = CppWinRTProjectionDependency.WriteImplementationUnitPreamble(
                     moduleName,
                     projectionNamespaces,
-                    importedModules);
+                    importedModules,
+                    textualHeaders: new[]
+                    {
+                        "algorithm", "cstddef", "cstdint", "functional", "map", "memory",
+                        "mutex", "regex", "string", "type_traits", "utility", "vector",
+                    });
                 string localHeaders = ! _projectInfo.GenerateIncrementalTypeInfo && _projectInfo.ClassToHeaderFileMap != null
                     ? String.Join(Environment.NewLine, _projectInfo.ClassToHeaderFileMap.Values.Distinct(StringComparer.Ordinal).Select(header => "#include \"" + header + "\""))
                     : String.Empty;
@@ -288,7 +307,8 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                 string preamble = CppWinRTProjectionDependency.WriteImplementationUnitPreamble(
                     moduleName,
                     CppWinRTProjectionDependency.BindingSupportNamespaces,
-                    new[] { moduleName });
+                    new[] { moduleName },
+                    textualHeaders: new[] { "cstdint", "memory", "utility" });
                 return new List<FileNameAndContentPair>
                 {
                     new FileNameAndContentPair("XamlBindingInfo.xaml.g.cpp", preamble + "\n" + code)
