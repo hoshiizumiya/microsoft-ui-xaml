@@ -91,6 +91,9 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                             moduleName,
                             projectionNamespaces,
                             code,
+                            importedModules: codeInfo.IsApplication && _projectInfo.ShouldGenerateTypeInfoCode
+                                ? new[] { CppWinRTProjectionDependency.GetTypeInfoModuleName(_projectInfo.RootNamespace) }
+                                : null,
                             // cppwinrt names the producer scaffold after the runtimeclass, not the
                             // XAML item. These names can differ (for example DummyFile.xaml can
                             // declare Test.MainPage), so derive <Type>.g.h from x:Class.

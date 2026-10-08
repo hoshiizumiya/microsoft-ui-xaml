@@ -228,6 +228,7 @@ namespace UnitTests
             Assert.IsFalse(sentinel.Contains("XamlAppMetadataProvider<D>::type"));
 
             string module = files.Single(file => file.FileName.EndsWith(".ixx")).Contents;
+            StringAssert.Contains(module, "import Test.Application_Xaml.TypeInfo;");
             StringAssert.Contains(module, "XamlAppMetadataProvider<D>::type");
             StringAssert.Contains(module, "winrt::make_self<XamlMetaDataProvider>()");
             Assert.IsFalse(module.Contains("AppT();"));
