@@ -41,10 +41,9 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             this.Write("\"\r\n");
   }
             this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTConsumerPreamble()));
-            this.Write("\r\n\r\n");
+            this.Write("\r\n\r\n#include <cstdint>\r\n#include <memory>\r\n#include <type_traits>\r\n#include <util" +
+                    "ity>\r\n\r\n");
   if (!ProjectInfo.BuildXamlModules) { 
-            this.Write("#include <cstdint>\r\n#include <memory>\r\n#include <type_traits>\r\n#include <utility>" +
-                    "\r\n\r\n");
       foreach (var includeFile in Model.NeededLocalXamlHeaderFiles) { 
             this.Write("#include \"");
             this.Write(this.ToStringHelper.ToStringWithCulture(includeFile));
