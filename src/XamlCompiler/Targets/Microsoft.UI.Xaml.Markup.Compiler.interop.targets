@@ -1017,12 +1017,19 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <_XamlGeneratedCompilePaths Include="@(XamlGFiles)"
                        Condition="'%(XamlGFiles.Filename)%(XamlGFiles.Extension)' != 'XamlMetaDataProvider.cpp'" />
             <_XamlGeneratedCompilePaths Include="@(GeneratedXamlPagesFiles)" />
+            <_XamlGeneratedCompilePaths Include="@(_GeneratedCodeFiles)"
+                       Condition="'%(_GeneratedCodeFiles.Filename)%(_GeneratedCodeFiles.Extension)' != 'XamlMetaDataProvider.cpp'" />
             <_XamlGeneratedCompilePaths Include="@(ClCompile)"
                        Condition="'%(ClCompile.CompilerIteration)' == 'XamlGenerated' and '%(ClCompile.Filename)%(ClCompile.Extension)' != 'XamlMetaDataProvider.cpp'" />
+            <!-- The VC XAML target can filter module-suffixed implementation sources from
+                 XamlGFiles after Pass 2. The raw task output remains authoritative. -->
+            <RemoveDuplicates Inputs="@(_XamlGeneratedCompilePaths)">
+                <Output TaskParameter="Filtered" ItemName="_XamlUniqueGeneratedCompilePaths" />
+            </RemoveDuplicates>
             <!-- Intersect with existing ClCompile items so their metadata is preserved.
                  FullPath matching also handles relative versus absolute generated paths. -->
             <_XamlAuthoredCompileItems Include="@(ClCompile)" />
-            <_XamlAuthoredCompileItems Remove="@(_XamlGeneratedCompilePaths)"
+            <_XamlAuthoredCompileItems Remove="@(_XamlUniqueGeneratedCompilePaths)"
                        MatchOnMetadata="FullPath" MatchOnMetadataOptions="PathLike" />
             <_XamlGeneratedModuleConsumers Include="@(ClCompile)" />
             <_XamlGeneratedModuleConsumers Remove="@(_XamlAuthoredCompileItems)" />
@@ -1037,12 +1044,12 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <!-- Ensure pass-2 implementation sources with the module-specific .xaml.g.cpp
                  suffix reach the native compile even when the VC XAML target filters them
                  out while materializing XamlGFiles. Existing ClCompile items are preserved. -->
-            <_XamlMissingGeneratedModuleCompileItems Include="@(_XamlGeneratedCompilePaths)"
+            <_XamlMissingGeneratedModuleCompileItems Include="@(_XamlUniqueGeneratedCompilePaths)"
                        Condition="'%(_XamlGeneratedCompilePaths.Extension)' == '.cpp'">
                 <CompilerIteration>XamlGenerated</CompilerIteration>
-                <AdditionalBMIDirectories>$(IntDir);$(XamlCppWinRTModuleIfcDir);$(_XamlGeneratedAdditionalBMIDirectories);%(_XamlGeneratedCompilePaths.AdditionalBMIDirectories)</AdditionalBMIDirectories>
+                <AdditionalBMIDirectories>$(IntDir);$(XamlCppWinRTModuleIfcDir);$(_XamlGeneratedAdditionalBMIDirectories);%(_XamlUniqueGeneratedCompilePaths.AdditionalBMIDirectories)</AdditionalBMIDirectories>
                 <PrecompiledHeader>NotUsing</PrecompiledHeader>
-                <PreprocessorDefinitions>$(_XamlGeneratedPreprocessorDefinitions);%(_XamlGeneratedCompilePaths.PreprocessorDefinitions)</PreprocessorDefinitions>
+                <PreprocessorDefinitions>$(_XamlGeneratedPreprocessorDefinitions);%(_XamlUniqueGeneratedCompilePaths.PreprocessorDefinitions)</PreprocessorDefinitions>
             </_XamlMissingGeneratedModuleCompileItems>
             <_XamlMissingGeneratedModuleCompileItems Remove="@(ClCompile)"
                        MatchOnMetadata="FullPath" MatchOnMetadataOptions="PathLike" />
@@ -1051,6 +1058,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <_XamlGeneratedModuleConsumers Remove="@(_XamlGeneratedModuleConsumers)" />
             <_XamlAuthoredCompileItems Remove="@(_XamlAuthoredCompileItems)" />
             <_XamlGeneratedCompilePaths Remove="@(_XamlGeneratedCompilePaths)" />
+            <_XamlUniqueGeneratedCompilePaths Remove="@(_XamlUniqueGeneratedCompilePaths)" />
             <_XamlMissingGeneratedModuleCompileItems Remove="@(_XamlMissingGeneratedModuleCompileItems)" />
         </ItemGroup>
     </Target>
