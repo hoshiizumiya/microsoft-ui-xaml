@@ -755,7 +755,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
         <!-- Map each scanner object back to the generated interface source using item metadata. -->
         <ItemGroup>
             <_XamlGeneratedModuleObjects Include="$(XamlCppWinRTModuleIfcDir)**\*.g.ixx.obj">
-                <XamlGeneratedSource>$(_XamlModuleGeneratedDir)%(RecursiveDir)%(Filename)</XamlGeneratedSource>
+                <XamlGeneratedSource>$(_XamlModuleGeneratedDir)%(_XamlGeneratedModuleObjects.RecursiveDir)%(_XamlGeneratedModuleObjects.Filename)</XamlGeneratedSource>
             </_XamlGeneratedModuleObjects>
             <_XamlOrphanedModuleObjects Include="@(_XamlGeneratedModuleObjects)"
                 Condition="!Exists('%(_XamlGeneratedModuleObjects.XamlGeneratedSource)')" />
