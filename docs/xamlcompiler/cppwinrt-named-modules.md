@@ -14,7 +14,7 @@ It is a convenience aggregator over the active XAML class interfaces. A consumer
 
 Each active XAML class owns an independent declaration interface. The root interface only re-exports those class interfaces. BindingInfo and TypeInfo have their own independent module interfaces; XamlC does not generate a shared Support module or a partition.
 
-For example, when \`RootNamespace\` and \`x:Class\` are both \`MyApp\`-based, a class \`MyApp.Views.MainPage\` has the logical module name \`MyApp.Application_Xaml.Views.MainPage\`. Identifiers that are not valid module-name segments, including C++ keywords, are escaped deterministically. These logical names belong to the generated build graph and do not depend on source file paths.
+For example, when \`RootNamespace\` and \`x:Class\` are both \`MyApp\`-based, a class \`MyApp.Views.MainPage\` has the logical module name \`MyApp.Application_Xaml.Views.MainPage\`. Identifiers that are not valid module-name segments, including C++ keywords, are escaped deterministically. Root-level class names `BindingInfo` and `TypeInfo` are also escaped so their modules cannot collide with XamlC's independent BindingInfo and TypeInfo interfaces. These logical names belong to the generated build graph and do not depend on source file paths.
 
 | Output | Responsibility |
 | --- | --- |
