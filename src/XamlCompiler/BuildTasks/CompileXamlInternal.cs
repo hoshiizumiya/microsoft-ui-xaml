@@ -666,6 +666,17 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
             if (Language.IsNative)
             {
                 _generatedCodeFiles.Add(srcOutputFileName1);
+                if (!IsPass1 && Language.Name == ProgrammingLanguage.CppWinRT && BuildXamlModules)
+                {
+                    // Module-mode page implementations use a dedicated .xaml.g.cpp
+                    // extension. Report the actual file so the native targets can add
+                    // it to ClCompile; the legacy Pass2Extension is .xaml.g.hpp.
+                    string moduleImplementationFile = Path.Combine(targetFolder, codeFileName + ".xaml.g.cpp");
+                    if (File.Exists(moduleImplementationFile))
+                    {
+                        _generatedCodeFiles.Add(moduleImplementationFile);
+                    }
+                }
                 if (!IsPass1 && this.CodeGenerationControlFlags.HasFlag(CodeGenCtrlFlags.IncrementalTypeInfoCodeGen))
                 {
                     string pageCodeFile = Path.Combine(targetFolder, codeFileName + Language.Pass2Extension);
