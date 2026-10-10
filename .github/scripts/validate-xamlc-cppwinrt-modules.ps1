@@ -255,10 +255,8 @@ Assert-OrdinaryGeneratedConsumer (Get-OneGeneratedFile $simpleGeneratedRoot 'Xam
     'winrt_base',
     'Simple.Application_Xaml.BindingInfo'
 ) @('cstdint', 'memory', 'utility')
-Assert-OrdinaryGeneratedConsumer (Get-OneGeneratedFile $simpleGeneratedRoot 'XamlLibMetadataProvider.g.cpp').FullName @(
-    'winrt_base',
-    'Simple.Application_Xaml.TypeInfo'
-) @()
+# C++/WinRT module-first builds emit TypeInfo through the dedicated
+# XamlTypeInfo.Impl.g.cpp and XamlTypeInfo.g.cpp consumers asserted below.
 Assert-OrdinaryGeneratedConsumer (Get-OneGeneratedFile $simpleGeneratedRoot 'XamlTypeInfo.Impl.g.cpp').FullName @(
     'winrt_base',
     'Simple.Application_Xaml.TypeInfo'
