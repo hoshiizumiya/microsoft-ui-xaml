@@ -2168,6 +2168,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
                 }
                 codeFiles = _codeGenerator.GenerateBindingInfo(observableVectorTypes, observableMapTypes, bindingSetters, eventBindingUsed);
                 WriteOutputFilesToDisk(codeFiles, OutputFolderFullpath, true);
+                ReportGeneratedModuleImplementationFiles(codeFiles, OutputFolderFullpath);
             }
         }
 
