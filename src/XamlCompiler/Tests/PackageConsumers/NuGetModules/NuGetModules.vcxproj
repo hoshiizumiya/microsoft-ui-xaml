@@ -89,6 +89,13 @@
       <AdditionalOptions>%(AdditionalOptions) /bigobj</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>
+  <!-- In header mode, the SDK-generated module.g.cpp uses the legacy C++/WinRT base header.
+       This no-PCH fixture supplies its COM declarations explicitly. Module mode imports winrt_base. -->
+  <ItemDefinitionGroup Condition="'$(CppWinRTBuildModule)' != 'true'">
+    <ClCompile>
+      <ForcedIncludeFiles>unknwn.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
     <ClCompile>
       <PreprocessorDefinitions>_DEBUG;NOMINMAX;WINRT_ENABLE_LEGACY_COM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
