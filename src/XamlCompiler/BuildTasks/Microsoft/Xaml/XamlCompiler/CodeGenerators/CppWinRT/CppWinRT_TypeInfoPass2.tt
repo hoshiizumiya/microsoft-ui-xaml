@@ -31,6 +31,11 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
+<#  if (ProjectInfo.BuildXamlModules) { #>
+#ifndef WINRT_IMPORT_MODULE
+#define WINRT_IMPORT_MODULE
+#endif
+<#  } #>
 
 // Undefine GetCurrentTime macro to prevent
 // conflict with Storyboard::GetCurrentTime
