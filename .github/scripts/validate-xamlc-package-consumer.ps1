@@ -20,7 +20,7 @@ $config = Join-Path $testRoot 'nuget.validation.config'
 <configuration><packageSources><clear/><add key="Product" value="$feed"/><add key="nuget.org" value="https://api.nuget.org/v3/index.json"/></packageSources><packageSourceMapping><clear/><packageSource key="Product"><package pattern="Microsoft.WindowsAppSDK.WinUI"/></packageSource><packageSource key="nuget.org"><package pattern="*"/></packageSource></packageSourceMapping></configuration>
 "@ | Set-Content $config
 
-$common = @('/restore', '/m:2', '/ds:false', '/p:Platform=x64', '/p:VisualStudioVersion=18.0', '/p:PlatformToolset=v145', '/p:WindowsTargetPlatformVersion=10.0.26100.0', '/p:WindowsPackageType=None', "/p:RestoreConfigFile=$config", "/p:RestorePackagesPath=$testRoot\packages", '/v:normal')
+$common = @('/restore', '/m:2', '/ds:false', '/p:Platform=x64', '/p:VisualStudioVersion=18.0', '/p:PlatformToolset=v145', '/p:WindowsTargetPlatformVersion=10.0.26100.0', '/p:WindowsPackageType=None', "/p:RestoreConfigFile=$config", "/p:RestorePackagesPath=$testRoot\packages", '/v:minimal')
 $binlog = Join-Path $repoRoot 'BuildOutput\binlogs'
 
 function Assert-AuthoredModuleConsumer([string]$RelativePath, [string[]]$RequiredImports, [string]$LastRequiredTextualHeader = $null) {
