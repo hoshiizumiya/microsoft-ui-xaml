@@ -1128,7 +1128,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             }
 
             ModuleDependencies = String.Join(";", references);
-            ModuleReferenceOptions = String.Join(" ", references.Select(reference => "/reference \\"" + reference + "\\""));
+            ModuleReferenceOptions = String.Join(" ", references.Select(reference => "/reference \"" + reference + "\""));
 ]]></Code>
       </Task>
     </UsingTask>
