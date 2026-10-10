@@ -1141,6 +1141,10 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <_XamlGeneratedCompilePaths Include="@(GeneratedXamlPagesFiles)" />
             <_XamlGeneratedCompilePaths Include="@(_GeneratedCodeFiles)"
                        Condition="'%(_GeneratedCodeFiles.Filename)%(_GeneratedCodeFiles.Extension)' != 'XamlMetaDataProvider.cpp'" />
+            <!-- The page implementation sources are not consistently returned in XamlC's
+                 item outputs across compiler hosting modes. Their final on-disk names are
+                 stable, so include the generated implementation set before native compile. -->
+            <_XamlGeneratedCompilePaths Include="$(XamlGeneratedOutputPath)**\\*.xaml.g.cpp" />
             <_XamlGeneratedCompilePaths Include="@(ClCompile)"
                        Condition="'%(ClCompile.CompilerIteration)' == 'XamlGenerated' and '%(ClCompile.Filename)%(ClCompile.Extension)' != 'XamlMetaDataProvider.cpp'" />
         </ItemGroup>
@@ -1207,6 +1211,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                        Condition="'%(_GeneratedCodeFiles.Extension)' == '.cpp' and '%(_GeneratedCodeFiles.Filename)%(_GeneratedCodeFiles.Extension)' != 'XamlMetaDataProvider.cpp'" />
             <_XamlGeneratedModuleSourcePaths Include="@(XamlGFiles)"
                        Condition="'%(XamlGFiles.Extension)' == '.cpp' and '%(XamlGFiles.Filename)%(XamlGFiles.Extension)' != 'XamlMetaDataProvider.cpp'" />
+            <_XamlGeneratedModuleSourcePaths Include="$(XamlGeneratedOutputPath)**\\*.xaml.g.cpp" />
         </ItemGroup>
         <RemoveDuplicates Inputs="@(_XamlGeneratedModuleSourcePaths)">
             <Output TaskParameter="Filtered" ItemName="_XamlUniqueGeneratedModuleSourcePaths" />
