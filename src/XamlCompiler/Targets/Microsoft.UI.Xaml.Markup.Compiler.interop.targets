@@ -754,14 +754,15 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                  Text="XamlC cleanup root=$(_XamlModuleGeneratedDir); modules=$(XamlCppWinRTModuleIfcDir)" />
         <!-- Map each scanner object back to the generated interface source using item metadata. -->
         <ItemGroup>
-            <_XamlGeneratedModuleObjects Include="$(XamlCppWinRTModuleIfcDir)**\*.g.ixx.obj">
-                <XamlGeneratedSource>$(_XamlModuleGeneratedDir)%(_XamlGeneratedModuleObjects.RecursiveDir)%(_XamlGeneratedModuleObjects.Filename)</XamlGeneratedSource>
+            <_XamlGeneratedModuleObjects Include="$(XamlCppWinRTModuleIfcDir)**\*.g.ixx.obj" />
+            <_XamlGeneratedModuleObjects Update="@(_XamlGeneratedModuleObjects)">
+                <XamlGeneratedSource>$(_XamlModuleGeneratedDir)%(RecursiveDir)%(Filename)</XamlGeneratedSource>
             </_XamlGeneratedModuleObjects>
             <_XamlOrphanedModuleObjects Include="@(_XamlGeneratedModuleObjects)"
                 Condition="!Exists('%(_XamlGeneratedModuleObjects.XamlGeneratedSource)')" />
         </ItemGroup>
         <Message Importance="High" Condition="'$(MSBuildProjectName)' == 'SimpleCppWinRTModules'"
-                 Text="XamlC candidate %(_XamlGeneratedModuleObjects.Identity) maps to %(_XamlGeneratedModuleObjects.XamlGeneratedSource)" />
+                 Text="XamlC candidate %(_XamlGeneratedModuleObjects.Identity) recursive=%(_XamlGeneratedModuleObjects.RecursiveDir) filename=%(_XamlGeneratedModuleObjects.Filename) maps to %(_XamlGeneratedModuleObjects.XamlGeneratedSource)" />
         <Message Importance="High" Condition="'$(MSBuildProjectName)' == 'SimpleCppWinRTModules'"
                  Text="XamlC orphan %(_XamlOrphanedModuleObjects.Identity)" />
         <Delete Files="@(_XamlOrphanedModuleObjects);
