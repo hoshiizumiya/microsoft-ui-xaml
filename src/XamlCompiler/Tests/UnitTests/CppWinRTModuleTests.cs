@@ -85,6 +85,22 @@ namespace UnitTests
         }
 
         [TestMethod]
+        public void ClassModuleIdentity_EscapesNamesReservedForIndependentModules()
+        {
+            const string root = "OpenNet";
+            foreach (var className in new[] { "BindingInfo", "bindinginfo", "TypeInfo", "typeinfo" })
+            {
+                string classModule = CppWinRTProjectionDependency.GetXamlClassModuleName(root, className);
+                Assert.IsFalse(String.Equals(root + ".Application_Xaml.BindingInfo", classModule, StringComparison.OrdinalIgnoreCase));
+                Assert.IsFalse(String.Equals(root + ".Application_Xaml.TypeInfo", classModule, StringComparison.OrdinalIgnoreCase));
+            }
+
+            Assert.AreEqual(
+                "OpenNet.Application_Xaml.Views.TypeInfo",
+                CppWinRTProjectionDependency.GetXamlClassModuleName(root, "Views.TypeInfo"));
+        }
+
+        [TestMethod]
         public void ClassModuleIdentity_HandlesUnicodeNestedNamespacesAndDifferentProjectRoot()
         {
             var classes = new[] { "Views.MainPage", "Controls.MainPage", "A_B.C", "A.B_C", "export.module", "应用.视图.主页", "Other.Nested.Views.MainPage", "Other.App", "Other._0056iews.MainPage" };
