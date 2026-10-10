@@ -218,6 +218,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                     CppWinRTProjectionDependency.GetBindingInfoModuleName(_projectInfo.RootNamespace),
                     CppWinRTProjectionDependency.GetXamlPrimaryModuleName(_projectInfo.RootNamespace),
                 };
+                IEnumerable<string> additionalTypeInfoHeaders = _projectInfo.AdditionalXamlTypeInfoIncludes?.Select(include => include.ItemSpec);
                 string typeInfoPreamble = CppWinRTProjectionDependency.WriteImplementationUnitPreamble(
                     moduleName,
                     implementationProjectionNamespaces,
@@ -226,7 +227,8 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                     {
                         "algorithm", "cstddef", "cstdint", "functional", "map", "memory",
                         "mutex", "regex", "string", "type_traits", "utility", "vector",
-                    });
+                    },
+                    textualLocalHeaders: additionalTypeInfoHeaders);
                 // CppWinRT emits this ordinary source wrapper for the metadata provider IDL.
                 // Replace its legacy XamlMetaDataProvider.h include with an explicit TypeInfo
                 // module import, then compile the generated producer scaffold in the same TU.
@@ -242,10 +244,6 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                 if (!_projectInfo.GenerateIncrementalTypeInfo && _projectInfo.ClassToHeaderFileMap != null)
                 {
                     localTypeInfoHeaders.AddRange(_projectInfo.ClassToHeaderFileMap.Values);
-                }
-                if (_projectInfo.AdditionalXamlTypeInfoIncludes != null)
-                {
-                    localTypeInfoHeaders.AddRange(_projectInfo.AdditionalXamlTypeInfoIncludes.Select(include => include.ItemSpec));
                 }
                 string localHeaders = String.Join(
                     Environment.NewLine,
