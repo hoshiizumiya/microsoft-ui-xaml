@@ -154,7 +154,7 @@ function Assert-XamlGraph([string]$Directory, [string]$Namespace, [string[]]$Cla
         Get-OneGeneratedFile $Directory "$identity.ifc" | Out-Null
     }
 
-    $actualExports = @([regex]::Matches($text, '(?m)^export import .+;$'))
+    $actualExports = @([regex]::Matches($text, '(?m)^\s*export\s+import\s+.+;$'))
     if ($actualExports.Count -ne $Classes.Count) { throw "Aggregator exports $($actualExports.Count) modules; expected $($Classes.Count)." }
     Get-OneGeneratedFile $Directory "$Namespace.Application_Xaml.ifc" | Out-Null
 
