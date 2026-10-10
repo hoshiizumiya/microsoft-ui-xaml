@@ -1026,6 +1026,115 @@ Licensed under the MIT License. See LICENSE in the project root for license info
       CompileXamlGeneratedFiles paths can resolve Application_Xaml and referenced
       C++/WinRT BMIs without an application-owned /FI preamble.
     -->
+    <UsingTask TaskName="GetXamlCppWinRTGeneratedModuleDependencies" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+      <ParameterGroup>
+        <GeneratedSources ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+        <CppWinRTIfcDir ParameterType="System.String" Required="true" />
+        <XamlIfcDir ParameterType="System.String" Required="true" />
+        <StlIfcDir ParameterType="System.String" />
+        <AdditionalBMIDirectories ParameterType="System.String" />
+        <ModuleDependencies ParameterType="System.String" Output="true" />
+      </ParameterGroup>
+      <Task>
+        <Using Namespace="System" />
+        <Using Namespace="System.Collections.Generic" />
+        <Using Namespace="System.IO" />
+        <Using Namespace="System.Text.RegularExpressions" />
+        <Using Namespace="Microsoft.Build.Framework" />
+        <Code Type="Fragment" Language="cs"><![CDATA[
+            var importedModules = new SortedSet<string>(StringComparer.Ordinal);
+            var importPattern = new Regex(@"^\s*(?:export\s+)?import\s+([A-Za-z_][A-Za-z0-9_.:]*)\s*;", RegexOptions.CultureInvariant);
+
+            foreach (var source in GeneratedSources ?? new ITaskItem[0])
+            {
+                if (!String.Equals(source.GetMetadata("CompilerIteration"), "XamlGenerated", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var sourcePath = source.GetMetadata("FullPath");
+                if (!File.Exists(sourcePath))
+                {
+                    sourcePath = source.ItemSpec;
+                }
+
+                if (!File.Exists(sourcePath))
+                {
+                    continue;
+                }
+
+                foreach (var line in File.ReadLines(sourcePath))
+                {
+                    var match = importPattern.Match(line);
+                    if (match.Success)
+                    {
+                        importedModules.Add(match.Groups[1].Value);
+                    }
+                }
+            }
+
+            var directories = new List<string>();
+            Action<string> addDirectories = value =>
+            {
+                foreach (var directory in (value ?? String.Empty).Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var trimmed = directory.Trim().Trim('"');
+                    if (trimmed.Length != 0 && !directories.Contains(trimmed, StringComparer.OrdinalIgnoreCase))
+                    {
+                        directories.Add(trimmed);
+                    }
+                }
+            };
+
+            addDirectories(CppWinRTIfcDir);
+            addDirectories(XamlIfcDir);
+            addDirectories(StlIfcDir);
+            addDirectories(AdditionalBMIDirectories);
+
+            var references = new List<string>();
+            foreach (var moduleName in importedModules)
+            {
+                string ifcPath = null;
+
+                foreach (var directory in directories)
+                {
+                    var candidates = new[]
+                    {
+                        Path.Combine(directory, moduleName + ".ifc"),
+                        Path.Combine(directory, moduleName + ".ixx.ifc")
+                    };
+
+                    ifcPath = candidates.FirstOrDefault(File.Exists);
+                    if (ifcPath != null)
+                    {
+                        break;
+                    }
+                }
+
+                if (ifcPath == null)
+                {
+                    if (moduleName == "std")
+                    {
+                        ifcPath = Path.Combine(StlIfcDir, "std.ixx.ifc");
+                    }
+                    else if (moduleName == "winrt_base" || moduleName.StartsWith("winrt.", StringComparison.Ordinal))
+                    {
+                        ifcPath = Path.Combine(CppWinRTIfcDir, moduleName + ".ixx.ifc");
+                    }
+                    else
+                    {
+                        ifcPath = Path.Combine(XamlIfcDir, moduleName + ".ifc");
+                    }
+                }
+
+                references.Add(moduleName + "=" + ifcPath);
+            }
+
+            ModuleDependencies = String.Join(";", references);
+]]></Code>
+      </Task>
+    </UsingTask>
+
     <Target Name="XamlCppWinRTApplyGeneratedModuleReferences"
             Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'"
             AfterTargets="MarkupCompilePass2"
@@ -1080,6 +1189,35 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <_XamlUniqueGeneratedCompilePaths Remove="@(_XamlUniqueGeneratedCompilePaths)" />
             <_XamlMissingGeneratedModuleCompileItems Remove="@(_XamlMissingGeneratedModuleCompileItems)" />
         </ItemGroup>
+    </Target>
+
+    <!--
+      The generated XAML implementation .cpp files are added after the normal C++
+      module dependency scan. Parse their import declarations and pass explicit IFC
+      mappings to CL; /ifcSearchDir alone cannot resolve CppWinRT's .ixx.ifc outputs.
+    -->
+    <Target Name="XamlCppWinRTResolveGeneratedModuleDependencies"
+            Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'"
+            AfterTargets="ComputeXamlGeneratedCompileInputs"
+            BeforeTargets="CompileXamlGeneratedFiles">
+        <GetXamlCppWinRTGeneratedModuleDependencies
+            GeneratedSources="@(ClCompile)"
+            CppWinRTIfcDir="$(IntDir)Microsoft\cppwinrt\"
+            XamlIfcDir="$(XamlCppWinRTModuleIfcDir)"
+            StlIfcDir="$(IntDir)microsoft\STL\"
+            AdditionalBMIDirectories="$(_XamlGeneratedAdditionalBMIDirectories);@(ClCompile->'%(AdditionalBMIDirectories)'->Distinct())">
+            <Output TaskParameter="ModuleDependencies" PropertyName="_XamlGeneratedModuleDependencies" />
+        </GetXamlCppWinRTGeneratedModuleDependencies>
+        <ItemGroup>
+            <_XamlGeneratedModuleConsumers Include="@(ClCompile)"
+                       Condition="'%(ClCompile.CompilerIteration)' == 'XamlGenerated' and '%(ClCompile.Filename)%(ClCompile.Extension)' != 'XamlMetaDataProvider.cpp'">
+                <AdditionalModuleDependencies>$(_XamlGeneratedModuleDependencies);%(ClCompile.AdditionalModuleDependencies)</AdditionalModuleDependencies>
+            </_XamlGeneratedModuleConsumers>
+            <ClCompile Remove="@(_XamlGeneratedModuleConsumers)" />
+            <ClCompile Include="@(_XamlGeneratedModuleConsumers)" />
+            <_XamlGeneratedModuleConsumers Remove="@(_XamlGeneratedModuleConsumers)" />
+        </ItemGroup>
+        <Message Text="XamlC generated module imports: $(_XamlGeneratedModuleDependencies)" Importance="Low" />
     </Target>
 
     <Target Name="_OnXamlPreCompileError"
