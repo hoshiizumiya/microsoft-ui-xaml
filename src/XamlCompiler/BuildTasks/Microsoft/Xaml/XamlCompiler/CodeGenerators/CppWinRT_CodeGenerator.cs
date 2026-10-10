@@ -84,6 +84,12 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             return $"winrt.{projectionNamespace}";
         }
 
+        private static string EscapeModuleSegment(string segment)
+        {
+            return EscapedModuleSegmentPrefix + String.Concat(segment.Select(character =>
+                ((int)character).ToString("x4", System.Globalization.CultureInfo.InvariantCulture)));
+        }
+
         private static string EncodeModuleSegment(string segment)
         {
             if (IsModuleIdentifier(segment) && !segment.StartsWith(EscapedModuleSegmentPrefix, StringComparison.Ordinal))
@@ -91,8 +97,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                 return segment;
             }
 
-            return EscapedModuleSegmentPrefix + String.Concat(segment.Select(character =>
-                ((int)character).ToString("x4", System.Globalization.CultureInfo.InvariantCulture)));
+            return EscapeModuleSegment(segment);
         }
 
         private static bool IsModuleIdentifier(string value)
@@ -154,7 +159,14 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                 normalizedRuntimeName = normalizedRuntimeName.Substring(normalizedRoot.Length + 1);
             }
 
-            return $"{GetXamlPrimaryModuleName(rootNamespace)}.{EncodeQualifiedName(normalizedRuntimeName)}";
+            // BindingInfo and TypeInfo are independent XamlC interfaces. A root-level
+            // XAML class with either name would otherwise define the same logical module.
+            string classModuleSuffix = !normalizedRuntimeName.Contains(".") &&
+                (String.Equals(normalizedRuntimeName, "BindingInfo", StringComparison.OrdinalIgnoreCase) ||
+                 String.Equals(normalizedRuntimeName, "TypeInfo", StringComparison.OrdinalIgnoreCase))
+                    ? EscapeModuleSegment(normalizedRuntimeName)
+                    : EncodeQualifiedName(normalizedRuntimeName);
+            return $"{GetXamlPrimaryModuleName(rootNamespace)}.{classModuleSuffix}";
         }
 
         public static string GetAuthoredXamlModuleName(string runtimeClassName)
