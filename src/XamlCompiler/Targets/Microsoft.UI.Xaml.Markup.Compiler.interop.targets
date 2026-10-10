@@ -761,7 +761,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                 Condition="!Exists('%(_XamlGeneratedModuleArtifacts.XamlGeneratedSource)')" />
         </ItemGroup>
         <Message Importance="High" Condition="'$(MSBuildProjectName)' == 'SimpleCppWinRTModules'"
-                 Text="XamlC candidate %(Identity) maps to %(XamlGeneratedSource)" />
+                 Text="XamlC candidate %(_XamlGeneratedModuleArtifacts.Identity) maps to %(_XamlGeneratedModuleArtifacts.XamlGeneratedSource)" />
         <Message Importance="High" Condition="'$(MSBuildProjectName)' == 'SimpleCppWinRTModules'"
                  Text="XamlC orphan %(_XamlOrphanedModuleArtifacts.Identity)" />
         <Delete Files="@(_XamlOrphanedModuleArtifacts)" />
