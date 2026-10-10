@@ -65,6 +65,7 @@ function Invoke-XamlModuleBuild {
         '/p:SpectreMitigation=false',
         '/m:2',
         '/ds:false',
+        '/v:minimal',
         "/binaryLogger:$binlogDir\$LogName.binlog"
     ) + $ExtraProperties
 
