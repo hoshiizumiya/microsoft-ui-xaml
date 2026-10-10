@@ -1340,9 +1340,11 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <_XamlModuleGeneratedCompileItems Include="@(ClCompile)"
                        Condition="'%(ClCompile.CompilerIteration)' == 'XamlGenerated' and '%(ClCompile.Filename)%(ClCompile.Extension)' != 'XamlMetaDataProvider.cpp'" />
             <_XamlModuleGeneratedCompileItems Include="@(_XamlGeneratedModulePchSources)" />
-            <RemoveDuplicates Inputs="@(_XamlModuleGeneratedCompileItems)">
-                <Output TaskParameter="Filtered" ItemName="_XamlUniqueModuleGeneratedCompileItems" />
-            </RemoveDuplicates>
+        </ItemGroup>
+        <RemoveDuplicates Inputs="@(_XamlModuleGeneratedCompileItems)">
+            <Output TaskParameter="Filtered" ItemName="_XamlUniqueModuleGeneratedCompileItems" />
+        </RemoveDuplicates>
+        <ItemGroup>
             <_XamlUniqueModuleGeneratedCompileItems>
                 <PrecompiledHeader>NotUsing</PrecompiledHeader>
             </_XamlUniqueModuleGeneratedCompileItems>
