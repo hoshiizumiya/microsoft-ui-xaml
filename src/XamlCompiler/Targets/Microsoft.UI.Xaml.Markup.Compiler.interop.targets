@@ -1136,16 +1136,16 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             AfterTargets="MarkupCompilePass2"
             BeforeTargets="ComputeXamlGeneratedCompileInputs;CompileXamlGeneratedFiles">
         <ItemGroup>
-            <_XamlGeneratedCompilePaths Include="@(XamlGFiles->'%(FullPath)')
+            <_XamlGeneratedCompilePaths Include="@(XamlGFiles->'%(FullPath)')"
                        Condition="'%(XamlGFiles.Filename)%(XamlGFiles.Extension)' != 'XamlMetaDataProvider.cpp'" />
             <_XamlGeneratedCompilePaths Include="@(GeneratedXamlPagesFiles->'%(FullPath)')" />
-            <_XamlGeneratedCompilePaths Include="@(_GeneratedCodeFiles->'%(FullPath)')
+            <_XamlGeneratedCompilePaths Include="@(_GeneratedCodeFiles->'%(FullPath)')"
                        Condition="'%(_GeneratedCodeFiles.Filename)%(_GeneratedCodeFiles.Extension)' != 'XamlMetaDataProvider.cpp'" />
             <!-- The page implementation sources are not consistently returned in XamlC's
                  item outputs across compiler hosting modes. Their final on-disk names are
                  stable, so include the generated implementation set before native compile. -->
             <_XamlGeneratedCompilePaths Include="$([MSBuild]::NormalizePath($(MSBuildProjectDirectory), $(XamlGeneratedOutputPath)**\*.xaml.g.cpp))" />
-            <_XamlGeneratedCompilePaths Include="@(ClCompile->'%(FullPath)')
+            <_XamlGeneratedCompilePaths Include="@(ClCompile->'%(FullPath)')"
                        Condition="'%(ClCompile.CompilerIteration)' == 'XamlGenerated' and '%(ClCompile.Filename)%(ClCompile.Extension)' != 'XamlMetaDataProvider.cpp'" />
         </ItemGroup>
         <!-- The VC XAML target can filter module-suffixed implementation sources from
@@ -1203,13 +1203,13 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             AfterTargets="ComputeXamlGeneratedCompileInputs"
             BeforeTargets="CompileXamlGeneratedFiles">
         <ItemGroup>
-            <_XamlGeneratedModuleSourcePaths Include="@(ClCompile->'%(FullPath)')
+            <_XamlGeneratedModuleSourcePaths Include="@(ClCompile->'%(FullPath)')"
                        Condition="'%(ClCompile.CompilerIteration)' == 'XamlGenerated' and '%(ClCompile.Filename)%(ClCompile.Extension)' != 'XamlMetaDataProvider.cpp'" />
-            <_XamlGeneratedModuleSourcePaths Include="@(GeneratedXamlPagesFiles->'%(FullPath)')
+            <_XamlGeneratedModuleSourcePaths Include="@(GeneratedXamlPagesFiles->'%(FullPath)')"
                        Condition="'%(GeneratedXamlPagesFiles.Extension)' == '.cpp' and '%(GeneratedXamlPagesFiles.Filename)%(GeneratedXamlPagesFiles.Extension)' != 'XamlMetaDataProvider.cpp'" />
-            <_XamlGeneratedModuleSourcePaths Include="@(_GeneratedCodeFiles->'%(FullPath)')
+            <_XamlGeneratedModuleSourcePaths Include="@(_GeneratedCodeFiles->'%(FullPath)')"
                        Condition="'%(_GeneratedCodeFiles.Extension)' == '.cpp' and '%(_GeneratedCodeFiles.Filename)%(_GeneratedCodeFiles.Extension)' != 'XamlMetaDataProvider.cpp'" />
-            <_XamlGeneratedModuleSourcePaths Include="@(XamlGFiles->'%(FullPath)')
+            <_XamlGeneratedModuleSourcePaths Include="@(XamlGFiles->'%(FullPath)')"
                        Condition="'%(XamlGFiles.Extension)' == '.cpp' and '%(XamlGFiles.Filename)%(XamlGFiles.Extension)' != 'XamlMetaDataProvider.cpp'" />
             <_XamlGeneratedModuleSourcePaths Include="$([MSBuild]::NormalizePath($(MSBuildProjectDirectory), $(XamlGeneratedOutputPath)**\*.xaml.g.cpp))" />
         </ItemGroup>
