@@ -1133,8 +1133,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
 
     <Target Name="XamlCppWinRTApplyGeneratedModuleReferences"
             Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'"
-            AfterTargets="MarkupCompilePass2"
-            BeforeTargets="ComputeXamlGeneratedCompileInputs;CompileXamlGeneratedFiles">
+            AfterTargets="MarkupCompilePass2">
         <PropertyGroup>
             <!-- Keep the wildcard in Include so MSBuild expands generated page sources. -->
             <_XamlGeneratedSourceDirectory>$([MSBuild]::NormalizeDirectory($(MSBuildProjectDirectory), $(XamlGeneratedOutputPath)))</_XamlGeneratedSourceDirectory>
@@ -1206,14 +1205,14 @@ Licensed under the MIT License. See LICENSE in the project root for license info
     </Target>
 
     <!--
-      The generated XAML implementation .cpp files are added after the normal C++
-      module dependency scan. Parse their import declarations and pass explicit IFC
-      mappings to CL; /ifcSearchDir alone cannot resolve CppWinRT's .ixx.ifc outputs.
+      Pass 2 creates the generated implementation .cpp files after the normal C++
+      module dependency scan. Run after Pass 2 and the compile-input setup target, then
+      parse their imports and pass explicit IFC mappings to CL; /ifcSearchDir alone
+      cannot resolve CppWinRT's .ixx.ifc outputs.
     -->
     <Target Name="XamlCppWinRTResolveGeneratedModuleDependencies"
             Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'"
-            AfterTargets="ComputeXamlGeneratedCompileInputs"
-            BeforeTargets="CompileXamlGeneratedFiles">
+            AfterTargets="XamlCppWinRTApplyGeneratedModuleReferences">
         <PropertyGroup>
             <!-- Keep the wildcard in Include so MSBuild expands generated page sources. -->
             <_XamlGeneratedSourceDirectory>$([MSBuild]::NormalizeDirectory($(MSBuildProjectDirectory), $(XamlGeneratedOutputPath)))</_XamlGeneratedSourceDirectory>
