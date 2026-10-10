@@ -2613,6 +2613,17 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
 
             PerformanceUtility.FireCodeMarker(CodeMarkerEvent.perfXC_WriteFilesToDiskStart);
             WriteOutputFilesToDisk(generatedCodeFiles, classCodeInfo.TargetFolder, true);
+            if (!IsPass1 && Language.Name == ProgrammingLanguage.CppWinRT && BuildXamlModules && generatedCodeFiles != null)
+            {
+                foreach (var generatedCodeFile in generatedCodeFiles.Where(file => file.FileName.EndsWith(".xaml.g.cpp", StringComparison.OrdinalIgnoreCase)))
+                {
+                    string generatedPath = Path.Combine(classCodeInfo.TargetFolder, generatedCodeFile.FileName);
+                    if (!_generatedCodeFiles.Contains(generatedPath))
+                    {
+                        _generatedCodeFiles.Add(generatedPath);
+                    }
+                }
+            }
             WriteOutputFilesToDisk(generatedXamlFiles, classCodeInfo.TargetFolder, true);
             PerformanceUtility.FireCodeMarker(CodeMarkerEvent.perfXC_WriteFilesToDiskEnd);
             return true;
