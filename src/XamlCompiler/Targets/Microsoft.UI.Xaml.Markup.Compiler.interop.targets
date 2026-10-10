@@ -1141,6 +1141,13 @@ Licensed under the MIT License. See LICENSE in the project root for license info
         </PropertyGroup>
 
         <ItemGroup>
+            <!-- Preserve raw XamlC outputs before the VC XAML target consumes their items. -->
+            <_XamlGeneratedModuleSourceSnapshot Include="@(GeneratedXamlPagesFiles->'%(FullPath)')" />
+            <_XamlGeneratedModuleSourceSnapshot Include="@(_GeneratedCodeFiles->'%(FullPath)')"
+                       Condition="'%(_GeneratedCodeFiles.Extension)' == '.cpp' and '%(_GeneratedCodeFiles.Filename)%(_GeneratedCodeFiles.Extension)' != 'XamlMetaDataProvider.cpp'" />
+            <_XamlGeneratedModuleSourceSnapshot Include="@(XamlGFiles->'%(FullPath)')"
+                       Condition="'%(XamlGFiles.Extension)' == '.cpp' and '%(XamlGFiles.Filename)%(XamlGFiles.Extension)' != 'XamlMetaDataProvider.cpp'" />
+            <_XamlGeneratedModuleSourceSnapshot Include="$(_XamlGeneratedSourceDirectory)**\*.xaml.g.cpp" />
             <_XamlGeneratedCompilePaths Include="@(XamlGFiles->'%(FullPath)')"
                        Condition="'%(XamlGFiles.Filename)%(XamlGFiles.Extension)' != 'XamlMetaDataProvider.cpp'" />
             <_XamlGeneratedCompilePaths Include="@(GeneratedXamlPagesFiles->'%(FullPath)')" />
@@ -1213,6 +1220,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
         </PropertyGroup>
 
         <ItemGroup>
+            <_XamlGeneratedModuleSourcePaths Include="@(_XamlGeneratedModuleSourceSnapshot)" />
             <_XamlGeneratedModuleSourcePaths Include="@(ClCompile->'%(FullPath)')"
                        Condition="'%(ClCompile.CompilerIteration)' == 'XamlGenerated' and '%(ClCompile.Filename)%(ClCompile.Extension)' != 'XamlMetaDataProvider.cpp'" />
             <_XamlGeneratedModuleSourcePaths Include="@(GeneratedXamlPagesFiles->'%(FullPath)')"
@@ -1257,6 +1265,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <ClCompile Include="@(_XamlMissingGeneratedModuleCompileItems)" />
             <_XamlGeneratedModuleConsumers Remove="@(_XamlGeneratedModuleConsumers)" />
             <_XamlGeneratedModuleSourcePaths Remove="@(_XamlGeneratedModuleSourcePaths)" />
+            <_XamlGeneratedModuleSourceSnapshot Remove="@(_XamlGeneratedModuleSourceSnapshot)" />
             <_XamlUniqueGeneratedModuleSourcePaths Remove="@(_XamlUniqueGeneratedModuleSourcePaths)" />
             <_XamlMissingGeneratedModuleCompileItems Remove="@(_XamlMissingGeneratedModuleCompileItems)" />
         </ItemGroup>
