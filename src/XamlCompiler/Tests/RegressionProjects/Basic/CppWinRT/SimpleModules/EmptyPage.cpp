@@ -2,9 +2,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-#ifdef WINRT_IMPORT_MODULE
-import Simple.Application_Xaml.EmptyPage;
-#endif
 #include "EmptyPage.h"
 #include "EmptyPage.g.cpp"
 
