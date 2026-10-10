@@ -238,9 +238,18 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                     "XamlMetaDataProvider.cpp",
                     metadataProviderPreamble + "\n#include \"XamlMetaDataProvider.g.cpp\"\n"));
 
-                string localHeaders = !_projectInfo.GenerateIncrementalTypeInfo && _projectInfo.ClassToHeaderFileMap != null
-                    ? String.Join(Environment.NewLine, _projectInfo.ClassToHeaderFileMap.Values.Distinct(StringComparer.Ordinal).Select(header => "#include \"" + header + "\""))
-                    : String.Empty;
+                var localTypeInfoHeaders = new List<string>();
+                if (!_projectInfo.GenerateIncrementalTypeInfo && _projectInfo.ClassToHeaderFileMap != null)
+                {
+                    localTypeInfoHeaders.AddRange(_projectInfo.ClassToHeaderFileMap.Values);
+                }
+                if (_projectInfo.AdditionalXamlTypeInfoIncludes != null)
+                {
+                    localTypeInfoHeaders.AddRange(_projectInfo.AdditionalXamlTypeInfoIncludes.Select(include => include.ItemSpec));
+                }
+                string localHeaders = String.Join(
+                    Environment.NewLine,
+                    localTypeInfoHeaders.Distinct(StringComparer.Ordinal).Select(header => "#include \"" + header + "\""));
                 retList.Add(new FileNameAndContentPair("XamlTypeInfo.g.cpp", typeInfoPreamble + "\n" + localHeaders + "\n" + code));
                 return retList;
             }
