@@ -938,11 +938,21 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <Output ItemName="GeneratedXamlPagesFiles" TaskParameter="GeneratedXamlPagesFiles" />
         </OutputDeserializer>
         <ItemGroup Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'">
-            <!-- Module-mode page implementations are returned in the raw generated-code list
-                 instead of GeneratedXamlPagesFiles. Route these ordinary .cpp files through
-                 the existing native generated-page compile path before it consumes the list. -->
-            <GeneratedXamlPagesFiles Include="@(_GeneratedCodeFiles)"
+            <!-- Module-mode implementations are returned in the raw generated-code list.
+                 Combine them with the legacy page list and remove duplicate pass outputs. -->
+            <_XamlGeneratedModulePageSources Include="@(GeneratedXamlPagesFiles)" />
+            <_XamlGeneratedModulePageSources Include="@(_GeneratedCodeFiles)"
                        Condition="'%(_GeneratedCodeFiles.Extension)' == '.cpp' and $([System.String]::Copy('%(_GeneratedCodeFiles.Filename)').EndsWith('.xaml.g'))" />
+        </ItemGroup>
+        <RemoveDuplicates Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'"
+                          Inputs="@(_XamlGeneratedModulePageSources)">
+            <Output TaskParameter="Filtered" ItemName="_XamlUniqueGeneratedModulePageSources" />
+        </RemoveDuplicates>
+        <ItemGroup Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'">
+            <GeneratedXamlPagesFiles Remove="@(GeneratedXamlPagesFiles)" />
+            <GeneratedXamlPagesFiles Include="@(_XamlUniqueGeneratedModulePageSources)" />
+            <_XamlGeneratedModulePageSources Remove="@(_XamlGeneratedModulePageSources)" />
+            <_XamlUniqueGeneratedModulePageSources Remove="@(_XamlUniqueGeneratedModulePageSources)" />
         </ItemGroup>
         <ItemGroup>
             <FileWrites Include="$(XamlSavedStateFilePath)" />
@@ -1018,8 +1028,8 @@ Licensed under the MIT License. See LICENSE in the project root for license info
     -->
     <Target Name="XamlCppWinRTApplyGeneratedModuleReferences"
             Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'"
-            AfterTargets="ComputeXamlGeneratedCompileInputs"
-            BeforeTargets="CompileXamlGeneratedFiles">
+            AfterTargets="MarkupCompilePass2"
+            BeforeTargets="ComputeXamlGeneratedCompileInputs;CompileXamlGeneratedFiles">
         <ItemGroup>
             <_XamlGeneratedCompilePaths Include="@(XamlGFiles)"
                        Condition="'%(XamlGFiles.Filename)%(XamlGFiles.Extension)' != 'XamlMetaDataProvider.cpp'" />
