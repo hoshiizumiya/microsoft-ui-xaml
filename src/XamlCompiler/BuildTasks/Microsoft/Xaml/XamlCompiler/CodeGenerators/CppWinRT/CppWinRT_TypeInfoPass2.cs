@@ -45,24 +45,14 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
   if (!ProjectInfo.BuildXamlModules) { 
             this.Write("#include <unknwn.h>\r\n");
   } 
-            this.Write(@"#include <algorithm>
-#include <cstddef>
-#include <cstdint>
-#include <functional>
-#include <map>
-#include <memory>
-#include <mutex>
-#include <regex>
-#include <string>
-#include <type_traits>
-#include <utility>
-#include <vector>
-
-// Undefine GetCurrentTime macro to prevent
-// conflict with Storyboard::GetCurrentTime
-#undef GetCurrentTime
-
-");
+            this.Write("#include <algorithm>\r\n#include <cstddef>\r\n#include <cstdint>\r\n#include <functiona" +
+                    "l>\r\n#include <map>\r\n#include <memory>\r\n#include <mutex>\r\n#include <regex>\r\n#incl" +
+                    "ude <string>\r\n#include <type_traits>\r\n#include <utility>\r\n#include <vector>\r\n");
+  if (ProjectInfo.BuildXamlModules) { 
+            this.Write("#ifndef WINRT_IMPORT_MODULE\r\n#define WINRT_IMPORT_MODULE\r\n#endif\r\n");
+  } 
+            this.Write("\r\n// Undefine GetCurrentTime macro to prevent\r\n// conflict with Storyboard::GetCu" +
+                    "rrentTime\r\n#undef GetCurrentTime\r\n\r\n");
   if (!ProjectInfo.GenerateIncrementalTypeInfo) { 
       foreach(var additionalHeader in ProjectInfo.AdditionalXamlTypeInfoIncludes) { 
             this.Write("#include \"");
