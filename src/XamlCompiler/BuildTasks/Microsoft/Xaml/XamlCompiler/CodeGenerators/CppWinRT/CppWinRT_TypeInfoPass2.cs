@@ -43,23 +43,26 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTConsumerPreamble()));
             this.Write("\r\n");
   if (!ProjectInfo.BuildXamlModules) { 
-            this.Write(@"#include <unknwn.h>
-#include <algorithm>
+            this.Write("#include <unknwn.h>\r\n");
+  } 
+            this.Write(@"#include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <memory>
-#include <mutex>
-#include <type_traits>
-#include <vector>
 #include <functional>
 #include <map>
+#include <memory>
+#include <mutex>
 #include <regex>
 #include <string>
+#include <type_traits>
 #include <utility>
+#include <vector>
+
+// Undefine GetCurrentTime macro to prevent
+// conflict with Storyboard::GetCurrentTime
+#undef GetCurrentTime
+
 ");
-  } 
-            this.Write("\r\n// Undefine GetCurrentTime macro to prevent\r\n// conflict with Storyboard::GetCu" +
-                    "rrentTime\r\n#undef GetCurrentTime\r\n\r\n");
   if (!ProjectInfo.GenerateIncrementalTypeInfo) { 
       foreach(var additionalHeader in ProjectInfo.AdditionalXamlTypeInfoIncludes) { 
             this.Write("#include \"");
@@ -76,9 +79,6 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
   } 
   if (ProjectInfo.GenerateIncrementalTypeInfo) { 
             this.Write("#ifdef XAML_TYPE_INFO_INC\r\n#include XAML_TYPE_INFO_INC\r\n#endif\r\n");
-  } 
-  if (ProjectInfo.BuildXamlModules) { 
-            this.Write("import std;\r\n");
   } 
   foreach (var projectionNamespace in Model.NeededCppWinRTProjectionNamespaces) { 
             this.Write(this.ToStringHelper.ToStringWithCulture(GetCppWinRTProjectionDependencyDirective(projectionNamespace, optionalHeader: true)));
