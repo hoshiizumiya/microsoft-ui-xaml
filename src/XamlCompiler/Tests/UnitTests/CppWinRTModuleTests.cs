@@ -309,8 +309,7 @@ namespace UnitTests
             var schema = new XamlSchemaCodeInfo();
             var schemaContext = helper.LoadSchema(SchemaMode.ManagedRuntime);
             var providerType = new XamlType(
-                typeof(ProjectionDependencyFixtures.Providers.ExternalMetadataProvider),
-                schemaContext.Instance);
+                new DirectUIXamlType(typeof(ProjectionDependencyFixtures.Providers.ExternalMetadataProvider), schemaContext).Instance);
             schema.SetOtherMetadataProviders(new[] { new TypeForCodeGen(providerType) });
 
             string headerText = helper.GenerateTypeInfo(false, schema, project, new ClassName("Test.App"), CodeGenLanguage.CppWinRT)
