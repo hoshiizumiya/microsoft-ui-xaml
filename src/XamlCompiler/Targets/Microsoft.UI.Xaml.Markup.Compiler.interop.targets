@@ -1021,11 +1021,13 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                        Condition="'%(_GeneratedCodeFiles.Filename)%(_GeneratedCodeFiles.Extension)' != 'XamlMetaDataProvider.cpp'" />
             <_XamlGeneratedCompilePaths Include="@(ClCompile)"
                        Condition="'%(ClCompile.CompilerIteration)' == 'XamlGenerated' and '%(ClCompile.Filename)%(ClCompile.Extension)' != 'XamlMetaDataProvider.cpp'" />
-            <!-- The VC XAML target can filter module-suffixed implementation sources from
-                 XamlGFiles after Pass 2. The raw task output remains authoritative. -->
-            <RemoveDuplicates Inputs="@(_XamlGeneratedCompilePaths)">
-                <Output TaskParameter="Filtered" ItemName="_XamlUniqueGeneratedCompilePaths" />
-            </RemoveDuplicates>
+        </ItemGroup>
+        <!-- The VC XAML target can filter module-suffixed implementation sources from
+             XamlGFiles after Pass 2. The raw task output remains authoritative. -->
+        <RemoveDuplicates Inputs="@(_XamlGeneratedCompilePaths)">
+            <Output TaskParameter="Filtered" ItemName="_XamlUniqueGeneratedCompilePaths" />
+        </RemoveDuplicates>
+        <ItemGroup>
             <!-- Intersect with existing ClCompile items so their metadata is preserved.
                  FullPath matching also handles relative versus absolute generated paths. -->
             <_XamlAuthoredCompileItems Include="@(ClCompile)" />
@@ -1045,7 +1047,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                  suffix reach the native compile even when the VC XAML target filters them
                  out while materializing XamlGFiles. Existing ClCompile items are preserved. -->
             <_XamlMissingGeneratedModuleCompileItems Include="@(_XamlUniqueGeneratedCompilePaths)"
-                       Condition="'%(_XamlGeneratedCompilePaths.Extension)' == '.cpp'">
+                       Condition="'%(_XamlUniqueGeneratedCompilePaths.Extension)' == '.cpp'">
                 <CompilerIteration>XamlGenerated</CompilerIteration>
                 <AdditionalBMIDirectories>$(IntDir);$(XamlCppWinRTModuleIfcDir);$(_XamlGeneratedAdditionalBMIDirectories);%(_XamlUniqueGeneratedCompilePaths.AdditionalBMIDirectories)</AdditionalBMIDirectories>
                 <PrecompiledHeader>NotUsing</PrecompiledHeader>
