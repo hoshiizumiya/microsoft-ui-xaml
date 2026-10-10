@@ -11,10 +11,12 @@
 #include "MainPage.g.h"
 
 #ifdef WINRT_IMPORT_MODULE
+import winrt.Simple.Models;
 import winrt.Microsoft.UI.Xaml.Controls.Primitives;
 import winrt.Microsoft.UI.Xaml.Documents;
 import winrt.Microsoft.UI.Xaml.Input;
 #else
+#include "winrt/Simple.Models.h"
 #include "winrt/Microsoft.UI.Xaml.Controls.Primitives.h"
 #include "winrt/Microsoft.UI.Xaml.Documents.h"
 #include "winrt/Microsoft.UI.Xaml.Input.h"
