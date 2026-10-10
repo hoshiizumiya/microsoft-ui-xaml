@@ -92,15 +92,8 @@ foreach ($mode in @('Module', 'Header')) {
             if (-not $Pass1Only) {
                 foreach ($generated in @(Get-ChildItem $intermediate -Filter '*.xaml.g.cpp' -Recurse -File) + @(Get-ChildItem $intermediate -Filter 'XamlTypeInfo*.g.cpp' -Recurse -File)) {
                     $text = Get-Content $generated.FullName -Raw
-                    if ($text -match '(?m)^module;
-                }
-            }
-        }
-
-        if ($Pass1Only) { break }
-    }
-}
- -or $text.Contains('import std;')) {
+                    if ($text -match '(?m)^\s*(?:export\s+)?module(?:\s+[^;]+)?\s*;' -or
+                        $text.Contains('import std;')) {
                         throw "NuGet consumer generated ordinary TU has module/STL ownership regression: $($generated.FullName)"
                     }
                     if ($generated.Name -eq 'XamlTypeInfo.g.cpp' -and -not $text.Contains('import winrt.Microsoft.UI.Xaml.XamlTypeInfo;')) {
