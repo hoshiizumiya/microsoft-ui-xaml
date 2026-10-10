@@ -292,10 +292,10 @@ namespace UnitTests
             project.SetEmptyAdditionalXamlTypeInfoIncludes();
             var schema = new XamlSchemaCodeInfo();
             var schemaContext = helper.LoadSchema(SchemaMode.ManagedRuntime);
-            schema.OtherMetadataProviders = new[]
+            schema.SetOtherMetadataProviders(new[]
             {
                 new TypeForCodeGen(schemaContext.GetXamlType(typeof(ProjectionDependencyFixtures.Providers.ExternalMetadataProvider)))
-            };
+            });
 
             string headerText = helper.GenerateTypeInfo(false, schema, project, new ClassName("Test.App"), CodeGenLanguage.CppWinRT)
                 .Single(file => file.FileName == "XamlTypeInfo.g.cpp").Contents;
