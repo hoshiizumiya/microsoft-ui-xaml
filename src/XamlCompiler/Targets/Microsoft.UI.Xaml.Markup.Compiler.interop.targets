@@ -1326,24 +1326,30 @@ Licensed under the MIT License. See LICENSE in the project root for license info
       do not include the project PCH.
     -->
     <Target Name="XamlCppWinRTDisableGeneratedModuleConsumerPch"
-            Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'"
+            Condition="'$(CppWinRTBuildModule)' == 'true'"
             AfterTargets="ComputeXamlGeneratedCompileInputs"
             BeforeTargets="FixupCLCompileOptions;CompileXamlGeneratedFiles;ClCompile">
         <ItemGroup>
-            <_XamlAllCompileItems Include="@(ClCompile)" />
-            <_XamlNonModuleGeneratedCompileItems Include="@(_XamlAllCompileItems)" />
-            <_XamlNonModuleGeneratedCompileItems Remove="@(_XamlGeneratedModulePchSources)"
-                       MatchOnMetadata="FullPath" MatchOnMetadataOptions="PathLike" />
-            <_XamlModuleGeneratedCompileItems Include="@(_XamlAllCompileItems)" />
-            <_XamlModuleGeneratedCompileItems Remove="@(_XamlNonModuleGeneratedCompileItems)" />
-            <_XamlModuleGeneratedCompileItems>
+            <!--
+              Some generated C++ consumers, notably XamlTypeInfo.Impl.g.cpp in static
+              libraries, are materialized after the Pass 2 source snapshot. Use VC's
+              generated-source iteration metadata as well as the saved XamlC source set.
+              Module mode is the relevant condition here; XamlLanguage can be unset in
+              otherwise valid C++/WinRT module consumers.
+            -->
+            <_XamlModuleGeneratedCompileItems Include="@(ClCompile)"
+                       Condition="'%(ClCompile.CompilerIteration)' == 'XamlGenerated' and '%(ClCompile.Filename)%(ClCompile.Extension)' != 'XamlMetaDataProvider.cpp'" />
+            <_XamlModuleGeneratedCompileItems Include="@(_XamlGeneratedModulePchSources)" />
+            <RemoveDuplicates Inputs="@(_XamlModuleGeneratedCompileItems)">
+                <Output TaskParameter="Filtered" ItemName="_XamlUniqueModuleGeneratedCompileItems" />
+            </RemoveDuplicates>
+            <_XamlUniqueModuleGeneratedCompileItems>
                 <PrecompiledHeader>NotUsing</PrecompiledHeader>
-            </_XamlModuleGeneratedCompileItems>
-            <ClCompile Remove="@(_XamlModuleGeneratedCompileItems)" />
-            <ClCompile Include="@(_XamlModuleGeneratedCompileItems)" />
-            <_XamlAllCompileItems Remove="@(_XamlAllCompileItems)" />
-            <_XamlNonModuleGeneratedCompileItems Remove="@(_XamlNonModuleGeneratedCompileItems)" />
+            </_XamlUniqueModuleGeneratedCompileItems>
+            <ClCompile Remove="@(_XamlUniqueModuleGeneratedCompileItems)" />
+            <ClCompile Include="@(_XamlUniqueModuleGeneratedCompileItems)" />
             <_XamlModuleGeneratedCompileItems Remove="@(_XamlModuleGeneratedCompileItems)" />
+            <_XamlUniqueModuleGeneratedCompileItems Remove="@(_XamlUniqueModuleGeneratedCompileItems)" />
             <_XamlGeneratedModulePchSources Remove="@(_XamlGeneratedModulePchSources)" />
         </ItemGroup>
     </Target>
