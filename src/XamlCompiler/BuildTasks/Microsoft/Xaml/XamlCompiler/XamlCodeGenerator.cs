@@ -165,6 +165,10 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                 {
                     projectionNamespaces.Add(_projectInfo.RootNamespace);
                 }
+                var implementationProjectionNamespaces = projectionNamespaces
+                    .Concat(new TypeInfoDefinition(_projectInfo, _schemaInfo).NeededCppWinRTProjectionNamespaces)
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList();
 
                 if (_isPass1)
                 {
@@ -216,7 +220,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                 };
                 string typeInfoPreamble = CppWinRTProjectionDependency.WriteImplementationUnitPreamble(
                     moduleName,
-                    projectionNamespaces,
+                    implementationProjectionNamespaces,
                     importedModules,
                     textualHeaders: new[]
                     {

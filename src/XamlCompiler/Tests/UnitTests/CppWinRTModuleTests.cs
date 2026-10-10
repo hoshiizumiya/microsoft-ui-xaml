@@ -291,6 +291,11 @@ namespace UnitTests
             };
             project.SetEmptyAdditionalXamlTypeInfoIncludes();
             var schema = new XamlSchemaCodeInfo();
+            var schemaContext = helper.LoadSchema(SchemaMode.ManagedRuntime);
+            schema.OtherMetadataProviders = new[]
+            {
+                new TypeForCodeGen(schemaContext.GetXamlType(typeof(ProjectionDependencyFixtures.Providers.ExternalMetadataProvider)))
+            };
 
             string headerText = helper.GenerateTypeInfo(false, schema, project, new ClassName("Test.App"), CodeGenLanguage.CppWinRT)
                 .Single(file => file.FileName == "XamlTypeInfo.g.cpp").Contents;
@@ -312,6 +317,7 @@ namespace UnitTests
                 "mutex", "regex", "string", "type_traits", "utility", "vector");
             StringAssert.Contains(moduleText, "import Test.Application_Xaml.TypeInfo;");
             StringAssert.Contains(moduleText, "import Test.Application_Xaml.BindingInfo;");
+            StringAssert.Contains(moduleText, "import winrt.ProjectionDependencyFixtures.Providers;");
             StringAssert.Contains(moduleText, "import winrt_base;");
             StringAssert.Contains(moduleText, "#define WINRT_IMPORT_MODULE");
             Assert.IsFalse(moduleText.Contains("Application_Xaml.Support"));
@@ -454,6 +460,13 @@ namespace ProjectionDependencyFixtures.Middle
 namespace ProjectionDependencyFixtures.Inner
 {
     internal sealed class Payload
+    {
+    }
+}
+
+namespace ProjectionDependencyFixtures.Providers
+{
+    internal sealed class ExternalMetadataProvider
     {
     }
 }
