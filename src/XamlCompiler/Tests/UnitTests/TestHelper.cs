@@ -656,9 +656,6 @@ namespace UnitTests
                 case CodeGenLanguage.Cpp:
                     return Language.Parse("C++");
 
-                case CodeGenLanguage.CppWinRT:
-                    return Language.Parse("CppWinRT");
-
                 default:
                     throw new ArgumentOutOfRangeException("Bad Code Language");
             }
