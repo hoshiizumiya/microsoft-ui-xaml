@@ -1363,7 +1363,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <_XamlNoPchModuleGeneratedCompileItems Remove="@(_XamlNoPchModuleGeneratedCompileItems)" />
             <_XamlGeneratedModulePchSources Remove="@(_XamlGeneratedModulePchSources)" />
         </ItemGroup>
-    </Target>get>
+    </Target>
 
     <Target Name="_OnXamlPreCompileError"
             DependsOnTargets="$(_OnXamlPrecompileErrorDependsOn)" >
