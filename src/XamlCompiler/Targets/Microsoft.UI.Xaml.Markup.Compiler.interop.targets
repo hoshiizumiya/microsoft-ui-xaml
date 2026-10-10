@@ -1135,6 +1135,11 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'"
             AfterTargets="MarkupCompilePass2"
             BeforeTargets="ComputeXamlGeneratedCompileInputs;CompileXamlGeneratedFiles">
+        <PropertyGroup>
+            <!-- Keep the wildcard in Include so MSBuild expands generated page sources. -->
+            <_XamlGeneratedSourceDirectory>$([MSBuild]::NormalizeDirectory($(MSBuildProjectDirectory), $(XamlGeneratedOutputPath)))</_XamlGeneratedSourceDirectory>
+        </PropertyGroup>
+
         <ItemGroup>
             <_XamlGeneratedCompilePaths Include="@(XamlGFiles->'%(FullPath)')"
                        Condition="'%(XamlGFiles.Filename)%(XamlGFiles.Extension)' != 'XamlMetaDataProvider.cpp'" />
@@ -1144,7 +1149,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <!-- The page implementation sources are not consistently returned in XamlC's
                  item outputs across compiler hosting modes. Their final on-disk names are
                  stable, so include the generated implementation set before native compile. -->
-            <_XamlGeneratedCompilePaths Include="$(XamlGeneratedOutputPath)**\*.xaml.g.cpp" />
+            <_XamlGeneratedCompilePaths Include="$(_XamlGeneratedSourceDirectory)**\*.xaml.g.cpp" />
             <_XamlGeneratedCompilePaths Include="@(ClCompile->'%(FullPath)')"
                        Condition="'%(ClCompile.CompilerIteration)' == 'XamlGenerated' and '%(ClCompile.Filename)%(ClCompile.Extension)' != 'XamlMetaDataProvider.cpp'" />
         </ItemGroup>
@@ -1202,6 +1207,11 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'"
             AfterTargets="ComputeXamlGeneratedCompileInputs"
             BeforeTargets="CompileXamlGeneratedFiles">
+        <PropertyGroup>
+            <!-- Keep the wildcard in Include so MSBuild expands generated page sources. -->
+            <_XamlGeneratedSourceDirectory>$([MSBuild]::NormalizeDirectory($(MSBuildProjectDirectory), $(XamlGeneratedOutputPath)))</_XamlGeneratedSourceDirectory>
+        </PropertyGroup>
+
         <ItemGroup>
             <_XamlGeneratedModuleSourcePaths Include="@(ClCompile->'%(FullPath)')"
                        Condition="'%(ClCompile.CompilerIteration)' == 'XamlGenerated' and '%(ClCompile.Filename)%(ClCompile.Extension)' != 'XamlMetaDataProvider.cpp'" />
@@ -1211,7 +1221,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                        Condition="'%(_GeneratedCodeFiles.Extension)' == '.cpp' and '%(_GeneratedCodeFiles.Filename)%(_GeneratedCodeFiles.Extension)' != 'XamlMetaDataProvider.cpp'" />
             <_XamlGeneratedModuleSourcePaths Include="@(XamlGFiles->'%(FullPath)')"
                        Condition="'%(XamlGFiles.Extension)' == '.cpp' and '%(XamlGFiles.Filename)%(XamlGFiles.Extension)' != 'XamlMetaDataProvider.cpp'" />
-            <_XamlGeneratedModuleSourcePaths Include="$(XamlGeneratedOutputPath)**\*.xaml.g.cpp" />
+            <_XamlGeneratedModuleSourcePaths Include="$(_XamlGeneratedSourceDirectory)**\*.xaml.g.cpp" />
         </ItemGroup>
         <RemoveDuplicates Inputs="@(_XamlGeneratedModuleSourcePaths)">
             <Output TaskParameter="Filtered" ItemName="_XamlUniqueGeneratedModuleSourcePaths" />
