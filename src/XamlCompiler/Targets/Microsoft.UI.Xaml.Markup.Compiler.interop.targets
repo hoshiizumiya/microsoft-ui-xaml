@@ -1048,7 +1048,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
         <Using Namespace="Microsoft.Build.Framework" />
         <Code Type="Fragment" Language="cs"><![CDATA[
             var importedModules = new SortedSet<string>(StringComparer.Ordinal);
-            var importPattern = new Regex(@"(?:^|;)\s*(?:export\s+)?import\s+([\\p{L}_][\\p{L}\\p{N}\\p{M}\\p{Pc}\\u200C\\u200D_.:]*)\s*;", RegexOptions.CultureInvariant);
+            var importPattern = new Regex(@"(?:^|;)\s*(?:export\s+)?import\s+([\p{L}_][\p{L}\p{N}\p{M}\p{Pc}\u200C\u200D_.:]*)\s*;", RegexOptions.CultureInvariant);
 
             foreach (var source in GeneratedSources ?? new ITaskItem[0])
             {
