@@ -1010,7 +1010,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
       C++/WinRT BMIs without an application-owned /FI preamble.
     -->
     <Target Name="XamlCppWinRTApplyGeneratedModuleReferences"
-            Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true' and ('@(Page)' != '' or '@(ApplicationDefinition)' != '')"
+            Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'"
             AfterTargets="ComputeXamlGeneratedCompileInputs"
             BeforeTargets="CompileXamlGeneratedFiles">
         <ItemGroup>
