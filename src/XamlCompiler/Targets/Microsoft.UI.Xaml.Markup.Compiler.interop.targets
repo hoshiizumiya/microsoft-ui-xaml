@@ -1039,6 +1039,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
         <Using Namespace="System" />
         <Using Namespace="System.Collections.Generic" />
         <Using Namespace="System.IO" />
+        <Using Namespace="System.Linq" />
         <Using Namespace="System.Text.RegularExpressions" />
         <Using Namespace="Microsoft.Build.Framework" />
         <Code Type="Fragment" Language="cs"><![CDATA[
