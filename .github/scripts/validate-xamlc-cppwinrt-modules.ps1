@@ -230,7 +230,7 @@ if ($panelScans.Count -ne 2 -or $panelScans[0].DirectoryName -eq $panelScans[1].
 $mainInterface = Get-OneGeneratedFile $simpleGeneratedRoot 'MainPage.xaml.g.ixx'
 $mainInterfaceText = Get-Content $mainInterface.FullName -Raw
 if (-not $mainInterfaceText.Contains('export import winrt.Simple;')) { throw 'Unresolved local field dependency was not exported.' }
-$appImplementation = Get-Content (Join-Path $simpleModules 'App.cpp') -Raw
+$appImplementation = Get-Content (Join-Path $fixtureRoot 'App.cpp') -Raw
 if ($appImplementation -notmatch '(?s)#ifdef WINRT_IMPORT_MODULE\s*import Simple\.Application_Xaml\.App;\s*import Simple\.Application_Xaml\.MainPage;\s*#endif') {
     throw 'Handwritten App.cpp must explicitly import both its App and MainPage XamlC modules.'
 }
