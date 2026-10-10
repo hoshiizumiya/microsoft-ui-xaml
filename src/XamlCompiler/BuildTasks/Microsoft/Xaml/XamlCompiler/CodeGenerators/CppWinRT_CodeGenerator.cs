@@ -267,7 +267,8 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
             string moduleName,
             IEnumerable<string> projectionNamespaces,
             IEnumerable<string> importedModules = null,
-            IEnumerable<string> textualHeaders = null)
+            IEnumerable<string> textualHeaders = null,
+            IEnumerable<string> textualLocalHeaders = null)
         {
             var text = new StringBuilder();
             text.AppendLine("#include <windows.h>");
@@ -281,6 +282,15 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                 }
             }
             text.AppendLine("#undef GetCurrentTime");
+            // IDL implementation headers may include C++/WinRT producer scaffolding.
+            // Include them before importing the corresponding projection modules.
+            if (textualLocalHeaders != null)
+            {
+                foreach (var header in textualLocalHeaders.Where(name => !String.IsNullOrWhiteSpace(name)).Distinct(StringComparer.Ordinal).OrderBy(name => name, StringComparer.Ordinal))
+                {
+                    text.AppendLine($"#include \"{header}\"");
+                }
+            }
             // C++/WinRT 3.x implementation mode uses an ordinary translation unit.
             // The standard library is owned textually here, before any imports; only
             // C++/WinRT and XamlC named modules are imported below.
