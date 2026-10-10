@@ -4,6 +4,9 @@
 
 #ifdef XAML_FIXTURE_MODULES
 #define WINRT_IMPORT_MODULE
+import winrt.Windows.Foundation;
+import winrt.Microsoft.UI.Xaml;
+import StaticControlsModuleLib.Application_Xaml.BlankUserControl;
 #endif
 #include "BlankUserControl.h"
 
