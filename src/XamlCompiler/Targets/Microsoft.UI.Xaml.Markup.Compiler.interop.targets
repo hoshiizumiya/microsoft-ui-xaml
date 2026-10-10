@@ -1329,21 +1329,28 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             Condition="'$(CppWinRTBuildModule)' == 'true'"
             AfterTargets="ComputeXamlGeneratedCompileInputs"
             BeforeTargets="FixupCLCompileOptions;CompileXamlGeneratedFiles;ClCompile">
+        <PropertyGroup>
+            <_XamlGeneratedSourceDirectory>$([MSBuild]::NormalizeDirectory($(MSBuildProjectDirectory), $(XamlGeneratedOutputPath)))</_XamlGeneratedSourceDirectory>
+        </PropertyGroup>
         <ItemGroup>
             <!--
               Some generated C++ consumers, notably XamlTypeInfo.Impl.g.cpp in static
-              libraries, are materialized after the Pass 2 source snapshot. Use VC's
-              generated-source iteration metadata as well as the saved XamlC source set.
-              Module mode is the relevant condition here; XamlLanguage can be unset in
-              otherwise valid C++/WinRT module consumers.
+              libraries, are materialized after the Pass 2 source snapshot. Find late
+              ClCompile items by compiler iteration and generated-output path, alongside
+              the saved XamlC source set. Module mode is the relevant condition here;
+              XamlLanguage can be unset in otherwise valid C++/WinRT module consumers.
             -->
             <_XamlModuleGeneratedCompileItems Include="@(ClCompile)"
                        Condition="'%(ClCompile.CompilerIteration)' == 'XamlGenerated' and '%(ClCompile.Filename)%(ClCompile.Extension)' != 'XamlMetaDataProvider.cpp'" />
+            <_XamlModuleGeneratedCompileItems Include="@(ClCompile)"
+                       Condition="'%(ClCompile.Extension)' == '.cpp' and '%(ClCompile.Filename)%(ClCompile.Extension)' != 'XamlMetaDataProvider.cpp' and $([System.String]::Copy('%(ClCompile.FullPath)').StartsWith('$(_XamlGeneratedSourceDirectory)'))" />
             <_XamlModuleGeneratedCompileItems Include="@(_XamlGeneratedModulePchSources)" />
         </ItemGroup>
         <RemoveDuplicates Inputs="@(_XamlModuleGeneratedCompileItems)">
             <Output TaskParameter="Filtered" ItemName="_XamlUniqueModuleGeneratedCompileItems" />
         </RemoveDuplicates>
+        <Message Importance="High" Condition="'$(MSBuildProjectName)' == 'StaticControlsModuleLib'"
+                 Text="XamlC PCH late pass root=$(_XamlGeneratedSourceDirectory); language=$(XamlLanguage); module=$(CppWinRTBuildModule); candidates=@(_XamlUniqueModuleGeneratedCompileItems->'%(Identity)|%(CompilerIteration)|%(PrecompiledHeader)')" />
         <ItemGroup>
             <_XamlUniqueModuleGeneratedCompileItems>
                 <PrecompiledHeader>NotUsing</PrecompiledHeader>
