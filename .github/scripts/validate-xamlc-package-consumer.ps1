@@ -58,20 +58,20 @@ foreach ($mode in @('Module', 'Header')) {
             Assert-AuthoredModuleConsumer 'EmptyPage.xaml.cpp' @('winrt_base', 'NuGetModules.Application_Xaml.EmptyPage') '#include <cstdint>'
             Assert-AuthoredModuleConsumer 'RootConsumer.cpp' @('winrt_base', 'NuGetModules.Application_Xaml')
 
-            $root = @(Get-ChildItem $intermediate -Filter 'Application_Xaml.g.ixx' -Recurse -File)
+            $root = @(Get-ChildItem $testRoot -Filter 'Application_Xaml.g.ixx' -Recurse -File)
             if ($root.Count -ne 1) { throw 'Automatic public root module missing.' }
             $rootText = Get-Content $root[0].FullName -Raw
             if (-not $rootText.Contains('export module NuGetModules.Application_Xaml;')) { throw 'Automatic public root module has the wrong identity.' }
             if ($rootText -match '#include|namespace |Application_Xaml\.Support') { throw 'Automatic public root is not a pure per-class aggregator.' }
 
             foreach ($obsolete in @('Application_Xaml.Support.g.ixx', 'XamlSupport.g.ixx', 'NuGetModules.Application_Xaml.Support.ifc')) {
-                if (@(Get-ChildItem $intermediate -Filter $obsolete -Recurse -File -ErrorAction SilentlyContinue).Count -ne 0) {
+                if (@(Get-ChildItem $testRoot -Filter $obsolete -Recurse -File -ErrorAction SilentlyContinue).Count -ne 0) {
                     throw "NuGet consumer retained obsolete support artifact $obsolete."
                 }
             }
 
             foreach ($class in @('App', 'MainPage', 'EmptyPage')) {
-                $interface = @(Get-ChildItem $intermediate -Filter "$class.xaml.g.ixx" -Recurse -File)
+                $interface = @(Get-ChildItem $testRoot -Filter "$class.xaml.g.ixx" -Recurse -File)
                 if ($interface.Count -ne 1) { throw "No automatic interface for $class." }
                 $identity = "NuGetModules.Application_Xaml.$class"
                 $interfaceText = Get-Content $interface[0].FullName -Raw
@@ -90,7 +90,7 @@ foreach ($mode in @('Module', 'Header')) {
             }
 
             if (-not $Pass1Only) {
-                foreach ($generated in @(Get-ChildItem $intermediate -Filter '*.xaml.g.cpp' -Recurse -File) + @(Get-ChildItem $intermediate -Filter 'XamlTypeInfo*.g.cpp' -Recurse -File)) {
+                foreach ($generated in @(Get-ChildItem $testRoot -Filter '*.xaml.g.cpp' -Recurse -File) + @(Get-ChildItem $testRoot -Filter 'XamlTypeInfo*.g.cpp' -Recurse -File)) {
                     $text = Get-Content $generated.FullName -Raw
                     if ($text -match '(?m)^\s*(?:export\s+)?module(?:\s+[^;]+)?\s*;' -or
                         $text.Contains('import std;')) {
