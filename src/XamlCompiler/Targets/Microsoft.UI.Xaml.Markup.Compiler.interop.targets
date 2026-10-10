@@ -937,6 +937,13 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <Output ItemName="_GeneratedXbfFiles" TaskParameter="GeneratedXbfFiles" />
             <Output ItemName="GeneratedXamlPagesFiles" TaskParameter="GeneratedXamlPagesFiles" />
         </OutputDeserializer>
+        <ItemGroup Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'">
+            <!-- Module-mode page implementations are returned in the raw generated-code list
+                 instead of GeneratedXamlPagesFiles. Route these ordinary .cpp files through
+                 the existing native generated-page compile path before it consumes the list. -->
+            <GeneratedXamlPagesFiles Include="@(_GeneratedCodeFiles)"
+                       Condition="'%(_GeneratedCodeFiles.Extension)' == '.cpp' and $([System.String]::Copy('%(_GeneratedCodeFiles.Filename)').EndsWith('.xaml.g'))" />
+        </ItemGroup>
         <ItemGroup>
             <FileWrites Include="$(XamlSavedStateFilePath)" />
             <FileWrites Condition="'$(XamlRootsLog)' != ''" Include="$(XamlRootsLog)" />
