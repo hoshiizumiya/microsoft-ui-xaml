@@ -205,7 +205,7 @@
           AfterTargets="CppWinRTAddModuleInterfaces;XamlCppWinRTAddModuleInterfaces"
           BeforeTargets="FixupCLCompileOptions">
     <ItemGroup>
-      <ClCompile Condition="'%(ClCompile.CompileAs)' != 'CompileAsCppModule'">
+      <ClCompile Condition="'%(ClCompile.CompileAs)' != 'CompileAsCppModule' and ('%(ClCompile.Identity)' != 'EmptyPage.cpp' or '$(IncludeIncrementalEmptyPage)' != 'false')">
         <PreprocessorDefinitions>WINRT_IMPORT_MODULE;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
       </ClCompile>
     </ItemGroup>
