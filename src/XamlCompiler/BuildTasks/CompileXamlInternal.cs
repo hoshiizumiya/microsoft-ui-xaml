@@ -1714,6 +1714,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
                 if (codeFiles.Count != 1 || Language.IsNative)
                 {
                     WriteOutputFilesToDisk(codeFiles, OutputFolderFullpath, true);
+                ReportGeneratedModuleImplementationFiles(codeFiles, OutputFolderFullpath);
                 }
                 else
                 {
@@ -2508,6 +2509,23 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
             }
         }
 
+        private void ReportGeneratedModuleImplementationFiles(IEnumerable<FileNameAndContentPair> generatedFiles, string targetFolder)
+        {
+            if (IsPass1 || Language.Name != ProgrammingLanguage.CppWinRT || !BuildXamlModules || generatedFiles == null)
+            {
+                return;
+            }
+
+            foreach (var generatedFile in generatedFiles.Where(file => file.FileName.EndsWith(".xaml.g.cpp", StringComparison.OrdinalIgnoreCase)))
+            {
+                string generatedPath = Path.Combine(targetFolder, generatedFile.FileName);
+                if (!_generatedCodeFiles.Contains(generatedPath))
+                {
+                    _generatedCodeFiles.Add(generatedPath);
+                }
+            }
+        }
+
         private bool GeneratePageOutputFiles(XamlClassCodeInfo classCodeInfo)
         {
             List<FileNameAndContentPair> generatedCodeFiles = null;
@@ -2613,17 +2631,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
 
             PerformanceUtility.FireCodeMarker(CodeMarkerEvent.perfXC_WriteFilesToDiskStart);
             WriteOutputFilesToDisk(generatedCodeFiles, classCodeInfo.TargetFolder, true);
-            if (!IsPass1 && Language.Name == ProgrammingLanguage.CppWinRT && BuildXamlModules && generatedCodeFiles != null)
-            {
-                foreach (var generatedCodeFile in generatedCodeFiles.Where(file => file.FileName.EndsWith(".xaml.g.cpp", StringComparison.OrdinalIgnoreCase)))
-                {
-                    string generatedPath = Path.Combine(classCodeInfo.TargetFolder, generatedCodeFile.FileName);
-                    if (!_generatedCodeFiles.Contains(generatedPath))
-                    {
-                        _generatedCodeFiles.Add(generatedPath);
-                    }
-                }
-            }
+            ReportGeneratedModuleImplementationFiles(generatedCodeFiles, classCodeInfo.TargetFolder);
             WriteOutputFilesToDisk(generatedXamlFiles, classCodeInfo.TargetFolder, true);
             PerformanceUtility.FireCodeMarker(CodeMarkerEvent.perfXC_WriteFilesToDiskEnd);
             return true;
