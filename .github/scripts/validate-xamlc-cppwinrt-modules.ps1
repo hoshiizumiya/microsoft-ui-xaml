@@ -208,8 +208,12 @@ function Assert-RemovedClass([string]$Directory, [string]$ShortName, [string]$Id
     foreach ($name in @("$ShortName.xaml.g.h", "$ShortName.xaml.g.cpp", "$ShortName.xaml.g.hpp", "$ShortName.xaml.g.hpp.backup", "$ShortName.xaml.g.ixx", "$Identity.ifc")) {
         if (@(Get-ChildItem $Directory -Filter $name -File -Recurse -ErrorAction SilentlyContinue).Count -ne 0) { throw "Removed class left $name." }
     }
-    if (@(Get-ChildItem $Directory -File -Recurse | Where-Object { $_.DirectoryName -like '*\XamlModules*' -and $_.Name -like "$ShortName.xaml.g.ixx.*" }).Count -ne 0) {
-        throw 'Removed class left scanner or object outputs.'
+    $orphanedModuleArtifacts = @(Get-ChildItem $Directory -File -Recurse | Where-Object {
+        $_.DirectoryName -like '*\XamlModules*' -and $_.Name -like "$ShortName.xaml.g.ixx.*"
+    })
+    if ($orphanedModuleArtifacts.Count -ne 0) {
+        $paths = ($orphanedModuleArtifacts | ForEach-Object { $_.FullName }) -join '; '
+        throw "Removed class left scanner or object outputs: $paths"
     }
     if ((Get-Content (Get-OneGeneratedFile $Directory 'Application_Xaml.g.ixx').FullName -Raw).Contains("export import $Identity;")) {
         throw 'Removed class remains in the root.'
