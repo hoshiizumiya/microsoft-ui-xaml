@@ -1144,7 +1144,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <!-- The page implementation sources are not consistently returned in XamlC's
                  item outputs across compiler hosting modes. Their final on-disk names are
                  stable, so include the generated implementation set before native compile. -->
-            <_XamlGeneratedCompilePaths Include="$(XamlGeneratedOutputPath)**\\*.xaml.g.cpp" />
+            <_XamlGeneratedCompilePaths Include="$(XamlGeneratedOutputPath)**\*.xaml.g.cpp" />
             <_XamlGeneratedCompilePaths Include="@(ClCompile)"
                        Condition="'%(ClCompile.CompilerIteration)' == 'XamlGenerated' and '%(ClCompile.Filename)%(ClCompile.Extension)' != 'XamlMetaDataProvider.cpp'" />
         </ItemGroup>
