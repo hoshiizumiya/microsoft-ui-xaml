@@ -752,22 +752,25 @@ Licensed under the MIT License. See LICENSE in the project root for license info
         </PropertyGroup>
         <Message Importance="High" Condition="'$(MSBuildProjectName)' == 'SimpleCppWinRTModules'"
                  Text="XamlC cleanup root=$(_XamlModuleGeneratedDir); modules=$(XamlCppWinRTModuleIfcDir)" />
-        <!-- Source-relative scanner/object paths distinguish same-leaf XAML files. -->
+        <!-- Map each scanner object back to the generated interface source using item metadata. -->
         <ItemGroup>
-            <_XamlGeneratedModuleArtifacts Include="$(XamlCppWinRTModuleIfcDir)**\*.g.ixx.*">
-                <XamlGeneratedSource>$(_XamlModuleGeneratedDir)$([System.Text.RegularExpressions.Regex]::Replace('%(_XamlGeneratedModuleArtifacts.RecursiveDir)%(_XamlGeneratedModuleArtifacts.Filename)%(_XamlGeneratedModuleArtifacts.Extension)', '\.(obj|module\.json(\.command)?|source\.json)$', ''))</XamlGeneratedSource>
-            </_XamlGeneratedModuleArtifacts>
-            <_XamlOrphanedModuleArtifacts Include="@(_XamlGeneratedModuleArtifacts)"
-                Condition="!Exists('%(_XamlGeneratedModuleArtifacts.XamlGeneratedSource)')" />
+            <_XamlGeneratedModuleObjects Include="$(XamlCppWinRTModuleIfcDir)**\*.g.ixx.obj">
+                <XamlGeneratedSource>$(_XamlModuleGeneratedDir)%(RecursiveDir)%(Filename)</XamlGeneratedSource>
+            </_XamlGeneratedModuleObjects>
+            <_XamlOrphanedModuleObjects Include="@(_XamlGeneratedModuleObjects)"
+                Condition="!Exists('%(_XamlGeneratedModuleObjects.XamlGeneratedSource)')" />
         </ItemGroup>
         <Message Importance="High" Condition="'$(MSBuildProjectName)' == 'SimpleCppWinRTModules'"
-                 Text="XamlC candidate %(_XamlGeneratedModuleArtifacts.Identity) maps to %(_XamlGeneratedModuleArtifacts.XamlGeneratedSource)" />
+                 Text="XamlC candidate %(_XamlGeneratedModuleObjects.Identity) maps to %(_XamlGeneratedModuleObjects.XamlGeneratedSource)" />
         <Message Importance="High" Condition="'$(MSBuildProjectName)' == 'SimpleCppWinRTModules'"
-                 Text="XamlC orphan %(_XamlOrphanedModuleArtifacts.Identity)" />
-        <Delete Files="@(_XamlOrphanedModuleArtifacts)" />
+                 Text="XamlC orphan %(_XamlOrphanedModuleObjects.Identity)" />
+        <Delete Files="@(_XamlOrphanedModuleObjects);
+                       @(_XamlOrphanedModuleObjects->'%(RootDir)%(Directory)%(Filename).module.json');
+                       @(_XamlOrphanedModuleObjects->'%(RootDir)%(Directory)%(Filename).module.json.command');
+                       @(_XamlOrphanedModuleObjects->'%(RootDir)%(Directory)%(Filename).source.json')" />
         <ItemGroup>
-            <_XamlOrphanedModuleArtifacts Remove="@(_XamlOrphanedModuleArtifacts)" />
-            <_XamlGeneratedModuleArtifacts Remove="@(_XamlGeneratedModuleArtifacts)" />
+            <_XamlOrphanedModuleObjects Remove="@(_XamlOrphanedModuleObjects)" />
+            <_XamlGeneratedModuleObjects Remove="@(_XamlGeneratedModuleObjects)" />
         </ItemGroup>
     </Target>
 
