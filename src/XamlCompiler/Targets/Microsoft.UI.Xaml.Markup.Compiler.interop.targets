@@ -1013,7 +1013,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                 <PrecompiledHeader>NotUsing</PrecompiledHeader>
                 <PreprocessorDefinitions>%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
             
-                <ObjectFileName>$(XamlCppWinRTModuleIfcDir)$([System.IO.Path]::ChangeExtension('$([MSBuild]::MakeRelative($(_XamlModuleGeneratedDir), %(_XamlGeneratedModuleConsumers.FullPath)))', '.obj'))</ObjectFileName>
+                <ObjectFileName Condition="'%(_XamlGeneratedModuleConsumers.FullPath)' != ''">$(XamlCppWinRTModuleIfcDir)$([System.IO.Path]::ChangeExtension('$([MSBuild]::MakeRelative($(_XamlModuleGeneratedDir), %(_XamlGeneratedModuleConsumers.FullPath)))', '.obj'))</ObjectFileName>
             </_XamlGeneratedModuleConsumers>
             <ClCompile Remove="@(_XamlGeneratedModuleConsumers)" />
             <ClCompile Include="@(_XamlGeneratedModuleConsumers)" />
@@ -1207,7 +1207,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                 <ModulesSupported>true</ModulesSupported>
                 <PreprocessorDefinitions>$(_XamlGeneratedPreprocessorDefinitions);%(_XamlGeneratedModuleConsumers.PreprocessorDefinitions)</PreprocessorDefinitions>
             
-                <ObjectFileName>$(XamlCppWinRTModuleIfcDir)$([System.IO.Path]::ChangeExtension('$([MSBuild]::MakeRelative($(_XamlModuleGeneratedDir), %(_XamlGeneratedModuleConsumers.FullPath)))', '.obj'))</ObjectFileName>
+                <ObjectFileName Condition="'%(_XamlGeneratedModuleConsumers.FullPath)' != ''">$(XamlCppWinRTModuleIfcDir)$([System.IO.Path]::ChangeExtension('$([MSBuild]::MakeRelative($(_XamlModuleGeneratedDir), %(_XamlGeneratedModuleConsumers.FullPath)))', '.obj'))</ObjectFileName>
             </_XamlGeneratedModuleConsumers>
             <ClCompile Remove="@(_XamlGeneratedModuleConsumers)" />
             <ClCompile Include="@(_XamlGeneratedModuleConsumers)" />
@@ -1223,7 +1223,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                 <ModulesSupported>true</ModulesSupported>
                 <PreprocessorDefinitions>$(_XamlGeneratedPreprocessorDefinitions);%(_XamlUniqueGeneratedCompilePaths.PreprocessorDefinitions)</PreprocessorDefinitions>
             
-                <ObjectFileName>$(XamlCppWinRTModuleIfcDir)$([System.IO.Path]::ChangeExtension('$([MSBuild]::MakeRelative($(_XamlModuleGeneratedDir), %(_XamlMissingGeneratedModuleCompileItems.FullPath)))', '.obj'))</ObjectFileName>
+                <ObjectFileName Condition="'%(_XamlMissingGeneratedModuleCompileItems.FullPath)' != ''">$(XamlCppWinRTModuleIfcDir)$([System.IO.Path]::ChangeExtension('$([MSBuild]::MakeRelative($(_XamlModuleGeneratedDir), %(_XamlMissingGeneratedModuleCompileItems.FullPath)))', '.obj'))</ObjectFileName>
             </_XamlMissingGeneratedModuleCompileItems>
             <_XamlMissingGeneratedModuleCompileItems Remove="@(ClCompile)"
                        MatchOnMetadata="FullPath" MatchOnMetadataOptions="PathLike" />
@@ -1293,7 +1293,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                 <PrecompiledHeader>NotUsing</PrecompiledHeader>
                 <PreprocessorDefinitions>$(_XamlGeneratedPreprocessorDefinitions);%(_XamlUniqueGeneratedModuleSourcePaths.PreprocessorDefinitions)</PreprocessorDefinitions>
             
-                <ObjectFileName>$(XamlCppWinRTModuleIfcDir)$([System.IO.Path]::ChangeExtension('$([MSBuild]::MakeRelative($(_XamlModuleGeneratedDir), %(_XamlMissingGeneratedModuleCompileItems.FullPath)))', '.obj'))</ObjectFileName>
+                <ObjectFileName Condition="'%(_XamlMissingGeneratedModuleCompileItems.FullPath)' != ''">$(XamlCppWinRTModuleIfcDir)$([System.IO.Path]::ChangeExtension('$([MSBuild]::MakeRelative($(_XamlModuleGeneratedDir), %(_XamlMissingGeneratedModuleCompileItems.FullPath)))', '.obj'))</ObjectFileName>
             </_XamlMissingGeneratedModuleCompileItems>
             <_XamlMissingGeneratedModuleCompileItems Remove="@(ClCompile)"
                        MatchOnMetadata="FullPath" MatchOnMetadataOptions="PathLike" />
