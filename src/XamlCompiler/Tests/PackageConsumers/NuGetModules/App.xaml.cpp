@@ -50,3 +50,13 @@ namespace winrt::NuGetModules::implementation
         window.Activate();
     }
 }
+
+int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
+{
+    winrt::init_apartment(winrt::apartment_type::single_threaded);
+    Application::Start([](auto&&)
+    {
+        winrt::make<winrt::NuGetModules::implementation::App>();
+    });
+    return 0;
+}
