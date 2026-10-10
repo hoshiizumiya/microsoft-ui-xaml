@@ -1304,7 +1304,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <_XamlUniqueGeneratedModuleSourcePaths Remove="@(_XamlUniqueGeneratedModuleSourcePaths)" />
             <_XamlMissingGeneratedModuleCompileItems Remove="@(_XamlMissingGeneratedModuleCompileItems)" />
         </ItemGroup>
-        <Message Text="XamlC generated module references resolved for @(_XamlUniqueGeneratedModuleSourcePaths->'%(Filename)%(Extension)')." Importance="High" />
+        <Message Text="XamlC generated module references resolved." Importance="High" />
     </Target>
 
     <Target Name="_OnXamlPreCompileError"
