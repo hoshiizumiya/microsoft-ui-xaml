@@ -996,6 +996,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
         <ItemGroup>
             <ClCompile Include="@(GeneratedXamlPagesFiles)" >
                 <CompilerIteration>XamlGenerated</CompilerIteration>
+                <ModulesSupported Condition="'$(CppWinRTBuildModule)' == 'true'">true</ModulesSupported>
                 <PreprocessorDefinitions Condition="'$(_XamlGeneratedPreprocessorDefinitions)' != ''">$(_XamlGeneratedPreprocessorDefinitions);%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
             </ClCompile>
 
@@ -1044,7 +1045,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
         <Using Namespace="Microsoft.Build.Framework" />
         <Code Type="Fragment" Language="cs"><![CDATA[
             var importedModules = new SortedSet<string>(StringComparer.Ordinal);
-            var importPattern = new Regex(@"^\s*(?:export\s+)?import\s+([A-Za-z_][A-Za-z0-9_.:]*)\s*;", RegexOptions.CultureInvariant);
+            var importPattern = new Regex(@"(?:^|;)\s*(?:export\s+)?import\s+([A-Za-z_][A-Za-z0-9_.:]*)\s*;", RegexOptions.CultureInvariant);
 
             foreach (var source in GeneratedSources ?? new ITaskItem[0])
             {
@@ -1066,8 +1067,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
 
                 foreach (var line in File.ReadLines(sourcePath))
                 {
-                    var match = importPattern.Match(line);
-                    if (match.Success)
+                    foreach (Match match in importPattern.Matches(line))
                     {
                         importedModules.Add(match.Groups[1].Value);
                     }
@@ -1165,6 +1165,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <_XamlGeneratedModuleConsumers>
                 <AdditionalBMIDirectories>$(IntDir);$(IntDir)Microsoft\cppwinrt\;$(XamlCppWinRTModuleIfcDir);$(_XamlGeneratedAdditionalBMIDirectories);%(_XamlGeneratedModuleConsumers.AdditionalBMIDirectories)</AdditionalBMIDirectories>
                 <PrecompiledHeader>NotUsing</PrecompiledHeader>
+                <ModulesSupported>true</ModulesSupported>
                 <PreprocessorDefinitions>$(_XamlGeneratedPreprocessorDefinitions);%(_XamlGeneratedModuleConsumers.PreprocessorDefinitions)</PreprocessorDefinitions>
             </_XamlGeneratedModuleConsumers>
             <ClCompile Remove="@(_XamlGeneratedModuleConsumers)" />
@@ -1178,6 +1179,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                 <CompilerIteration>XamlGenerated</CompilerIteration>
                 <AdditionalBMIDirectories>$(IntDir);$(IntDir)Microsoft\cppwinrt\;$(XamlCppWinRTModuleIfcDir);$(_XamlGeneratedAdditionalBMIDirectories);%(_XamlUniqueGeneratedCompilePaths.AdditionalBMIDirectories)</AdditionalBMIDirectories>
                 <PrecompiledHeader>NotUsing</PrecompiledHeader>
+                <ModulesSupported>true</ModulesSupported>
                 <PreprocessorDefinitions>$(_XamlGeneratedPreprocessorDefinitions);%(_XamlUniqueGeneratedCompilePaths.PreprocessorDefinitions)</PreprocessorDefinitions>
             </_XamlMissingGeneratedModuleCompileItems>
             <_XamlMissingGeneratedModuleCompileItems Remove="@(ClCompile)"
@@ -1201,8 +1203,13 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'"
             AfterTargets="ComputeXamlGeneratedCompileInputs"
             BeforeTargets="CompileXamlGeneratedFiles">
+        <ItemGroup>
+            <_XamlGeneratedModuleSourcePaths Include="@(ClCompile)"
+                       Condition="'%(ClCompile.CompilerIteration)' == 'XamlGenerated' and '%(ClCompile.Filename)%(ClCompile.Extension)' != 'XamlMetaDataProvider.cpp'" />
+        </ItemGroup>
+        <Message Text="XamlC module-reference source items: @(_XamlGeneratedModuleSourcePaths)" Importance="High" />
         <GetXamlCppWinRTGeneratedModuleDependencies
-            GeneratedSources="@(ClCompile)"
+            GeneratedSources="@(_XamlGeneratedModuleSourcePaths)"
             CppWinRTIfcDir="$(IntDir)Microsoft\cppwinrt\"
             XamlIfcDir="$(XamlCppWinRTModuleIfcDir)"
             StlIfcDir="$(IntDir)microsoft\STL\"
@@ -1218,7 +1225,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <ClCompile Include="@(_XamlGeneratedModuleConsumers)" />
             <_XamlGeneratedModuleConsumers Remove="@(_XamlGeneratedModuleConsumers)" />
         </ItemGroup>
-        <Message Text="XamlC generated module imports: $(_XamlGeneratedModuleDependencies)" Importance="Low" />
+        <Message Text="XamlC generated module references: $(_XamlGeneratedModuleDependencies)" Importance="High" />
     </Target>
 
     <Target Name="_OnXamlPreCompileError"
