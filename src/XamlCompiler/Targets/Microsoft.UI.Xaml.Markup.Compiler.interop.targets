@@ -1033,9 +1033,25 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             </_XamlGeneratedModuleConsumers>
             <ClCompile Remove="@(_XamlGeneratedModuleConsumers)" />
             <ClCompile Include="@(_XamlGeneratedModuleConsumers)" />
+
+            <!-- Ensure pass-2 implementation sources with the module-specific .xaml.g.cpp
+                 suffix reach the native compile even when the VC XAML target filters them
+                 out while materializing XamlGFiles. Existing ClCompile items are preserved. -->
+            <_XamlMissingGeneratedModuleCompileItems Include="@(_XamlGeneratedCompilePaths)"
+                       Condition="'%(_XamlGeneratedCompilePaths.Extension)' == '.cpp'">
+                <CompilerIteration>XamlGenerated</CompilerIteration>
+                <AdditionalBMIDirectories>$(IntDir);$(XamlCppWinRTModuleIfcDir);$(_XamlGeneratedAdditionalBMIDirectories);%(_XamlGeneratedCompilePaths.AdditionalBMIDirectories)</AdditionalBMIDirectories>
+                <PrecompiledHeader>NotUsing</PrecompiledHeader>
+                <PreprocessorDefinitions>$(_XamlGeneratedPreprocessorDefinitions);%(_XamlGeneratedCompilePaths.PreprocessorDefinitions)</PreprocessorDefinitions>
+            </_XamlMissingGeneratedModuleCompileItems>
+            <_XamlMissingGeneratedModuleCompileItems Remove="@(ClCompile)"
+                       MatchOnMetadata="FullPath" MatchOnMetadataOptions="PathLike" />
+            <ClCompile Include="@(_XamlMissingGeneratedModuleCompileItems)" />
+
             <_XamlGeneratedModuleConsumers Remove="@(_XamlGeneratedModuleConsumers)" />
             <_XamlAuthoredCompileItems Remove="@(_XamlAuthoredCompileItems)" />
             <_XamlGeneratedCompilePaths Remove="@(_XamlGeneratedCompilePaths)" />
+            <_XamlMissingGeneratedModuleCompileItems Remove="@(_XamlMissingGeneratedModuleCompileItems)" />
         </ItemGroup>
     </Target>
 
