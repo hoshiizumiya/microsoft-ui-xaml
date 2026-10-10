@@ -1035,6 +1035,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
         <StlIfcDir ParameterType="System.String" />
         <AdditionalBMIDirectories ParameterType="System.String" />
         <ModuleDependencies ParameterType="System.String" Output="true" />
+        <ModuleReferenceOptions ParameterType="System.String" Output="true" />
       </ParameterGroup>
       <Task>
         <Using Namespace="System" />
@@ -1127,6 +1128,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             }
 
             ModuleDependencies = String.Join(";", references);
+            ModuleReferenceOptions = String.Join(" ", references.Select(reference => "/reference \\"" + reference + "\\""));
 ]]></Code>
       </Task>
     </UsingTask>
@@ -1241,12 +1243,13 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             StlIfcDir="$(IntDir)microsoft\STL\"
             AdditionalBMIDirectories="$(_XamlGeneratedAdditionalBMIDirectories);@(ClCompile->'%(AdditionalBMIDirectories)'->Distinct())">
             <Output TaskParameter="ModuleDependencies" PropertyName="_XamlGeneratedModuleDependencies" />
+            <Output TaskParameter="ModuleReferenceOptions" PropertyName="_XamlGeneratedModuleReferenceOptions" />
         </GetXamlCppWinRTGeneratedModuleDependencies>
         <ItemGroup>
             <_XamlGeneratedModuleConsumers Include="@(ClCompile)"
                        Condition="'%(ClCompile.CompilerIteration)' == 'XamlGenerated' and '%(ClCompile.Filename)%(ClCompile.Extension)' != 'XamlMetaDataProvider.cpp'">
                 <ModulesSupported>true</ModulesSupported>
-                <AdditionalModuleDependencies>$(_XamlGeneratedModuleDependencies);%(ClCompile.AdditionalModuleDependencies)</AdditionalModuleDependencies>
+                <AdditionalOptions>%(ClCompile.AdditionalOptions) $(_XamlGeneratedModuleReferenceOptions)</AdditionalOptions>
             </_XamlGeneratedModuleConsumers>
             <ClCompile Remove="@(_XamlGeneratedModuleConsumers)" />
             <ClCompile Include="@(_XamlGeneratedModuleConsumers)" />
@@ -1255,7 +1258,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                 <CompilerIteration>XamlGenerated</CompilerIteration>
                 <ModulesSupported>true</ModulesSupported>
                 <AdditionalBMIDirectories>$(IntDir);$(IntDir)Microsoft\cppwinrt\;$(XamlCppWinRTModuleIfcDir);$(_XamlGeneratedAdditionalBMIDirectories);%(_XamlUniqueGeneratedModuleSourcePaths.AdditionalBMIDirectories)</AdditionalBMIDirectories>
-                <AdditionalModuleDependencies>$(_XamlGeneratedModuleDependencies);%(_XamlUniqueGeneratedModuleSourcePaths.AdditionalModuleDependencies)</AdditionalModuleDependencies>
+                <AdditionalOptions>$(_XamlGeneratedModuleReferenceOptions) %(_XamlUniqueGeneratedModuleSourcePaths.AdditionalOptions)</AdditionalOptions>
                 <PrecompiledHeader>NotUsing</PrecompiledHeader>
                 <PreprocessorDefinitions>$(_XamlGeneratedPreprocessorDefinitions);%(_XamlUniqueGeneratedModuleSourcePaths.PreprocessorDefinitions)</PreprocessorDefinitions>
             </_XamlMissingGeneratedModuleCompileItems>
