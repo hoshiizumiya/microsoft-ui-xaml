@@ -1204,7 +1204,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <_XamlGeneratedModuleSourcePaths Include="@(GeneratedXamlPagesFiles)"
                        Condition="'%(GeneratedXamlPagesFiles.Extension)' == '.cpp' and '%(GeneratedXamlPagesFiles.Filename)%(GeneratedXamlPagesFiles.Extension)' != 'XamlMetaDataProvider.cpp'" />
             <_XamlGeneratedModuleSourcePaths Include="@(_GeneratedCodeFiles)"
-                       Condition="'%(_GeneratedCodeFiles.Extension)' == '.cpp' and '%(_GeneratedCodeFiles.Filename)%(GeneratedCodeFiles.Extension)' != 'XamlMetaDataProvider.cpp'" />
+                       Condition="'%(_GeneratedCodeFiles.Extension)' == '.cpp' and '%(_GeneratedCodeFiles.Filename)%(_GeneratedCodeFiles.Extension)' != 'XamlMetaDataProvider.cpp'" />
             <_XamlGeneratedModuleSourcePaths Include="@(XamlGFiles)"
                        Condition="'%(XamlGFiles.Extension)' == '.cpp' and '%(XamlGFiles.Filename)%(XamlGFiles.Extension)' != 'XamlMetaDataProvider.cpp'" />
         </ItemGroup>
