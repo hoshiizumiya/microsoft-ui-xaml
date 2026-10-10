@@ -1008,7 +1008,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                  listed items; copy, amend and replace only the generated items. -->
             <_XamlGeneratedModuleConsumers Include="@(ClCompile)"
                        Condition="'$(CppWinRTBuildModule)' == 'true' and '%(ClCompile.CompilerIteration)' == 'XamlGenerated' and '%(ClCompile.Filename)%(ClCompile.Extension)' != 'XamlMetaDataProvider.cpp'">
-                <AdditionalBMIDirectories>$(IntDir);$(XamlCppWinRTModuleIfcDir);$(_XamlGeneratedAdditionalBMIDirectories);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
+                <AdditionalBMIDirectories>$(IntDir);$(IntDir)Microsoft\cppwinrt\;$(XamlCppWinRTModuleIfcDir);$(_XamlGeneratedAdditionalBMIDirectories);%(ClCompile.AdditionalBMIDirectories)</AdditionalBMIDirectories>
                 <PrecompiledHeader>NotUsing</PrecompiledHeader>
                 <PreprocessorDefinitions>%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
             </_XamlGeneratedModuleConsumers>
@@ -1053,7 +1053,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <_XamlGeneratedModuleConsumers Include="@(ClCompile)" />
             <_XamlGeneratedModuleConsumers Remove="@(_XamlAuthoredCompileItems)" />
             <_XamlGeneratedModuleConsumers>
-                <AdditionalBMIDirectories>$(IntDir);$(XamlCppWinRTModuleIfcDir);$(_XamlGeneratedAdditionalBMIDirectories);%(_XamlGeneratedModuleConsumers.AdditionalBMIDirectories)</AdditionalBMIDirectories>
+                <AdditionalBMIDirectories>$(IntDir);$(IntDir)Microsoft\cppwinrt\;$(XamlCppWinRTModuleIfcDir);$(_XamlGeneratedAdditionalBMIDirectories);%(_XamlGeneratedModuleConsumers.AdditionalBMIDirectories)</AdditionalBMIDirectories>
                 <PrecompiledHeader>NotUsing</PrecompiledHeader>
                 <PreprocessorDefinitions>$(_XamlGeneratedPreprocessorDefinitions);%(_XamlGeneratedModuleConsumers.PreprocessorDefinitions)</PreprocessorDefinitions>
             </_XamlGeneratedModuleConsumers>
@@ -1066,7 +1066,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             <_XamlMissingGeneratedModuleCompileItems Include="@(_XamlUniqueGeneratedCompilePaths)"
                        Condition="'%(_XamlUniqueGeneratedCompilePaths.Extension)' == '.cpp'">
                 <CompilerIteration>XamlGenerated</CompilerIteration>
-                <AdditionalBMIDirectories>$(IntDir);$(XamlCppWinRTModuleIfcDir);$(_XamlGeneratedAdditionalBMIDirectories);%(_XamlUniqueGeneratedCompilePaths.AdditionalBMIDirectories)</AdditionalBMIDirectories>
+                <AdditionalBMIDirectories>$(IntDir);$(IntDir)Microsoft\cppwinrt\;$(XamlCppWinRTModuleIfcDir);$(_XamlGeneratedAdditionalBMIDirectories);%(_XamlUniqueGeneratedCompilePaths.AdditionalBMIDirectories)</AdditionalBMIDirectories>
                 <PrecompiledHeader>NotUsing</PrecompiledHeader>
                 <PreprocessorDefinitions>$(_XamlGeneratedPreprocessorDefinitions);%(_XamlUniqueGeneratedCompilePaths.PreprocessorDefinitions)</PreprocessorDefinitions>
             </_XamlMissingGeneratedModuleCompileItems>
