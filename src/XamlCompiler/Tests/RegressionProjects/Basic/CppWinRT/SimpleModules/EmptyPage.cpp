@@ -1,4 +1,8 @@
 ﻿#include <unknwn.h>
+
+#ifdef WINRT_IMPORT_MODULE
+import Simple.Application_Xaml.EmptyPage;
+#endif
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
