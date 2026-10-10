@@ -1088,7 +1088,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
             addDirectories(StlIfcDir);
             addDirectories(AdditionalBMIDirectories);
 
-            var references = new List<string>();
+            var referencesByModule = new SortedDictionary<string, string>(StringComparer.Ordinal);
             foreach (var moduleName in importedModules)
             {
                 string ifcPath = null;
@@ -1124,9 +1124,34 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                     }
                 }
 
-                references.Add(moduleName + "=" + ifcPath);
+                referencesByModule[moduleName] = ifcPath;
             }
 
+            // Imported IFCs can themselves import modules, for example winrt_base imports
+            // std and winrt_numerics. CL needs an explicit mapping for those transitive
+            // IFCs too; /ifcSearchDir alone does not resolve C++/WinRT module outputs.
+            foreach (var directory in directories)
+            {
+                if (!Directory.Exists(directory))
+                {
+                    continue;
+                }
+
+                foreach (var ifcPath in Directory.GetFiles(directory, "*.ifc", SearchOption.TopDirectoryOnly)
+                             .OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+                {
+                    string fileName = Path.GetFileName(ifcPath);
+                    string moduleName = fileName.EndsWith(".ixx.ifc", StringComparison.OrdinalIgnoreCase)
+                        ? fileName.Substring(0, fileName.Length - ".ixx.ifc".Length)
+                        : Path.GetFileNameWithoutExtension(fileName);
+                    if (moduleName.Length != 0 && !referencesByModule.ContainsKey(moduleName))
+                    {
+                        referencesByModule.Add(moduleName, ifcPath);
+                    }
+                }
+            }
+
+            var references = referencesByModule.Select(reference => reference.Key + "=" + reference.Value).ToList();
             ModuleDependencies = String.Join(";", references);
             ModuleReferenceOptions = String.Join(" ", references.Select(reference => "/reference \"" + reference + "\""));
 ]]></Code>
