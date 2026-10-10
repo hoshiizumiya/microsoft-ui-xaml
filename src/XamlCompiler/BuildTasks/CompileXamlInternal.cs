@@ -478,6 +478,9 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
                     if (Language.Name == ProgrammingLanguage.CppWinRT)
                     {
                         DeleteGeneratedCodeFileAndBackup(generatedCodePrefix + ".xaml.g.ixx");
+                        // Module-mode Pass2 consumers use .xaml.g.cpp instead of the legacy
+                        // .xaml.g.hpp; remove the source when its XAML class disappears.
+                        DeleteGeneratedCodeFileAndBackup(generatedCodePrefix + ".xaml.g.cpp");
                     }
                 }
 
