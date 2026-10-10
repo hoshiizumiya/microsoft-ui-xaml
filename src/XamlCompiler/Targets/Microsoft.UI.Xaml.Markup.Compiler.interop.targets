@@ -745,8 +745,8 @@ Licensed under the MIT License. See LICENSE in the project root for license info
          whether source-relative scanner and object outputs are orphaned. -->
     <Target Name="XamlCppWinRTRemoveOrphanedModuleArtifacts"
             Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'"
-            AfterTargets="MarkupCompilePass2"
-            BeforeTargets="ComputeXamlGeneratedCompileInputs;CompileXamlGeneratedFiles;FixupCLCompileOptions">
+            DependsOnTargets="MarkupCompilePass2"
+            BeforeTargets="ClCompile">
         <PropertyGroup>
             <_XamlModuleGeneratedDir>$([MSBuild]::NormalizeDirectory($(MSBuildProjectDirectory), $(XamlGeneratedOutputPath)))</_XamlModuleGeneratedDir>
         </PropertyGroup>
