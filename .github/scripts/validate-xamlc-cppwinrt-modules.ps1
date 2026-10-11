@@ -22,9 +22,11 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $binlogDir = Join-Path $repoRoot 'BuildOutput\binlogs'
 New-Item -ItemType Directory -Force -Path $binlogDir | Out-Null
 
-# This job builds the compiler and WinUI package once in Debug, then exercises native fixtures in Debug and Release.
-# Keep Release fixtures on the validated Debug package metadata and XamlC props/targets.
+# The job builds XamlCompiler in Debug and consumes the x64 Check product artifact for native fixtures.
+# Pin native metadata and XamlC props/targets to those artifacts, including during Release configuration.
 $compilerPackageDirectory = Join-Path $repoRoot 'BuildOutput\packaging\Debug\build'
+$validationArtifactsObjDirectory = Join-Path $repoRoot 'BuildOutput\obj\amd64chk'
+$validationArtifactsBinDirectory = Join-Path $repoRoot 'BuildOutput\bin\amd64chk'
 $compilerProps = Join-Path $compilerPackageDirectory 'Microsoft.UI.Xaml.Markup.Compiler.props'
 if (-not (Test-Path $compilerProps)) {
     throw "The Debug XamlCompiler package props were not found at '$compilerProps'."
@@ -70,6 +72,8 @@ function Invoke-XamlModuleBuild {
         '/p:UseXamlCompiler=true',
         '/p:UseDebugWinUI=true',
         '/p:SkipXamlCompilerProjectReferences=true',
+        "/p:ArtifactsObjDir=$validationArtifactsObjDirectory\",
+        "/p:ArtifactsBinDir=$validationArtifactsBinDirectory\",
         "/p:XamlCompilerPropsAndTargetsDirectory=$compilerPackageDirectory\",
         '/p:IncludeXamlDlls=true',
         '/p:SpectreMitigation=false',
@@ -383,12 +387,12 @@ Invoke-XamlModuleBuild $staticProvider 'StaticProvider.Header' @('/p:CppWinRTBui
 Invoke-XamlModuleBuild $staticConsumer 'StaticConsumer.Header' @('/p:CppWinRTBuildModule=false', '/p:ValidateHeaderMode=true')
 Invoke-XamlModuleBuild $staticConsumer 'StaticConsumer.ModuleRestored'
 
-Invoke-XamlModuleBuild -RelativeProject $simpleModules -LogName 'SimpleModules.Release' -Configuration Release
-Invoke-XamlModuleBuild -RelativeProject $simpleModules -LogName 'SimpleModules.ReleaseHeader' -Configuration Release -ExtraProperties @('/p:CppWinRTBuildModule=false')
-Invoke-XamlModuleBuild -RelativeProject $staticProvider -LogName 'StaticProvider.ReleaseHeader' -Configuration Release -ExtraProperties @('/p:CppWinRTBuildModule=false')
-Invoke-XamlModuleBuild -RelativeProject $staticConsumer -LogName 'StaticConsumer.ReleaseHeader' -Configuration Release -ExtraProperties @('/p:CppWinRTBuildModule=false', '/p:ValidateHeaderMode=true')
-Invoke-XamlModuleBuild -RelativeProject $staticProvider -LogName 'StaticProvider.ReleaseModule' -Configuration Release
-Invoke-XamlModuleBuild -RelativeProject $staticConsumer -LogName 'StaticConsumer.ReleaseModule' -Configuration Release
+Invoke-XamlModuleBuild -RelativeProject $simpleModules -LogName 'SimpleModules.Release' -Configuration Release -Target 'Rebuild'
+Invoke-XamlModuleBuild -RelativeProject $simpleModules -LogName 'SimpleModules.ReleaseHeader' -Configuration Release -ExtraProperties @('/p:CppWinRTBuildModule=false') -Target 'Rebuild'
+Invoke-XamlModuleBuild -RelativeProject $staticProvider -LogName 'StaticProvider.ReleaseHeader' -Configuration Release -ExtraProperties @('/p:CppWinRTBuildModule=false') -Target 'Rebuild'
+Invoke-XamlModuleBuild -RelativeProject $staticConsumer -LogName 'StaticConsumer.ReleaseHeader' -Configuration Release -ExtraProperties @('/p:CppWinRTBuildModule=false', '/p:ValidateHeaderMode=true') -Target 'Rebuild'
+Invoke-XamlModuleBuild -RelativeProject $staticProvider -LogName 'StaticProvider.ReleaseModule' -Configuration Release -Target 'Rebuild'
+Invoke-XamlModuleBuild -RelativeProject $staticConsumer -LogName 'StaticConsumer.ReleaseModule' -Configuration Release -Target 'Rebuild'
 
 $graphEvidence = Join-Path $binlogDir 'XamlModuleGraph'
 foreach ($file in Get-ChildItem (Join-Path $repoRoot 'BuildOutput\obj') -Recurse -File | Where-Object {
