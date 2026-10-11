@@ -62,8 +62,62 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
             }
             return true;
         }
+
+        private static string TrimItemWhitespace(string input)
+        {
+            var result = new StringBuilder(input.Length);
+            int itemStart = 0;
+            char quote = '\0';
+            bool escaped = false;
+
+            for (int i = 0; i < input.Length; i++)
+            {
+                char current = input[i];
+
+                if (escaped)
+                {
+                    escaped = false;
+                    continue;
+                }
+
+                if (current == '\\')
+                {
+                    escaped = true;
+                    continue;
+                }
+
+                if (quote != '\0')
+                {
+                    if (current == quote)
+                    {
+                        quote = '\0';
+                    }
+                    continue;
+                }
+
+                if (current == '\'' || current == '"')
+                {
+                    quote = current;
+                }
+                else if (current == ',')
+                {
+                    result.Append(input.Substring(itemStart, i - itemStart).Trim());
+                    result.Append(current);
+                    itemStart = i + 1;
+                }
+            }
+
+            result.Append(input.Substring(itemStart).Trim());
+            return result.ToString();
+        }
+
         public static void Parse(string bindPath)
         {
+            // Whitespace surrounding collection items is insignificant.  Remove it before
+            // parsing so quoted items after a comma are not mistaken for whitespace-only
+            // unquoted items by the generated grammar.
+            bindPath = TrimItemWhitespace(bindPath);
+
             // Antlr parsing engine setup
             var input = new AntlrInputStream(bindPath);
             var lexer = new SuccinctCollectionSyntaxLexer(input);
@@ -79,13 +133,11 @@ namespace Microsoft.UI.Xaml.Markup.Compiler
             // set our custom callback override to build up the SuccinctSyntax during parse
             var listener = new SuccinctCollectionSyntaxBaseListener();
 
-            // parse the path input
+            // Parse through EOF.  Parsing only items() can succeed after a valid prefix;
+            // lexing ahead to EOF is not proof that every token was accepted by the parser.
             var walker = new ParseTreeWalker();
 
-            walker.Walk(listener, parser.items());
-
-            // confirm nothing left unparsed at end of path string
-            lexer.ConfirmInputFullyConsumed();
+            walker.Walk(listener, parser.program());
         }
     }
 }
