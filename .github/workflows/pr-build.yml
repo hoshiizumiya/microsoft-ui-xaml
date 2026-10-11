@@ -407,6 +407,25 @@ jobs:
         with:
           name: winui-nuget-x64chk
           path: PackageStore
+      - uses: NuGet/setup-nuget@v2
+      - name: Restore MSBuild cache package required for project evaluation
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          [xml]$packagesConfig = Get-Content packages.config
+          $cachePackage = $packagesConfig.packages.package | Where-Object { $_.id -eq 'Microsoft.MSBuildCache.Local' }
+          if (-not $cachePackage) {
+              throw 'Microsoft.MSBuildCache.Local was not found in packages.config.'
+          }
+
+          nuget install $cachePackage.id `
+            -Version $cachePackage.version `
+            -OutputDirectory packages `
+            -Source https://api.nuget.org/v3/index.json `
+            -NonInteractive
+          if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+          }
       - name: Real package fixture and product sample
         shell: pwsh
         run: |
