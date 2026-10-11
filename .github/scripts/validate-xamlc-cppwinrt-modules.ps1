@@ -22,8 +22,8 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $binlogDir = Join-Path $repoRoot 'BuildOutput\binlogs'
 New-Item -ItemType Directory -Force -Path $binlogDir | Out-Null
 
-# This job builds XamlCompiler once in Debug, then exercises native fixtures in Debug and Release.
-# Keep XamlC's packaged props/targets on that validated compiler package for both native configurations.
+# This job builds the compiler and WinUI package once in Debug, then exercises native fixtures in Debug and Release.
+# Keep Release fixtures on the validated Debug package metadata and XamlC props/targets.
 $compilerPackageDirectory = Join-Path $repoRoot 'BuildOutput\packaging\Debug\build'
 $compilerProps = Join-Path $compilerPackageDirectory 'Microsoft.UI.Xaml.Markup.Compiler.props'
 if (-not (Test-Path $compilerProps)) {
@@ -68,6 +68,7 @@ function Invoke-XamlModuleBuild {
         "/p:TargetPlatformVersion=$ModuleWindowsSdkVersion",
         "/p:WindowsTargetPlatformVersion=$ModuleWindowsSdkVersion",
         '/p:UseXamlCompiler=true',
+        '/p:UseDebugWinUI=true',
         '/p:SkipXamlCompilerProjectReferences=true',
         "/p:XamlCompilerPropsAndTargetsDirectory=$compilerPackageDirectory\",
         '/p:IncludeXamlDlls=true',
