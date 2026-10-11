@@ -1,8 +1,10 @@
 name: XamlC package consumer targeted validation
 on:
-  push:
-    branches: [feat/xamlccppmodule/product-validation]
-  workflow_dispatch: {}
+  workflow_call:
+    inputs:
+      checkout_sha:
+        required: true
+        type: string
 permissions:
   contents: read
   actions: read
@@ -17,6 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
+          ref: ${{ inputs.checkout_sha }}
           fetch-depth: 1
           show-progress: false
       - uses: NuGet/setup-nuget@v2
@@ -24,8 +27,6 @@ jobs:
         with:
           name: xaml-module-prereqs-x64chk
           path: BuildOutput
-          run-id: 37201838212
-          github-token: ${{ github.token }}
       - name: Prepare hosted build prerequisites
         shell: pwsh
         run: |
@@ -97,3 +98,4 @@ jobs:
           name: xamlc-formal-t4-companions
           path: src/XamlCompiler/BuildTasks/Microsoft/Xaml/XamlCompiler/CodeGenerators/**/*.cs
           retention-days: 7
+

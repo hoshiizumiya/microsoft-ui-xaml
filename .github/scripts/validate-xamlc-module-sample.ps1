@@ -24,6 +24,7 @@ foreach ($buildFile in @('Directory.Build.props', 'Directory.Build.targets')) {
 Write-Host "Validating product sample $sampleCommit with WinUI $version"
 
 $project = Join-Path $SampleRoot 'WinUICppwinrtModuleSample\WinUICppwinrtModuleSample.vcxproj'
+$generatedRoot = Join-Path (Split-Path -Parent $project) 'Generated Files'
 [xml]$projectXml = Get-Content $project
 $manager = New-Object Xml.XmlNamespaceManager($projectXml.NameTable)
 $manager.AddNamespace('m', 'http://schemas.microsoft.com/developer/msbuild/2003')
@@ -45,20 +46,21 @@ foreach ($configuration in @('Debug', 'Release')) {
     & msbuild.exe $project /restore /t:Build /m:2 /ds:false "/p:Configuration=$configuration" /p:Platform=x64 /p:VisualStudioVersion=18.0 /p:PlatformToolset=v145 /p:WindowsTargetPlatformVersion=10.0.26100.0 /p:WindowsPackageType=None /p:AppxPackage=false "/p:RestoreConfigFile=$config" "/p:RestorePackagesPath=$SampleRoot\packages" "/p:IntDir=$intermediate" "/p:OutDir=$SampleRoot\bin\$configuration\" "/binaryLogger:$repoRoot\BuildOutput\binlogs\ProductSample.$configuration.binlog"
     if ($LASTEXITCODE -ne 0) { throw "Sample $configuration failed: $LASTEXITCODE" }
 
-    $root = @(Get-ChildItem $intermediate -Filter 'Application_Xaml.g.ixx' -Recurse -File)
+    $root = @(Get-ChildItem $generatedRoot -Filter 'Application_Xaml.g.ixx' -Recurse -File)
     if ($root.Count -ne 1) { throw 'Sample did not receive an automatic root aggregator.' }
     $rootText = Get-Content $root[0].FullName -Raw
     if (-not $rootText.Contains('export module WinUICppwinrtModuleSample.Application_Xaml;')) { throw 'Sample root module has the wrong identity.' }
     if ($rootText -match '#include|namespace |Application_Xaml\.Support') { throw 'Sample root is not a pure class-module aggregator.' }
 
     foreach ($obsolete in @('Application_Xaml.Support.g.ixx', 'XamlSupport.g.ixx', 'WinUICppwinrtModuleSample.Application_Xaml.Support.ifc')) {
-        if (@(Get-ChildItem $intermediate -Filter $obsolete -Recurse -File -ErrorAction SilentlyContinue).Count -ne 0) {
+        $obsoleteFiles = @(Get-ChildItem $generatedRoot, $intermediate -Filter $obsolete -Recurse -File -ErrorAction SilentlyContinue)
+        if ($obsoleteFiles.Count -ne 0) {
             throw "Sample retained obsolete support artifact $obsolete."
         }
     }
 
     foreach ($class in @('App', 'MainWindow')) {
-        $interface = @(Get-ChildItem $intermediate -Filter "$class.xaml.g.ixx" -Recurse -File)
+        $interface = @(Get-ChildItem $generatedRoot -Filter "$class.xaml.g.ixx" -Recurse -File)
         if ($interface.Count -ne 1) { throw "Sample lacks $class interface." }
         $identity = "WinUICppwinrtModuleSample.Application_Xaml.$class"
         $interfaceText = Get-Content $interface[0].FullName -Raw
@@ -72,10 +74,11 @@ foreach ($configuration in @('Debug', 'Release')) {
         throw 'Sample lacks the root XAML IFC.'
     }
 
-    foreach ($generated in @(Get-ChildItem $intermediate -Filter '*.xaml.g.cpp' -Recurse -File) + @(Get-ChildItem $intermediate -Filter 'XamlTypeInfo*.g.cpp' -Recurse -File)) {
+    foreach ($generated in @(Get-ChildItem $generatedRoot -Filter '*.xaml.g.cpp' -Recurse -File) + @(Get-ChildItem $generatedRoot -Filter 'XamlTypeInfo*.g.cpp' -Recurse -File)) {
         $text = Get-Content $generated.FullName -Raw
         if ($text -match '(?m)^module;$' -or $text.Contains('import std;')) {
             throw "Sample generated ordinary TU has module/STL ownership regression: $($generated.FullName)"
         }
     }
 }
+

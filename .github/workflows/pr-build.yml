@@ -301,6 +301,19 @@ jobs:
           retention-days: 7
 
 
+  consumer-targeted:
+    needs:
+      - sync-xamlc-t4
+      - build
+    if: always() && !cancelled() && needs.sync-xamlc-t4.result == 'success' && needs.build.result == 'success'
+    uses: ./.github/workflows/xamlc-consumer-targeted.yml
+    with:
+      checkout_sha: ${{ needs.sync-xamlc-t4.outputs.checkout_sha }}
+    permissions:
+      contents: read
+      actions: read
+
+
   xamlc-unit-tests:
     needs:
       - sync-xamlc-t4
@@ -352,7 +365,7 @@ jobs:
           $props = [IO.File]::ReadAllBytes('src/XamlCompiler/Tests/UnitTests/Directory.Build.props')
           # Compiler, native/managed fixtures and codegen masters form one baseline.
           # Mixing current regression inputs with an older compiler fails before VSTest.
-          git restore --source=$baseline --worktree -- src/XamlCompiler/BuildTasks src/XamlCompiler/Targets src/XamlCompiler/Tests src/XamlCompiler/TestMasters src/XamlCompiler/Tools
+          git restore --source=$baseline --worktree -- src/XamlCompiler/BuildTasks src/XamlCompiler/Targets src/XamlCompiler/Tests src/XamlCompiler/TestMasters src/XamlCompiler/Tools src/XamlCompiler/XamlCompilerTests.sln
           if ($LASTEXITCODE -ne 0) { throw 'Baseline source restore failed.' }
           [IO.File]::WriteAllBytes('src/XamlCompiler/Tests/UnitTests/Directory.Build.props', $props)
           New-Item -ItemType Directory -Force BuildOutput/TestResults/XamlCompiler | Out-Null
@@ -448,3 +461,4 @@ jobs:
             PackageConsumerValidation/obj/**
             SampleValidation/obj/**
           retention-days: 7
+
