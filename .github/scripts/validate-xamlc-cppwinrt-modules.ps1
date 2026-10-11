@@ -69,7 +69,7 @@ function Invoke-XamlModuleBuild {
         "/p:WindowsTargetPlatformVersion=$ModuleWindowsSdkVersion",
         '/p:UseXamlCompiler=true',
         '/p:SkipXamlCompilerProjectReferences=true',
-        "/p:XamlCompilerPropsAndTargetsDirectory=$compilerPackageDirectory\\",
+        "/p:XamlCompilerPropsAndTargetsDirectory=$compilerPackageDirectory\",
         '/p:IncludeXamlDlls=true',
         '/p:SpectreMitigation=false',
         '/m:2',
