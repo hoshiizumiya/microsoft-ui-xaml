@@ -22,6 +22,14 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $binlogDir = Join-Path $repoRoot 'BuildOutput\binlogs'
 New-Item -ItemType Directory -Force -Path $binlogDir | Out-Null
 
+# This job builds XamlCompiler once in Debug, then exercises native fixtures in Debug and Release.
+# Keep XamlC's packaged props/targets on that validated compiler package for both native configurations.
+$compilerPackageDirectory = Join-Path $repoRoot 'BuildOutput\packaging\Debug\build'
+$compilerProps = Join-Path $compilerPackageDirectory 'Microsoft.UI.Xaml.Markup.Compiler.props'
+if (-not (Test-Path $compilerProps)) {
+    throw "The Debug XamlCompiler package props were not found at '$compilerProps'."
+}
+
 $cppWinRTPackagesConfig = Join-Path $repoRoot 'src\XamlCompiler\Tests\RegressionProjects\Basic\CppWinRT\SimpleModules\packages.config'
 [xml]$packagesConfig = Get-Content $cppWinRTPackagesConfig
 $cppWinRTPackage = $packagesConfig.packages.package | Where-Object { $_.id -eq 'YexuanXiao.CppWinRTPlus' }
@@ -61,6 +69,7 @@ function Invoke-XamlModuleBuild {
         "/p:WindowsTargetPlatformVersion=$ModuleWindowsSdkVersion",
         '/p:UseXamlCompiler=true',
         '/p:SkipXamlCompilerProjectReferences=true',
+        "/p:XamlCompilerPropsAndTargetsDirectory=$compilerPackageDirectory\\",
         '/p:IncludeXamlDlls=true',
         '/p:SpectreMitigation=false',
         '/m:2',
