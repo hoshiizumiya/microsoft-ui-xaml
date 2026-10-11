@@ -1,0 +1,99 @@
+name: XamlC package consumer targeted validation
+on:
+  push:
+    branches: [feat/xamlccppmodule/product-validation]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+  actions: read
+jobs:
+  targeted:
+    name: Focused tests and native package consumers
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 90
+    env:
+      NUGET_PACKAGES: ${{ github.workspace }}\packages
+      CL: '/MP2'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          show-progress: false
+      - uses: NuGet/setup-nuget@v2
+      - uses: actions/download-artifact@v6
+        with:
+          name: xaml-module-prereqs-x64chk
+          path: BuildOutput
+          run-id: 37201838212
+          github-token: ${{ github.token }}
+      - name: Prepare hosted build prerequisites
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          [xml]$packagesConfig = Get-Content packages.config
+          $cache = $packagesConfig.packages.package | Where-Object { $_.id -eq 'Microsoft.MSBuildCache.Local' }
+          nuget install $cache.id -Version $cache.version -OutputDirectory packages -Source https://api.nuget.org/v3/index.json -NonInteractive
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Sync T4 and build current XamlCompiler
+        id: compiler
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs = & $vswhere -latest -version '[18.0,19.0)' -requires Microsoft.Component.MSBuild -property installationPath
+          if (-not $vs) { throw 'VS2026 is required.' }
+          $dev = Join-Path $vs 'Common7\Tools\VsDevCmd.bat'
+          $quote = [char]34
+          $chain = "call $quote$dev$quote -no_logo -arch=amd64 -host_arch=amd64" +
+              " && init.cmd x64chk /nopgo" +
+              " && msbuild src\XamlCompiler\Microsoft.UI.Xaml.Markup.Compiler.csproj /t:TransformAll /p:TransformOnBuild=true /p:TransformOutOfDateOnly=false /p:BuildingInsideVisualStudio=true /m:1 /v:minimal" +
+              " && msbuild src\XamlCompiler\Microsoft.UI.Xaml.Markup.Compiler.csproj /restore /t:Build /p:Configuration=Debug /p:Platform=x64 /m:2 /ds:false /binaryLogger:BuildOutput\binlogs\Compiler.ConsumerTargeted.binlog" +
+              " && pack.component.cmd"
+          cmd /d /c $chain
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .github/scripts/materialize-winui-validation-package.ps1
+      - name: Focused XamlC tests
+        id: focused
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs = & $vswhere -latest -version '[18.0,19.0)' -requires Microsoft.Component.MSBuild -property installationPath
+          $dev = Join-Path $vs 'Common7\Tools\VsDevCmd.bat'
+          cmd /d /c "call `"$dev`" -no_logo -arch=amd64 -host_arch=amd64 && init.cmd x64chk /nopgo && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-unit-tests.ps1 -VisualStudioVersion 18.0 -TestCaseFilter FullyQualifiedName~UnitTests.CppWinRTModuleTests -SkipRegressionBuild"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Real NuGet consumer
+        if: always() && steps.focused.outcome == 'success'
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs = & $vswhere -latest -version '[18.0,19.0)' -requires Microsoft.Component.MSBuild -property installationPath
+          $dev = Join-Path $vs 'Common7\Tools\VsDevCmd.bat'
+          cmd /d /c "call `"$dev`" -no_logo -arch=amd64 -host_arch=amd64 && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-package-consumer.ps1"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Header coexistence, static libraries and incremental module graph
+        if: always() && steps.focused.outcome == 'success'
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs = & $vswhere -latest -version '[18.0,19.0)' -requires Microsoft.Component.MSBuild -property installationPath
+          $dev = Join-Path $vs 'Common7\Tools\VsDevCmd.bat'
+          cmd /d /c "call `"$dev`" -no_logo -arch=amd64 -host_arch=amd64 && init.cmd x64chk /nopgo && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-cppwinrt-modules.ps1"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: xamlc-consumer-targeted-evidence
+          path: |
+            BuildOutput/binlogs/**
+            BuildOutput/TestResults/XamlCompiler/**
+            PackageConsumerValidation/obj/**/generated/**
+            PackageConsumerValidation/obj/**/*.g.ixx
+            PackageConsumerValidation/Generated Files/**
+            BuildOutput/obj/**/SimpleModules/generated/**
+          retention-days: 7
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: xamlc-formal-t4-companions
+          path: src/XamlCompiler/BuildTasks/Microsoft/Xaml/XamlCompiler/CodeGenerators/**/*.cs
+          retention-days: 7

@@ -34,7 +34,7 @@ namespace UnitTests
         public string ProjectName { get; private set; }  // caller can't change projectName because we make a /temp folder.
 
         private bool _isLibrary;
-        private bool _useCppWinRTNamedModules;
+        private bool _buildXamlModules;
         private string _rootNamespace;
 
         public bool IsLibrary
@@ -50,16 +50,16 @@ namespace UnitTests
             }
         }
 
-        public bool UseCppWinRTNamedModules
+        public bool BuildXamlModules
         {
-            get { return _useCppWinRTNamedModules; }
+            get { return _buildXamlModules; }
             set
             {
                 if (_projectInfo != null)
                 {
-                    throw new InvalidOperationException("Can't set UseCppWinRTNamedModules, call ClearProjectInfo() first");
+                    throw new InvalidOperationException("Can't set BuildXamlModules, call ClearProjectInfo() first");
                 }
-                _useCppWinRTNamedModules = value;
+                _buildXamlModules = value;
             }
         }
 
@@ -97,7 +97,7 @@ namespace UnitTests
                     _projectInfo.RootNamespace = RootNamespace;
                     _projectInfo.ProjectName = ProjectName;
                     _projectInfo.IsLibrary = IsLibrary;
-                    _projectInfo.UseCppWinRTNamedModules = UseCppWinRTNamedModules;
+                    _projectInfo.BuildXamlModules = BuildXamlModules;
                     _projectInfo.TargetPlatformMinVersion = _tpmv;
                     
                     var testBinDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);

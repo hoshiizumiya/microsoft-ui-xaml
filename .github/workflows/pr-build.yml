@@ -1,33 +1,10 @@
-# PR product build with formal XamlCompiler T4 synchronization.
+# Full fork validation: formal T4 generation, product builds and native consumers.
 
 name: PR Build
 
 on:
-  pull_request:
-    branches:
-      - main
-      - winui3/main
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-      - '.github/ISSUE_TEMPLATE/**'
-      - '.github/PULL_REQUEST_TEMPLATE.md'
-      - '.github/policies/**'
-      - 'LICENSE'
-      - 'NOTICE.md'
-      - 'PRIVACY.md'
-      - 'privacy.md'
-      - 'SECURITY.md'
-      - 'CODE_OF_CONDUCT.md'
-      - 'CONTRIBUTING.md'
-      - 'CONTRIBUTING_feedback_and_requests.md'
   push:
-    branches:
-      - review/xamlc-bootstrap
-      - review/xamlc-incremental
-      - review/xamlc-named-modules
-      - review/xamlc-module-docs
-      - feat/xamlccppmodule/product
+    branches: [feat/xamlccppmodule/product-validation]
   workflow_dispatch: {}
 
 concurrency:
@@ -228,4 +205,243 @@ jobs:
           path: |
             BuildOutput/packaging/${{ matrix.configuration }}/runtimes-framework/win-${{ matrix.platform }}/**
           if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload consumable WinUI NuGet package
+        uses: actions/upload-artifact@v6
+        with:
+          name: winui-nuget-${{ matrix.flavor }}
+          path: PackageStore/*.nupkg
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload named-module validation prerequisites
+        if: matrix.flavor == 'x64chk'
+        uses: actions/upload-artifact@v6
+        with:
+          name: xaml-module-prereqs-x64chk
+          path: |
+            BuildOutput/packaging/Debug/**
+            BuildOutput/bin/amd64chk/Product/**
+            BuildOutput/bin/GenXbf/**
+            BuildOutput/obj/amd64chk/MergedWinMD/**
+          if-no-files-found: error
+          retention-days: 7
+
+  cppwinrt-modules:
+    needs:
+      - sync-xamlc-t4
+      - build
+    if: always() && !cancelled() && needs.sync-xamlc-t4.result == 'success'
+    name: Validate C++/WinRT named modules
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 90
+    env:
+      NUGET_PACKAGES: ${{ github.workspace }}\packages
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      CL: '/MP2'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ needs.sync-xamlc-t4.outputs.checkout_sha }}
+          fetch-depth: 1
+          show-progress: false
+
+      - name: Restore VS2022-built XamlC and WinUI prerequisites
+        uses: actions/download-artifact@v6
+        with:
+          name: xaml-module-prereqs-x64chk
+          path: BuildOutput
+
+      - name: Restore x64chk WinUI NuGet package
+        uses: actions/download-artifact@v6
+        with:
+          name: winui-nuget-x64chk
+          path: PackageStore
+
+      - name: Materialize WinUI package for native tests
+        shell: pwsh
+        run: .github/scripts/materialize-winui-validation-package.ps1
+
+      - name: Initialize VS2026 module environment and validate
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsInstall = & $vswhere -latest -version '[18.0,19.0)' -requires Microsoft.Component.MSBuild -property installationPath
+          if (-not $vsInstall) {
+              throw 'Visual Studio 2026 / MSBuild 18.x is required for C++/WinRT 3.x named-module validation.'
+          }
+
+          $vsDevCmd = Join-Path $vsInstall 'Common7\Tools\VsDevCmd.bat'
+          $quote = [char]34
+          $chain = "call $quote$vsDevCmd$quote -no_logo -arch=amd64 -host_arch=amd64" +
+              " && init.cmd x64chk /nopgo" +
+              " && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-cppwinrt-modules.ps1 -ModuleVisualStudioVersion 18.0 -ModulePlatformToolset v145"
+
+
+          cmd /d /c $chain
+          if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+          }
+
+      - name: Upload named-module binlogs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: binlogs-cppwinrt-modules
+          path: |
+            BuildOutput/binlogs/**
+            BuildOutput/TestResults/XamlCompiler/**
+          if-no-files-found: ignore
+          retention-days: 7
+
+
+  xamlc-unit-tests:
+    needs:
+      - sync-xamlc-t4
+      - build
+    if: always() && !cancelled() && needs.sync-xamlc-t4.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        source: [feature, predecessor, upstream]
+    name: XamlCompiler full suite (${{ matrix.source }})
+    runs-on: windows-2022
+    timeout-minutes: 120
+    env:
+      NUGET_PACKAGES: ${{ github.workspace }}\packages
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      CL: '/MP2'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ needs.sync-xamlc-t4.outputs.checkout_sha }}
+          fetch-depth: 0
+          show-progress: false
+
+      - name: Restore VS2022-built XamlC and WinUI prerequisites
+        uses: actions/download-artifact@v6
+        with:
+          name: xaml-module-prereqs-x64chk
+          path: BuildOutput
+
+      - name: Restore x64chk WinUI NuGet package
+        uses: actions/download-artifact@v6
+        with:
+          name: winui-nuget-x64chk
+          path: PackageStore
+
+      - name: Materialize WinUI package for native tests
+        shell: pwsh
+        run: .github/scripts/materialize-winui-validation-package.ps1
+
+      - name: Select compiler and test baseline
+        if: matrix.source != 'feature'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $baseline = if ('${{ matrix.source }}' -eq 'predecessor') { 'ad88d2e5aceef3ad5eade466d127aefeb72457d4' } else { '7b68d3e0b771a57d80098799406234efee479517' }
+          $props = [IO.File]::ReadAllBytes('src/XamlCompiler/Tests/UnitTests/Directory.Build.props')
+          git restore --source=$baseline --worktree -- src/XamlCompiler/BuildTasks src/XamlCompiler/Targets src/XamlCompiler/Tests/UnitTests
+          if ($LASTEXITCODE -ne 0) { throw 'Baseline source restore failed.' }
+          [IO.File]::WriteAllBytes('src/XamlCompiler/Tests/UnitTests/Directory.Build.props', $props)
+          New-Item -ItemType Directory -Force BuildOutput/TestResults/XamlCompiler | Out-Null
+          Set-Content BuildOutput/TestResults/XamlCompiler/baseline.txt "${{ matrix.source }} $baseline"
+
+      - name: Initialize VS2022 and run the complete unit suite
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsInstall = & $vswhere -latest -version '[17.0,18.0)' -requires Microsoft.Component.MSBuild -property installationPath
+          if (-not $vsInstall) {
+              throw 'Visual Studio 2022 / MSBuild 17.x is required for XamlCompiler unit validation.'
+          }
+          $vsDevCmd = Join-Path $vsInstall 'Common7\Tools\VsDevCmd.bat'
+          $quote = [char]34
+          $chain = "call $quote$vsDevCmd$quote -no_logo -arch=amd64 -host_arch=amd64" +
+              " && init.cmd x64chk /nopgo" +
+              " && msbuild src\XamlCompiler\Microsoft.UI.Xaml.Markup.Compiler.csproj /restore /t:Build /p:Configuration=Debug /p:Platform=x64 /m:2 /ds:false /binaryLogger:BuildOutput\binlogs\Compiler.FullSuite.binlog" +
+              " && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-unit-tests.ps1"
+          cmd /d /c $chain
+          if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+          }
+
+      - name: Upload unit-test discovery, results, and binlogs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: xamlc-unit-tests-x64chk-${{ matrix.source }}
+          path: |
+            BuildOutput/TestResults/XamlCompiler/**
+            BuildOutput/binlogs/*.UnitValidation.binlog
+            BuildOutput/binlogs/Compiler.FullSuite.binlog
+          if-no-files-found: warn
+          retention-days: 7
+
+  nuget-consumers:
+    needs: [sync-xamlc-t4, build]
+    if: always() && !cancelled() && needs.sync-xamlc-t4.result == 'success'
+    name: NuGet module sample
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 90
+    env:
+      NUGET_PACKAGES: ${{ github.workspace }}\packages
+      CL: '/MP2'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.sync-xamlc-t4.outputs.checkout_sha }}
+          fetch-depth: 1
+          show-progress: false
+      - uses: actions/download-artifact@v6
+        with:
+          name: winui-nuget-x64chk
+          path: PackageStore
+      - uses: NuGet/setup-nuget@v2
+      - name: Restore MSBuild cache package required for project evaluation
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          [xml]$packagesConfig = Get-Content packages.config
+          $cachePackage = $packagesConfig.packages.package | Where-Object { $_.id -eq 'Microsoft.MSBuildCache.Local' }
+          if (-not $cachePackage) {
+              throw 'Microsoft.MSBuildCache.Local was not found in packages.config.'
+          }
+
+          nuget install $cachePackage.id `
+            -Version $cachePackage.version `
+            -OutputDirectory packages `
+            -Source https://api.nuget.org/v3/index.json `
+            -NonInteractive
+          if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+          }
+      - name: Real package fixture and product sample
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs = & $vswhere -latest -version '[18.0,19.0)' -requires Microsoft.Component.MSBuild -property installationPath
+          if (-not $vs) { throw 'VS2026 is required.' }
+          $dev = Join-Path $vs 'Common7\Tools\VsDevCmd.bat'
+          cmd /d /c "call `"$dev`" -no_logo -arch=amd64 -host_arch=amd64 && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-package-consumer.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-module-sample.ps1"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: nuget-consumer-evidence
+          path: |
+            BuildOutput/binlogs/**
+            PackageConsumerValidation/obj/**
+            SampleValidation/obj/**
           retention-days: 7

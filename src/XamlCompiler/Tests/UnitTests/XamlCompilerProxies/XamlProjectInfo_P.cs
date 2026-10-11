@@ -21,8 +21,7 @@ namespace Win8Xaml.CompilerProxies
         static PropertyInfo _genXbf64Path;
         static PropertyInfo _genXbfArm64Path;
         static PropertyInfo _targetPlatformMinVersion;
-        static PropertyInfo _useCppWinRTNamedModules;
-        static PropertyInfo _xamlClassNames;
+        static PropertyInfo _buildXamlModules;
         static PropertyInfo _codeGenFlags;
         static PropertyInfo _shouldGenerateTypeInfoCode;
 
@@ -39,8 +38,7 @@ namespace Win8Xaml.CompilerProxies
             _genXbf64Path = _xamlProjectInfoType.GetProperty("GenXbf64Path");
             _genXbfArm64Path = _xamlProjectInfoType.GetProperty("GenXbfArm64Path");
             _targetPlatformMinVersion = _xamlProjectInfoType.GetProperty("TargetPlatformMinVersion");
-            _useCppWinRTNamedModules = _xamlProjectInfoType.GetProperty("UseCppWinRTNamedModules");
-            _xamlClassNames = _xamlProjectInfoType.GetProperty("XamlClassNames");
+            _buildXamlModules = _xamlProjectInfoType.GetProperty("BuildXamlModules");
             _codeGenFlags = _xamlProjectInfoType.GetProperty("CodeGenFlags");
             _shouldGenerateTypeInfoCode = _xamlProjectInfoType.GetProperty("ShouldGenerateTypeInfoCode");
         }
@@ -102,16 +100,22 @@ namespace Win8Xaml.CompilerProxies
             set { _isLibraryProperty.SetValue(_instance, value); }
         }
 
-        public bool UseCppWinRTNamedModules
+        public bool BuildXamlModules
         {
-            get { return (bool)_useCppWinRTNamedModules.GetValue(_instance, null); }
-            set { _useCppWinRTNamedModules.SetValue(_instance, value); }
+            get { return (bool)_buildXamlModules.GetValue(_instance, null); }
+            set { _buildXamlModules.SetValue(_instance, value); }
         }
 
-        public IReadOnlyList<string> XamlClassNames
+        public string PrecompiledHeaderFile
         {
-            get { return (IReadOnlyList<string>)_xamlClassNames.GetValue(_instance, null); }
-            set { _xamlClassNames.SetValue(_instance, value); }
+            get { return (string)_xamlProjectInfoType.GetProperty("PrecompiledHeaderFile").GetValue(_instance, null); }
+            set { _xamlProjectInfoType.GetProperty("PrecompiledHeaderFile").SetValue(_instance, value); }
+        }
+
+        public void SetEmptyAdditionalXamlTypeInfoIncludes()
+        {
+            var property = _xamlProjectInfoType.GetProperty("AdditionalXamlTypeInfoIncludes");
+            property.SetValue(_instance, Array.CreateInstance(property.PropertyType.GetGenericArguments()[0], 0));
         }
 
         public bool ShouldGenerateTypeInfoCode
