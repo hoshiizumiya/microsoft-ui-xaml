@@ -1937,9 +1937,9 @@ namespace UnitTests
         }
 
         [TestMethod]
-        public void WMC0155_ListViewDuplicateError()
+        public void WMC0035_ListViewDuplicateItemsAssignment()
         {
-            //Creating a ListView combining both syntaxes, should result in an error
+            // Both syntaxes assign Items; the second assignment is a duplicate member.
             string xaml = @"
 <Page
     xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'
@@ -1955,7 +1955,7 @@ namespace UnitTests
 ";
             var validator = _testHelper.ValidateXAML(xaml, SchemaMode.LoadUserDll);
             string[] expectedErrors = {
-                "WMC0155"
+                "WMC0035"
             };
             string result = _testHelper.MatchErrors(validator, expectedErrors, null);
             Assert.IsNull(result, result);

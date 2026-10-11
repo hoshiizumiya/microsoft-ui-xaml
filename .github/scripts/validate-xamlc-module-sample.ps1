@@ -16,6 +16,11 @@ git clone https://github.com/hoshiizumiya/WinUICppwinrtModuleSample.git $SampleR
 if ($LASTEXITCODE -ne 0) { throw 'Sample clone failed.' }
 git -C $SampleRoot checkout --detach $sampleCommit
 if ($LASTEXITCODE -ne 0) { throw 'Sample checkout failed.' }
+# The external project must resolve its own SDK/package defaults, even when cloned below
+# this repository. Stop MSBuild's upward search before it reaches WinUI's build settings.
+foreach ($buildFile in @('Directory.Build.props', 'Directory.Build.targets')) {
+    [IO.File]::WriteAllText((Join-Path $SampleRoot $buildFile), '<Project />')
+}
 Write-Host "Validating product sample $sampleCommit with WinUI $version"
 
 $project = Join-Path $SampleRoot 'WinUICppwinrtModuleSample\WinUICppwinrtModuleSample.vcxproj'

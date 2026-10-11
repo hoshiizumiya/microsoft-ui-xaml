@@ -2,7 +2,8 @@ param(
     [string]$VisualStudioVersion = '17.0',
     [string]$WindowsSdkVersion = '10.0.26100.0',
     [string]$TestCaseFilter,
-    [switch]$SkipRegressionBuild
+    [switch]$SkipRegressionBuild,
+    [switch]$HistoricalBaseline
 )
 
 $ErrorActionPreference = 'Stop'
@@ -219,5 +220,26 @@ $summary | Set-Content -Path (Join-Path $resultsDir 'summary.txt')
 Write-Host $summary
 if ($testExit -ne 0 -or [int]$counters.failed -gt 0) {
     & (Join-Path $PSScriptRoot 'export-xamlc-test-failures.ps1') -Trx $trx -ResultsDirectory $resultsDir
+    if ($HistoricalBaseline -and $testExit -eq 1) {
+        # The pinned historical suites reproduce upstream #11837's four known
+        # succinct-collection assertions. Keep their TRX/failure evidence and reject
+        # every additional failure; feature validation always requires zero failures.
+        $knownFailures = @(
+            'WMC0155_ListViewCollectionCreatedWithSuccinctSyntax',
+            'WMC0155_CheckSyntacticallyValidInput',
+            'WMC0155_CheckSyntacticallyInvalidInput',
+            'WMC0155_ListViewDuplicateError'
+        )
+        $failedTests = @($trx.TestRun.Results.UnitTestResult | Where-Object { $_.outcome -eq 'Failed' })
+        $unexpected = @($failedTests | Where-Object { $_.testName -notin $knownFailures })
+        $names = @($failedTests | ForEach-Object { $_.testName })
+        $missing = @($knownFailures | Where-Object { $_ -notin $names })
+        if ($failedTests.Count -eq [int]$counters.failed -and $failedTests.Count -eq $knownFailures.Count -and
+            $unexpected.Count -eq 0 -and $missing.Count -eq 0) {
+            "Historical baseline reproduced known failures: $($names -join ', ')" |
+                Tee-Object -FilePath (Join-Path $resultsDir 'known-baseline-failures.txt') | Out-Host
+            exit 0
+        }
+    }
     throw "XamlCompiler unit suite failed: $summary"
 }

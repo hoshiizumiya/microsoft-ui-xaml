@@ -350,7 +350,9 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $baseline = if ('${{ matrix.source }}' -eq 'predecessor') { 'ad88d2e5aceef3ad5eade466d127aefeb72457d4' } else { '7b68d3e0b771a57d80098799406234efee479517' }
           $props = [IO.File]::ReadAllBytes('src/XamlCompiler/Tests/UnitTests/Directory.Build.props')
-          git restore --source=$baseline --worktree -- src/XamlCompiler/BuildTasks src/XamlCompiler/Targets src/XamlCompiler/Tests/UnitTests
+          # Compiler, native/managed fixtures and codegen masters form one baseline.
+          # Mixing current regression inputs with an older compiler fails before VSTest.
+          git restore --source=$baseline --worktree -- src/XamlCompiler/BuildTasks src/XamlCompiler/Targets src/XamlCompiler/Tests src/XamlCompiler/TestMasters src/XamlCompiler/Tools
           if ($LASTEXITCODE -ne 0) { throw 'Baseline source restore failed.' }
           [IO.File]::WriteAllBytes('src/XamlCompiler/Tests/UnitTests/Directory.Build.props', $props)
           New-Item -ItemType Directory -Force BuildOutput/TestResults/XamlCompiler | Out-Null
@@ -367,10 +369,11 @@ jobs:
           }
           $vsDevCmd = Join-Path $vsInstall 'Common7\Tools\VsDevCmd.bat'
           $quote = [char]34
+          $baselineArgument = if ('${{ matrix.source }}' -eq 'feature') { '' } else { ' -HistoricalBaseline' }
           $chain = "call $quote$vsDevCmd$quote -no_logo -arch=amd64 -host_arch=amd64" +
               " && init.cmd x64chk /nopgo" +
               " && msbuild src\XamlCompiler\Microsoft.UI.Xaml.Markup.Compiler.csproj /restore /t:Build /p:Configuration=Debug /p:Platform=x64 /m:2 /ds:false /binaryLogger:BuildOutput\binlogs\Compiler.FullSuite.binlog" +
-              " && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-unit-tests.ps1"
+              " && powershell -NoProfile -ExecutionPolicy Bypass -File .github\scripts\validate-xamlc-unit-tests.ps1$baselineArgument"
           cmd /d /c $chain
           if ($LASTEXITCODE -ne 0) {
               exit $LASTEXITCODE
