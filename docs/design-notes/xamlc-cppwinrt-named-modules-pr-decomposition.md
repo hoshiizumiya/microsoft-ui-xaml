@@ -41,21 +41,22 @@ historical development branches are retained during validation.
 
 ## Verified evidence
 
-[PR Build 38196092067](https://github.com/hoshiizumiya/microsoft-ui-xaml/actions/runs/38196092067)
-completed successfully on `a94f569764b58d251cf3be98bcec93f6c87c4605` on 2026-10-12.
-T4 produced no successor commit. The reusable consumer used the synchronized checkout
-SHA and the same run's `xaml-module-prereqs-x64chk` artifact.
+[PR Build 38422041475](https://github.com/hoshiizumiya/microsoft-ui-xaml/actions/runs/38422041475)
+completed successfully on `1dbe12eef24945e528429bec994103f9b1b3686f` on 2026-10-13.
+T4 produced no successor commit. Every artifact records the same head SHA, and the
+reusable consumer used the same run's `xaml-module-prereqs-x64chk` artifact.
 
 | Gate | Verified result |
 | --- | --- |
 | Product builds | All six VS2022 configurations: x86/x64/arm64, Check and Release |
-| Feature full suite | TRX: 364 total, 360 executed, 360 passed, zero failed |
+| Feature full suite | TRX: 367 total, 363 executed, 363 passed, zero failed; all three direct succinct-syntax regressions executed |
 | Predecessor full suite | TRX: 300 total, 296 executed, 292 passed, exactly four allowed historical failures |
 | Upstream full suite | TRX: 300 total, 296 executed, 292 passed, exactly the same four allowed historical failures |
 | Focused module tests | 21 executed, 21 passed |
 | Native module consumers | x64, module and header modes, Debug and Release |
 | Static libraries | Provider and cross-project consumer in module and header modes |
 | Incremental graph | No-change, one-page change, removal/restoration, rename/restoration, suppression/restoration and header/module switching |
+| Native link inputs | Application and static-library logs contain no LNK4042 duplicate-object warning; the runner rejects it |
 | Package integration | Real NuGet fixture and external product sample, Debug and Release |
 
 The four historical failures are `WMC0155_ListViewCollectionCreatedWithSuccinctSyntax`,
@@ -70,12 +71,13 @@ Six product architectures/configurations do not establish x86/arm64 named-module
 consumer compilation: the native consumer validation in this run targets x64.
 Interactive sample execution also remains a separate acceptance item.
 
-## Subsequent changes
+## Follow-up verification
 
-Any commit after the verified SHA requires its own run. The current follow-up repairs
-multi-line succinct-collection diagnostics, adds direct parser boundary regressions,
-and registers each XAML-owned object once in the Obj/Lib/Link input collections;
-the result table above belongs to the earlier validated SHA until the follow-up completes.
+The verified run includes the multi-line succinct-collection diagnostic repair, direct
+parser boundary regressions, and unique XAML-owned Obj/Lib/Link registration. The three
+new `SuccinctSyntax_*` methods are present as passed results in the feature TRX.
+The native evidence retains readable logs for every application, static-library and
+incremental stage; none contains LNK4042.
 
 The full runner builds the regression inputs, runs without a test filter and retains
 discovery, TRX, summaries and binlogs. The focused runner exercises module tests with
@@ -89,9 +91,6 @@ cancelled or superseded validation steps as successful execution.
   upstream submission, keeping bootstrap/incremental/module/docs responsibilities clear.
 - Keep C++/WinRT-owned provider-wrapper and projection-incremental defects distinct from
   XamlC fixes; fixture mitigations are not fixes to the third-party package.
-- Verify the follow-up for duplicate object registration against the static-library
-  and application consumers. The native runner now rejects LNK4042 warnings and saves
-  a readable log alongside each binlog.
 - Treat interactive sample execution and other-architecture native module compilation
   as unverified until their own evidence is available.
 
