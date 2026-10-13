@@ -83,9 +83,23 @@ function Invoke-XamlModuleBuild {
         "/binaryLogger:$binlogDir\$LogName.binlog"
     ) + $ExtraProperties
 
-    & msbuild.exe @arguments
-    if ($LASTEXITCODE -ne 0) {
-        throw "$LogName failed with exit code $LASTEXITCODE."
+    $textLog = Join-Path $binlogDir "$LogName.log"
+    $previousPreference = $ErrorActionPreference
+    try {
+        # Capture warnings without losing the native process exit code to PowerShell's
+        # stderr handling. Keep a readable log beside each binary build log.
+        $ErrorActionPreference = 'Continue'
+        & msbuild.exe @arguments 2>&1 | Tee-Object -FilePath $textLog | Out-Host
+        $buildExit = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousPreference
+    }
+    if ($buildExit -ne 0) {
+        throw "$LogName failed with exit code $buildExit."
+    }
+    if (Select-String -LiteralPath $textLog -Pattern '\bLNK4042\b' -Quiet) {
+        throw "$LogName passed duplicate object inputs to the linker; see '$textLog'."
     }
 }
 
@@ -408,3 +422,4 @@ foreach ($file in Get-ChildItem (Join-Path $repoRoot 'BuildOutput\obj') -Recurse
 }
 
 & (Join-Path $PSScriptRoot 'validate-xamlc-unit-tests.ps1') -VisualStudioVersion $ModuleVisualStudioVersion -WindowsSdkVersion $ModuleWindowsSdkVersion -TestCaseFilter 'FullyQualifiedName~UnitTests.CppWinRTModuleTests' -SkipRegressionBuild
+

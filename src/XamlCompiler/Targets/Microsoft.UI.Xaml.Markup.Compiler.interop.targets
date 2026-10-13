@@ -1365,6 +1365,71 @@ Licensed under the MIT License. See LICENSE in the project root for license info
         </ItemGroup>
     </Target>
 
+    <!-- The VC XAML target appends generated objects to Obj and then registers all
+         XamlGenerated entries in Lib/Link. Obj can already contain those entries from
+         the native link-input computation. Normalize only XAML-owned object paths,
+         retaining the first item's metadata and every unrelated authored input. -->
+    <UsingTask TaskName="RemoveDuplicateXamlCppWinRTObjectInputs" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+      <ParameterGroup>
+        <GeneratedObjects ParameterType="Microsoft.Build.Framework.ITaskItem[]" />
+        <Inputs ParameterType="Microsoft.Build.Framework.ITaskItem[]" />
+        <Filtered ParameterType="Microsoft.Build.Framework.ITaskItem[]" Output="true" />
+      </ParameterGroup>
+      <Task>
+        <Using Namespace="System" />
+        <Using Namespace="System.Collections.Generic" />
+        <Using Namespace="Microsoft.Build.Framework" />
+        <Code Type="Fragment" Language="cs"><![CDATA[
+            var generatedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var item in GeneratedObjects ?? new ITaskItem[0])
+            {
+                generatedPaths.Add(item.GetMetadata("FullPath"));
+            }
+
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var result = new List<ITaskItem>();
+            foreach (var item in Inputs ?? new ITaskItem[0])
+            {
+                string path = item.GetMetadata("FullPath");
+                if (!generatedPaths.Contains(path) || seen.Add(path))
+                {
+                    result.Add(item);
+                }
+            }
+            Filtered = result.ToArray();
+]]></Code>
+      </Task>
+    </UsingTask>
+
+    <Target Name="XamlCppWinRTRegisterUniqueGeneratedObjectInputs"
+            Condition="'$(XamlLanguage)' == 'CppWinRT' and '$(CppWinRTBuildModule)' == 'true'"
+            AfterTargets="ComputeXamlGeneratedCLOutputs">
+        <ItemGroup>
+            <_XamlOwnedGeneratedObjects Include="@(Obj)" Condition="'%(Obj.CompilerIteration)' == 'XamlGenerated'" />
+        </ItemGroup>
+        <RemoveDuplicateXamlCppWinRTObjectInputs GeneratedObjects="@(_XamlOwnedGeneratedObjects)" Inputs="@(Obj)">
+            <Output TaskParameter="Filtered" ItemName="_XamlUniqueObjectInputs" />
+        </RemoveDuplicateXamlCppWinRTObjectInputs>
+        <RemoveDuplicateXamlCppWinRTObjectInputs GeneratedObjects="@(_XamlOwnedGeneratedObjects)" Inputs="@(Lib)">
+            <Output TaskParameter="Filtered" ItemName="_XamlUniqueLibraryInputs" />
+        </RemoveDuplicateXamlCppWinRTObjectInputs>
+        <RemoveDuplicateXamlCppWinRTObjectInputs GeneratedObjects="@(_XamlOwnedGeneratedObjects)" Inputs="@(Link)">
+            <Output TaskParameter="Filtered" ItemName="_XamlUniqueLinkInputs" />
+        </RemoveDuplicateXamlCppWinRTObjectInputs>
+        <ItemGroup>
+            <Obj Remove="@(Obj)" />
+            <Obj Include="@(_XamlUniqueObjectInputs)" />
+            <Lib Remove="@(Lib)" />
+            <Lib Include="@(_XamlUniqueLibraryInputs)" />
+            <Link Remove="@(Link)" />
+            <Link Include="@(_XamlUniqueLinkInputs)" />
+            <_XamlOwnedGeneratedObjects Remove="@(_XamlOwnedGeneratedObjects)" />
+            <_XamlUniqueObjectInputs Remove="@(_XamlUniqueObjectInputs)" />
+            <_XamlUniqueLibraryInputs Remove="@(_XamlUniqueLibraryInputs)" />
+            <_XamlUniqueLinkInputs Remove="@(_XamlUniqueLinkInputs)" />
+        </ItemGroup>
+    </Target>
+
     <Target Name="_OnXamlPreCompileError"
             DependsOnTargets="$(_OnXamlPrecompileErrorDependsOn)" >
 
@@ -1704,3 +1769,4 @@ Licensed under the MIT License. See LICENSE in the project root for license info
     <Import Project="ImportAfter\*"/>
 
 </Project>
+
