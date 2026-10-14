@@ -330,6 +330,7 @@ namespace UnitTests
             {
                 foreach (bool pass1 in new[] { true, false })
                 {
+                    Console.WriteLine("Checking generated layout: application={0}, pass1={1}", app, pass1);
                     var files = GeneratePage(true, app: app, isPass1: pass1, includeBinding: !app);
                     foreach (var file in files)
                     {
