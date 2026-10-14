@@ -45,6 +45,10 @@ HRESULT DirectUI::FrameworkElementGenerated::QueryInterfaceImpl(_In_ REFIID iid,
     {
         *ppObject = static_cast<ABI::Microsoft::UI::Xaml::IFrameworkElementOverrides*>(this);
     }
+    else if (InlineIsEqualGUID(iid, __uuidof(ABI::Microsoft::UI::Xaml::IFrameworkElement2)))
+    {
+        *ppObject = ctl::interface_cast<ABI::Microsoft::UI::Xaml::IFrameworkElement2>(this);
+    }
 #if WI_IS_FEATURE_PRESENT(Feature_ExperimentalApi)
     else if (InlineIsEqualGUID(iid, __uuidof(ABI::Microsoft::UI::Xaml::IFrameworkElementFeature_ExperimentalApi)) && Feature_ExperimentalApi::IsEnabled())
     {
@@ -1015,6 +1019,24 @@ Cleanup:
     if (EventEnabledApiFunctionCallStop())
     {
         XamlTelemetry::PublicApiCall(false, reinterpret_cast<uint64_t>(this), "FrameworkElement_InvalidateViewport", hr);
+    }
+    RRETURN(hr);
+}
+_Check_return_ HRESULT STDMETHODCALLTYPE DirectUI::FrameworkElementGenerated::InvalidateViewportPublic()
+{
+    HRESULT hr = S_OK;
+    if (EventEnabledApiFunctionCallStart())
+    {
+        XamlTelemetry::PublicApiCall(true, reinterpret_cast<uint64_t>(this), "FrameworkElement_InvalidateViewportPublic", 0);
+    }
+    
+    IFC(CheckThread());
+    IFC(DefaultStrictApiCheck(this));
+    IFC(static_cast<FrameworkElement*>(this)->InvalidateViewportPublicImpl());
+Cleanup:
+    if (EventEnabledApiFunctionCallStop())
+    {
+        XamlTelemetry::PublicApiCall(false, reinterpret_cast<uint64_t>(this), "FrameworkElement_InvalidateViewportPublic", hr);
     }
     RRETURN(hr);
 }

@@ -3117,6 +3117,7 @@ enum class KnownMethodIndex: UINT16
     FrameworkElement_GoToElementStateCore,
     FrameworkElement_GetBindingExpression,
     FrameworkElement_InvalidateViewport,
+    FrameworkElement_InvalidateViewportPublic,
     FullWindowMediaRootAutomationPeer_Close,
     FullWindowMediaRootAutomationPeer_SetVisualState,
     FullWindowMediaRootAutomationPeer_WaitForInputIdle,

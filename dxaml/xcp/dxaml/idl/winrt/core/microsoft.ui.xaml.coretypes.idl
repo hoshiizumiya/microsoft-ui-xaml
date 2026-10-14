@@ -2552,6 +2552,11 @@ namespace Microsoft.UI.Xaml
         overridable Boolean GoToElementStateCore(String stateName, Boolean useTransitions);
     
         [contract(Microsoft.UI.Xaml.WinUIContract, 12)]
+        {
+            [method_name("InvalidateViewportPublic")] void InvalidateViewport();
+        }
+    
+        [contract(Microsoft.UI.Xaml.WinUIContract, 12)]
         [feature(Feature_ExperimentalApi)]
         [interface_name("Microsoft.UI.Xaml.IFrameworkElementFeature_ExperimentalApi")]
         {

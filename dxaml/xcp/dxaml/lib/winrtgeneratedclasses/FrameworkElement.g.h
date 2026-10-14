@@ -25,6 +25,13 @@
 namespace ctl
 {
     template<typename impl_type>
+    class interface_forwarder< ABI::Microsoft::UI::Xaml::IFrameworkElement2, impl_type> final
+        : public ctl::iinspectable_forwarder_base< ABI::Microsoft::UI::Xaml::IFrameworkElement2, impl_type>
+    {
+        impl_type* This() { return this->This_helper<impl_type>(); }
+        IFACEMETHOD(InvalidateViewportPublic)() override { return This()->InvalidateViewportPublic(); }
+    };
+    template<typename impl_type>
     class interface_forwarder< ABI::Microsoft::UI::Xaml::IFrameworkElementFeature_ExperimentalApi, impl_type> final
         : public ctl::iinspectable_forwarder_base< ABI::Microsoft::UI::Xaml::IFrameworkElementFeature_ExperimentalApi, impl_type>
     {
@@ -49,6 +56,7 @@ namespace DirectUI
         , public ABI::Microsoft::UI::Xaml::IFrameworkElement
         , public ABI::Microsoft::UI::Xaml::IFrameworkElementProtected
         , public ABI::Microsoft::UI::Xaml::IFrameworkElementOverrides
+        , public ctl::forwarder_holder< ABI::Microsoft::UI::Xaml::IFrameworkElement2, FrameworkElementGenerated >
 #if WI_IS_FEATURE_PRESENT(Feature_ExperimentalApi)
         , public ctl::forwarder_holder< ABI::Microsoft::UI::Xaml::IFrameworkElementFeature_ExperimentalApi, FrameworkElementGenerated >
 #endif
@@ -61,6 +69,7 @@ namespace DirectUI
             INTERFACE_ENTRY(FrameworkElementGenerated, ABI::Microsoft::UI::Xaml::IFrameworkElement)
             INTERFACE_ENTRY(FrameworkElementGenerated, ABI::Microsoft::UI::Xaml::IFrameworkElementProtected)
             INTERFACE_ENTRY(FrameworkElementGenerated, ABI::Microsoft::UI::Xaml::IFrameworkElementOverrides)
+            INTERFACE_ENTRY(FrameworkElementGenerated, ABI::Microsoft::UI::Xaml::IFrameworkElement2)
 #if WI_IS_FEATURE_PRESENT(Feature_ExperimentalApi)
             INTERFACE_ENTRY(FrameworkElementGenerated, ABI::Microsoft::UI::Xaml::IFrameworkElementFeature_ExperimentalApi)
 #endif
@@ -195,6 +204,7 @@ namespace DirectUI
         IFACEMETHOD(GoToElementStateCore)(_In_ HSTRING stateName, BOOLEAN useTransitions, _Out_ BOOLEAN* pReturnValue) override;
         _Check_return_ HRESULT GoToElementStateCoreProtected(_In_ HSTRING stateName, BOOLEAN useTransitions, _Out_ BOOLEAN* pReturnValue);
         IFACEMETHOD(InvalidateViewport)() override;
+        _Check_return_ HRESULT STDMETHODCALLTYPE InvalidateViewportPublic();
         _Check_return_ HRESULT InvokeApplyTemplate(_Out_ BOOLEAN* pReturnValue);
         _Check_return_ HRESULT InvokeFocus(ABI::Microsoft::UI::Xaml::FocusState value, _Out_ BOOLEAN* pReturnValue);
         IFACEMETHOD(MeasureOverride)(ABI::Windows::Foundation::Size availableSize, _Out_ ABI::Windows::Foundation::Size* pReturnValue) override;
