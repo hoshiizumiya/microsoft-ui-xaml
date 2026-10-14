@@ -28,6 +28,9 @@ jobs:
       - name: Generate and sync T4 output; check metadata and projection
         shell: pwsh
         run: .github/scripts/sync-t4-viewport.ps1
+      - name: Compile the C#/WinRT projection and public instance call
+        shell: pwsh
+        run: .github/scripts/check-viewport-csharp.ps1
       - name: Upload generated output and diagnostics
         if: always()
         uses: actions/upload-artifact@v6
