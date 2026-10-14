@@ -21,11 +21,10 @@ namespace Microsoft { namespace UI { namespace Xaml { namespace Tests { namespac
     ref class InvalidateViewportHelper : public xaml::FrameworkElement
     {
         public:
-        // InvalidateViewport is protected. So in order to call it we create a subclass
-        // of FrameworkElement and invoke InvalidateViewport from there
+        // Exercise the original protected ABI through its projection alias.
         static void InvalidateViewport(xaml::FrameworkElement^ element)
         {
-            element->InvalidateViewport();
+            element->InvalidateViewportProtected();
         }
     };
     bool LayoutManagerIntegrationTests::ClassSetup()

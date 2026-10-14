@@ -55,7 +55,7 @@ foreach ($entry in $manifest.SelectNodes("//*[local-name()='CreateItem' and @Inc
 $idl = Get-Content "$out/core/microsoft.ui.xaml.coretypes.idl" -Raw
 $class = [regex]::Match($idl, '(?s)unsealed runtimeclass FrameworkElement\s*:.*?\n    };').Value
 if (-not $class) { throw 'FrameworkElement IDL not found' }
-if ($class -notmatch 'protected void InvalidateViewport\(\);' -or $class -notmatch '\[method_name\("InvalidateViewportPublic"\)\] void InvalidateViewport\(\);') {
+if ($class -notmatch '\[method_name\("InvalidateViewport"\)\] protected void InvalidateViewportProtected\(\);' -or $class -notmatch '\[method_name\("InvalidateViewportPublic"\)\] void InvalidateViewport\(\);') {
     throw 'Expected protected and public projected names were not generated'
 }
 $header = Get-Content "$out/core/FrameworkClasses/FrameworkElement.g.h" -Raw
@@ -67,10 +67,12 @@ foreach ($interface in @('IFrameworkElement', 'IFrameworkElementProtected', 'IFr
 }
 if ($body -notmatch '->InvalidateViewportImpl\(\)' -or $body -notmatch '->InvalidateViewportPublicImpl\(\)') { throw 'Missing ABI forwarding stubs' }
 
-# The published v1 portion must be byte-for-byte identical to main's IDL.
+# The v1 ABI declarations must match main after normalizing the projection-only
+# alias. Its original ABI name and method signature must remain intact.
 $baseline = git show '895a8a7c0bf4b7946d401dabddf93f8bf9d002c1:dxaml/xcp/dxaml/idl/winrt/core/microsoft.ui.xaml.coretypes.idl'
 $oldClass = [regex]::Match(($baseline -join "`n"), '(?s)unsealed runtimeclass FrameworkElement\s*:.*?\n    };').Value
-$v1 = ($class -split '\[contract\(Microsoft.UI.Xaml.WinUIContract, 12\)\]')[0].Trim().Replace("`r", '')
+$abiClass = $class.Replace('[method_name("InvalidateViewport")] protected void InvalidateViewportProtected();', 'protected void InvalidateViewport();')
+$v1 = ($abiClass -split '\[contract\(Microsoft.UI.Xaml.WinUIContract, 12\)\]')[0].Trim().Replace("`r", '')
 $oldV1 = ($oldClass -split '\[contract\(Microsoft.UI.Xaml.WinUIContract, 12\)\]')[0].Trim().Replace("`r", '')
 if ($v1 -cne $oldV1) { throw 'Shipped FrameworkElement IDL changed' }
 
@@ -80,6 +82,7 @@ if ($v1 -cne $oldV1) { throw 'Shipped FrameworkElement IDL changed' }
 $probe = [IO.Path]::GetFullPath((Join-Path $out 'probe'))
 New-Item -ItemType Directory -Force $probe | Out-Null
 $publicMethod = [regex]::Match($class, '\[method_name\("InvalidateViewportPublic"\)\] void InvalidateViewport\(\);').Value
+$protectedMethod = [regex]::Match($class, '\[method_name\("InvalidateViewport"\)\] protected void InvalidateViewportProtected\(\);').Value
 @"
 import "inspectable.idl";
 namespace ViewportProbe
@@ -91,7 +94,7 @@ namespace ViewportProbe
     {
         [method_name("CreateInstance")] protected FrameworkElement();
         void ExistingMethod();
-        protected void InvalidateViewport();
+        $protectedMethod
         [contract(ViewportProbe.ProbeContract, 12)]
         [interface_name("ViewportProbe.IFrameworkElement2")]
         {
@@ -134,6 +137,7 @@ if ($LASTEXITCODE) { throw 'C++/CX public instance call failed to compile' }
 $baselineProbe = Join-Path $probe 'baseline'
 New-Item -ItemType Directory -Force $baselineProbe | Out-Null
 $baselineIdl = (Get-Content "$probe/ViewportProbe.idl" -Raw) -replace '(?s)\[contract\(ViewportProbe.ProbeContract, 12\)\]\s*\[interface_name\("ViewportProbe.IFrameworkElement2"\)\]\s*\{.*?\}', ''
+$baselineIdl = $baselineIdl.Replace($protectedMethod, 'protected void InvalidateViewport();')
 $baselineIdl | Set-Content "$baselineProbe/ViewportProbe.idl"
 Push-Location $baselineProbe
 & "$sdkBin/midl.exe" /winrt /nomidl /env x64 /I "$sdk/Include/$sdkVersion/um" /I "$sdk/Include/$sdkVersion/shared" /I "$sdk/Include/$sdkVersion/winrt" /metadata_dir "$sdk/UnionMetadata/$sdkVersion" /out $baselineProbe /winmd "$baselineProbe\ViewportProbe.winmd" ViewportProbe.idl 2>&1 | Tee-Object "$baselineProbe/midl.log"

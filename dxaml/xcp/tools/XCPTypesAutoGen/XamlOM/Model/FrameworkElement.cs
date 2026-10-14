@@ -31,12 +31,15 @@ namespace Microsoft.UI.Xaml
         internal event Windows.Foundation.TypedEventHandler<FrameworkElement, Windows.Foundation.Object> HighContrastChanged;
 
         [CodeGen(CodeGenLevel.IdlAndStub)]
+        [DXamlName("InvalidateViewport")]
+        [DXamlOverloadName("InvalidateViewportProtected")]
         protected void InvalidateViewport()
         {
         }
 
-        // Keep the shipped protected ABI above intact. The public projection keeps
-        // the natural name, while method_name gives the new interface a distinct ABI name.
+        // Preserve the shipped protected ABI name, but give its projection an alias
+        // to avoid a same-signature collision in C#/WinRT. The new public projection
+        // keeps the natural name and has a distinct ABI name on version 2.
         [Version(2)]
         [CodeGen(CodeGenLevel.IdlAndStub)]
         [DXamlName("InvalidateViewportPublic")]
