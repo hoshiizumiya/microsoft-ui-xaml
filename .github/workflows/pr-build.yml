@@ -462,3 +462,15 @@ jobs:
             SampleValidation/obj/**
           retention-days: 7
 
+      - name: Upload compact product-sample evidence
+        uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: product-sample-source-evidence
+          path: |
+            BuildOutput/ProductSampleEvidence/**
+            BuildOutput/binlogs/ProductSample.*.log
+          if-no-files-found: warn
+          retention-days: 7
+
+

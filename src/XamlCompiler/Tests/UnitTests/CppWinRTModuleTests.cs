@@ -227,11 +227,19 @@ namespace UnitTests
                 RootNamespace = "Test", IsPass1 = isPass1, IsApplication = app, BuildXamlModules = buildModules
             };
             string element = app ? "Application" : "Page";
-            string xamlStart = "<" + element + " xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml' x:Class='Test.MainPage'";
+            // Pass 2 resolves x:Bind against the x:Class type, so binding fixtures must
+            // load a real user type instead of the declaration-only Test.MainPage.
+            string className = includeBinding ? "LibManagedDll.BindPathParserClass" : "Test.MainPage";
+            string xamlStart = "<" + element + " xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml' x:Class='" + className + "'";
             string xaml = includeBinding
-                ? xamlStart + "><TextBlock Text='{x:Bind Name}' /></" + element + ">"
+                ? xamlStart + "><TextBlock Text='{x:Bind StringProperty}' /></" + element + ">"
                 : xamlStart + " />";
-            return helper.GenerateCodeBehind(context, new List<string> { xaml }, helper.LoadSchema(SchemaMode.ManagedRuntime), CodeGenLanguage.CppWinRT);
+            SchemaMode schemaMode = SchemaMode.ManagedRuntime;
+            if (includeBinding)
+            {
+                schemaMode |= SchemaMode.LoadUserDll;
+            }
+            return helper.GenerateCodeBehind(context, new List<string> { xaml }, helper.LoadSchema(schemaMode), CodeGenLanguage.CppWinRT);
         }
 
         [TestMethod]
@@ -322,9 +330,14 @@ namespace UnitTests
             {
                 foreach (bool pass1 in new[] { true, false })
                 {
-                    foreach (var file in GeneratePage(true, app: app, isPass1: pass1, includeBinding: !app))
+                    var files = GeneratePage(true, app: app, isPass1: pass1, includeBinding: !app);
+                    foreach (var file in files)
                     {
                         AssertGeneratedModuleFileLayout(file.Contents, file.FileName.EndsWith(".ixx", StringComparison.Ordinal));
+                    }
+                    if (!app && !pass1)
+                    {
+                        StringAssert.Contains(files.Single().Contents, "Update_StringProperty", "Pass 2 must emit the real binding body before its layout is checked.");
                     }
                 }
             }
@@ -548,4 +561,5 @@ namespace ProjectionDependencyFixtures.Providers
     {
     }
 }
+
 

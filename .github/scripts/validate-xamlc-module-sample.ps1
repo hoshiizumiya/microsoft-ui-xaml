@@ -41,6 +41,11 @@ $config = Join-Path $SampleRoot 'nuget.validation.config'
 </configuration>
 "@ | Set-Content $config
 
+$evidenceRoot = Join-Path $repoRoot 'BuildOutput\ProductSampleEvidence'
+New-Item -ItemType Directory -Force $evidenceRoot | Out-Null
+$compilerCommit = (& git -C $repoRoot rev-parse HEAD).Trim()
+if ($LASTEXITCODE -ne 0) { throw 'Compiler HEAD lookup failed.' }
+
 foreach ($pathMode in @('Absolute', 'DefaultRelative')) {
     foreach ($configuration in @('Debug', 'Release')) {
         $buildArguments = @(
@@ -52,6 +57,7 @@ foreach ($pathMode in @('Absolute', 'DefaultRelative')) {
         )
         if ($pathMode -eq 'Absolute') {
             $intermediate = Join-Path $SampleRoot "obj\$configuration\"
+            $evaluatedIntDir = $intermediate
             $buildArguments += "/p:IntDir=$intermediate"
         } else {
             # Do not override IntDir: this is the VS application default missed by the
@@ -63,6 +69,7 @@ foreach ($pathMode in @('Absolute', 'DefaultRelative')) {
             if (-not $properties.IntDir -or [IO.Path]::IsPathRooted($properties.IntDir)) {
                 throw "Default-relative sample must actually use a relative IntDir, found '$($properties.IntDir)'."
             }
+            $evaluatedIntDir = $properties.IntDir
             $intermediate = [IO.Path]::GetFullPath([IO.Path]::Combine($properties.MSBuildProjectDirectory, $properties.IntDir))
         }
         $buildLog = Join-Path $repoRoot "BuildOutput\binlogs\ProductSample.$pathMode.$configuration.log"
@@ -117,14 +124,48 @@ foreach ($pathMode in @('Absolute', 'DefaultRelative')) {
             }
         }
 
+        # Snapshot each configuration before the shared Generated Files directory is
+        # overwritten. Keep text/source evidence downloadable independently of IFC/binlogs.
+        $configurationEvidence = Join-Path $evidenceRoot "$pathMode\$configuration"
+        New-Item -ItemType Directory -Force $configurationEvidence | Out-Null
+        $snapshotFiles = @($generatedNativeFiles) +
+            @(Get-ChildItem $generatedRoot -Filter '*.xaml.g.h' -Recurse -File) +
+            @(Get-ChildItem $generatedRoot -Filter '*.xaml.g.hpp' -Recurse -File)
+        foreach ($generated in @($snapshotFiles | Sort-Object FullName -Unique)) {
+            $relativePath = $generated.FullName.Substring($generatedRoot.Length).TrimStart([char[]]'\/')
+            $destination = Join-Path $configurationEvidence $relativePath
+            New-Item -ItemType Directory -Force (Split-Path -Parent $destination) | Out-Null
+            Copy-Item $generated.FullName $destination
+        }
+        $manifest = [ordered]@{
+            CompilerCommit = $compilerCommit
+            SampleCommit = $sampleCommit
+            WinUIVersion = $version
+            PathMode = $pathMode
+            Configuration = $configuration
+            Project = $project
+            EvaluatedIntDir = $evaluatedIntDir
+            ResolvedIntermediateDirectory = $intermediate
+            BuildLog = [IO.Path]::GetFileName($buildLog)
+            BuildPassed = $true
+            GeneratedSourceChecksPassed = $true
+            NoChangeBuildPassed = $null
+        }
+        $manifestPath = Join-Path $configurationEvidence 'manifest.json'
+        $manifest | ConvertTo-Json | Set-Content $manifestPath -Encoding UTF8
+
         if ($pathMode -eq 'DefaultRelative') {
             # Keep the same inputs and intermediates to exercise saved scanner mappings.
             $rebuildLog = Join-Path $repoRoot "BuildOutput\binlogs\ProductSample.$pathMode.$configuration.NoChange.log"
             & msbuild.exe @buildArguments "/binaryLogger:$repoRoot\BuildOutput\binlogs\ProductSample.$pathMode.$configuration.NoChange.binlog" /fl "/flp:logfile=$rebuildLog;verbosity=normal"
             if ($LASTEXITCODE -ne 0) { throw "Sample $pathMode $configuration no-change build failed: $LASTEXITCODE" }
             if (Select-String -Path $rebuildLog -Pattern 'C7684|LNK4042' -Quiet) { throw "Sample no-change build has conflicting module/object references." }
+            $manifest.NoChangeBuildPassed = $true
+            $manifest['NoChangeBuildLog'] = [IO.Path]::GetFileName($rebuildLog)
+            $manifest | ConvertTo-Json | Set-Content $manifestPath -Encoding UTF8
         }
     }
 }
+
 
 
