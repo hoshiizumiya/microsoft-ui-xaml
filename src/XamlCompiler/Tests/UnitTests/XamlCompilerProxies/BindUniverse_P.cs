@@ -1,6 +1,5 @@
 ﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
-using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 
@@ -29,15 +28,6 @@ namespace Win8Xaml.CompilerProxies
             {
                 return _instance;
             }
-        }
-
-        public void AddUnresolvedRootStepForTest(string key)
-        {
-            var rootStepType = new ProxyHelper("Microsoft.UI.Xaml.Markup.Compiler.RootStep");
-            object unresolvedStep = rootStepType.CreateInstance(new object[] { null, false });
-            FieldInfo bindPathStepsField = _instance.GetType().GetField("BindPathSteps", BindingFlags.Public | BindingFlags.Instance);
-            IDictionary bindPathSteps = (IDictionary)bindPathStepsField.GetValue(_instance);
-            bindPathSteps.Add(key, unresolvedStep);
         }
 
         public IEnumerable<XamlCompileError> Parse(XamlClassCodeInfo classCodeInfo)

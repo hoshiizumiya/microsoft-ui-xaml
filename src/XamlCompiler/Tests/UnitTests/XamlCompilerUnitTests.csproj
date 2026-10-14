@@ -56,7 +56,6 @@
     <Compile Include="BindPathParserTests.cs" />
     <Compile Include="CodeCoverage.cs" />
     <Compile Include="CodeGeneratorProjectContext.cs" />
-    <Compile Include="CppWinRTModuleTests.cs" />
     <Compile Include="CodeGeneratorTests.cs" />
     <Compile Include="FunctionBindingCodegenTests.cs" />
     <Compile Include="FixMastersTests.cs" />
