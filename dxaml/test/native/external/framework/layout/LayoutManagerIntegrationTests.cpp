@@ -469,12 +469,16 @@ namespace Microsoft { namespace UI { namespace Xaml { namespace Tests { namespac
             // registered as a scroller should succeed.
             ViewportUserControl^ scroller = ref new ViewportUserControl;
             InvalidateViewportHelper::InvalidateViewport(scroller);
+            scroller->InvalidateViewport();
 
             // Calling InvalidateViewport on an element that has *not* been
             // registered as a scroller should throw an exception.
             Border^ nonScroller = ref new Border;
             VERIFY_THROWS_WINRT(
                 InvalidateViewportHelper::InvalidateViewport(nonScroller),
+                Platform::Exception^);
+            VERIFY_THROWS_WINRT(
+                nonScroller->InvalidateViewport(),
                 Platform::Exception^);
         });
     }

@@ -127,4 +127,28 @@ void public_call_cx(ViewportProbe::FrameworkElement^ element)
 '@ | Set-Content "$probe/consumer-cx.cpp"
 & cl.exe /nologo /c /ZW /EHsc "/AI$probe" "/Fo$probe/consumer-cx.obj" "$probe/consumer-cx.cpp" 2>&1 | Tee-Object "$probe/consumer-cx.log"
 if ($LASTEXITCODE) { throw 'C++/CX public instance call failed to compile' }
-'T4 generation, shipped IDL comparison, QI checks, MIDL, C++/WinRT, and C++/CX public calls passed.' | Tee-Object "$out/result.txt"
+
+# Compare a before/after metadata pair as well, so a successful projected call
+# cannot mask an accidental change to the existing interface IIDs or slots.
+$baselineProbe = Join-Path $probe 'baseline'
+New-Item -ItemType Directory -Force $baselineProbe | Out-Null
+$baselineIdl = (Get-Content "$probe/ViewportProbe.idl" -Raw) -replace '(?s)\[contract\(ViewportProbe.ProbeContract, 12\)\]\s*\[interface_name\("ViewportProbe.IFrameworkElement2"\)\]\s*\{.*?\}', ''
+$baselineIdl | Set-Content "$baselineProbe/ViewportProbe.idl"
+Push-Location $baselineProbe
+& "$sdkBin/midl.exe" /winrt /nomidl /env x64 /I "$sdk/Include/$sdkVersion/um" /I "$sdk/Include/$sdkVersion/shared" /I "$sdk/Include/$sdkVersion/winrt" /metadata_dir "$sdk/UnionMetadata/$sdkVersion" /out $baselineProbe /winmd "$baselineProbe\ViewportProbe.winmd" ViewportProbe.idl 2>&1 | Tee-Object "$baselineProbe/midl.log"
+$midlExit = $LASTEXITCODE
+Pop-Location
+if ($midlExit) { throw 'Baseline MIDL compilation failed' }
+& "$sdkBin/cppwinrt.exe" -input "$baselineProbe/ViewportProbe.winmd" -reference sdk -output "$baselineProbe/include" 2>&1 | Tee-Object "$baselineProbe/cppwinrt.log"
+if ($LASTEXITCODE) { throw 'Baseline C++/WinRT projection failed' }
+$before = Get-Content "$baselineProbe/include/winrt/impl/ViewportProbe.0.h" -Raw
+$after = Get-Content "$probe/include/winrt/impl/ViewportProbe.0.h" -Raw
+foreach ($interface in @('IFrameworkElement', 'IFrameworkElementProtected', 'IFrameworkElementFactory')) {
+    foreach ($definition in @('guid_storage', 'abi')) {
+        $pattern = '(?s)struct ' + $definition + '<ViewportProbe::' + $interface + '>\s*\{.*?\};'
+        $old = [regex]::Match($before, $pattern).Value
+        $new = [regex]::Match($after, $pattern).Value
+        if (-not $old -or $old -cne $new) { throw "Changed $definition for $interface" }
+    }
+}
+'T4 generation, shipped IDL comparison, QI checks, MIDL, C++/WinRT, C++/CX, and baseline IID/vtable comparison passed.' | Tee-Object "$out/result.txt"
