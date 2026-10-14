@@ -7,8 +7,9 @@ Branch: `experiment/frameworkelement-invalidateviewport-v2`.
 ## API and ABI
 
 Keep the existing version-1 public, protected, override, and factory interfaces.
-The old protected declaration remains exactly `protected void InvalidateViewport()`
-in XamlOM and generated IDL. Add model version 2, using WinUIContract.Experimental
+The old protected ABI method remains `InvalidateViewport`, with its original signature
+and slot. Its projected name becomes `InvalidateViewportProtected` through the existing
+method_name/overload mechanism. Add model version 2, using WinUIContract.Experimental
 (contract 12 on this baseline), rather than adding a slot to IFrameworkElement.
 The existing feature-specific interface is also retained.
 
@@ -17,8 +18,8 @@ The generated modern IDL contains:
 ```idl
 unsealed runtimeclass FrameworkElement : Microsoft.UI.Xaml.UIElement
 {
-    // All existing version-1 members remain unchanged.
-    protected void InvalidateViewport();
+    // Version-1 ABI unchanged; only the protected projection name is aliased.
+    [method_name("InvalidateViewport")] protected void InvalidateViewportProtected();
 
     [contract(Microsoft.UI.Xaml.WinUIContract, 12)]
     {
@@ -33,7 +34,9 @@ The new default versioned interface is IFrameworkElement2. Its ABI entry point
 is InvalidateViewportPublic, while its projected overload name is InvalidateViewport.
 The model uses DXamlName("InvalidateViewportPublic") and
 DXamlOverloadName("InvalidateViewport") to express this distinction using existing
-generator support. No generator or template changes are needed.
+generator support. The old protected method uses DXamlName("InvalidateViewport") and
+DXamlOverloadName("InvalidateViewportProtected") to retain its ABI name while avoiding
+a projected signature collision. No generator or template changes are needed.
 
 ```text
 IFrameworkElementProtected::InvalidateViewport()
@@ -54,6 +57,7 @@ The intended source-level call is:
 ```cpp
 element.InvalidateViewport();   // C++/WinRT
 element->InvalidateViewport(); // C++/CX
+element.InvalidateViewport();  // C#/WinRT
 ```
 
 ## CI validation
@@ -61,6 +65,13 @@ element->InvalidateViewport(); // C++/CX
 All IDL/T4 generation is performed by the branch's
 `Sync T4 - InvalidateViewport experiment` GitHub Actions workflow.
 No local generation is required or was performed for this experiment.
+
+The final protected-alias variant passed the generation, ABI comparison, and all
+three language compilation checks in
+[Actions run 38526509159](https://github.com/hoshiizumiya/microsoft-ui-xaml/actions/runs/38526509159).
+For comparison, the unchanged-protected-projection variant failed C#/WinRT with
+CS0540 in
+[Actions run 38526140079](https://github.com/hoshiizumiya/microsoft-ui-xaml/actions/runs/38526140079).
 
 The workflow compiles the same Sources.targets lists used by the instant compiler,
 runs the repository's checked-in preprocessed T4 templates for core and phone, and
@@ -70,23 +81,37 @@ product-build matrix disabled; its green status would not establish product corr
 
 Checks include:
 
-- The generated FrameworkElement version-1 IDL portion matches the pinned main baseline.
+- The generated FrameworkElement version-1 ABI declarations match the pinned main
+  baseline after normalizing the protected projection alias.
 - Generated declarations and QI retain IFrameworkElement and IFrameworkElementProtected
   and add IFrameworkElement2.
 - Both generated ABI stubs call the expected implementation methods.
-- A focused MIDL probe uses the exact generated public declaration alongside the
-  existing protected signature, then compiles direct C++/WinRT and C++/CX public calls.
-- A before/after probe compares existing interface GUID definitions and ABI vtables.
+- A focused MIDL probe uses the exact generated public and protected declarations,
+  then compiles direct C++/WinRT and C++/CX public calls.
+- A before/after probe compares its version-1 interface GUID definitions and ABI vtables,
+  including the effect of the protected overload alias.
+- A C#/WinRT projection project uses the package version pinned in packages.config
+  and compiles a public instance call.
 
 The focused probe deliberately avoids the full product's external metadata dependencies.
 It tests the metadata/projection naming mechanism; it is not a full Microsoft.UI.Xaml
 product build or execution of the native layout tests. Public scroller/non-scroller
 calls were also added to the existing native integration test for later product testing.
 
-MIDL emits warning MIDL4066 because the runtimeclass contains colliding projected
-member names. It qualifies the new runtimeclass metadata member with its interface
-name. This warning does not prevent the tested C++/WinRT or C++/CX public calls from
-compiling. C#/WinRT and a complete product build still need separate validation.
+The initial experiment retained both projected names as InvalidateViewport. MIDL
+emitted warning MIDL4066 and qualified the new runtimeclass metadata member with its
+interface name. C++/WinRT and C++/CX public calls compiled, but the repository's
+C#/WinRT 2.1.1 emitted an explicit interface implementation without declaring that
+interface on the class, producing CS0540. This is why the final experiment aliases
+the old protected projection while preserving its original ABI name and slot.
+
+The alias is an intentional metadata/source change. Code explicitly calling the old
+protected interface through a language projection must use InvalidateViewportProtected.
+Existing binaries still call the old InvalidateViewport ABI slot. Runtimeclass callers
+can use the new public InvalidateViewport method. Preserving the old projected name
+as well would require additional C#/WinRT generator support; this experiment does not
+modify that external generator. A complete product build and native test execution
+remain separate validation tasks.
 
 ## Changed files
 
@@ -110,12 +135,12 @@ Experiment support:
 
 - .github/workflows/sync-t4-viewport.yml
 - .github/scripts/sync-t4-viewport.ps1
+- .github/scripts/check-viewport-csharp.ps1
 - docs/design-notes/invalidateviewport-versioned-instance-experiment.md
 
 ## Review conclusion
 
-The experiment demonstrates that the existing XamlOM name/overload annotations can
-add a versioned public instance entry point while retaining the old protected ABI.
-A static UIElement helper is not required to get through the tested generation and
-C++ projection stages. This remains an experimental API, pending complete product
-validation, other-language projection checks, and API review/release assignment.
+The experiment tests adding a versioned public instance entry point while retaining
+the old protected ABI through existing XamlOM name/overload annotations. The protected
+projection alias is necessary for the tested C#/WinRT generator. This remains an
+experimental API, pending complete product validation and API review/release assignment.
