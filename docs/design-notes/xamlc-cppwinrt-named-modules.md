@@ -142,6 +142,7 @@ A module-enabled authored XAML source looks like:
 #include <windows.h>
 #define WINRT_IMPORT_MODULE
 
+import winrt_base;
 import winrt.Windows.Foundation;
 import winrt.Microsoft.UI.Xaml;
 import MyApp.Application_Xaml.MainWindow;
@@ -186,6 +187,45 @@ namespace winrt::MyApp::implementation
 
 The module-mode `App.cpp` imports `MyApp.Application_Xaml.App` before including this header.
 
+### Why imports precede the authored implementation headers
+
+The authored `.cpp` is an ordinary translation unit (one independently compiled source
+file), not a named-module implementation unit: it has no `module MyApp...;` declaration.
+There is no blanket C++ rule requiring every `import` to precede every `#include` in
+such a file. The order follows the declarations that each header needs:
+
+```cpp
+// Native declarations and any textual STL dependencies come first.
+#include <windows.h>
+#include <memory>
+#define WINRT_IMPORT_MODULE
+
+// Make the base/template declarations available before defining the derived class.
+import winrt_base;
+import winrt.Windows.Foundation;
+import winrt.Microsoft.UI.Xaml;
+import MyApp.Application_Xaml.MainWindow;
+
+#include "MainWindow.xaml.h"
+#include "MainWindow.g.cpp"
+```
+
+`#include "MainWindow.xaml.h"` textually inserts `struct MainWindow :
+MainWindowT<MainWindow>` at that point. Name lookup must already find `MainWindowT`,
+which is exported by `MyApp.Application_Xaml.MainWindow`. A later import cannot
+make that earlier base-class declaration valid retroactively. The producer `.g.cpp`
+then needs the complete authored implementation class, so it follows the `.h`.
+
+`WINRT_IMPORT_MODULE` is a preprocessor switch for the producer-header path, not a
+module import. It suppresses redundant textual WinRT projection includes; it does
+not provide `MainWindowT` or any other C++ declaration. A named-module import also
+does not import macros, which is why this switch and native macro headers remain
+explicit. See the C++ draft's [import declaration rules](https://eel.is/c++draft/module.import).
+
+A generated `.ixx` is different: it *is* a named-module interface unit. Its native
+headers belong after `module;` in the global module fragment (the region before
+`export module ...;`), and its imports precede the module's declaration body.
+
 ## Ordinary generated implementation translation units
 
 XamlC Pass2, BindingInfo implementation, and TypeInfo implementation are **ordinary translation units**, not named-module implementation units.
@@ -229,6 +269,45 @@ import std;
 `WINRT_IMPORT_MODULE` allows ordinary C++/WinRT producer headers included after the imports to suppress duplicate textual WinRT projection declarations.
 
 `import std;` remains valid in generated `.ixx` module interfaces, where the interface itself owns that module dependency and does not subsequently textually include STL headers.
+
+### Why ordinary generated sources retain STL includes
+
+`import std;` can supply standard C++ names such as `std::vector`, `std::map` and
+`std::shared_ptr`; it does not replace native Windows headers, C++/WinRT macro
+headers, standard-library macros, or arbitrary user implementation headers.
+Microsoft documents these limits in [the standard-library module tutorial](https://learn.microsoft.com/en-us/cpp/cpp/tutorial-import-stl-named-module?view=msvc-170).
+
+The C++ standard does not generally prohibit combining standard-library modules
+and headers. However, the MSVC native consumer validation for this branch has
+already exposed declaration/redefinition failures when `import std` is followed
+by textual STL includes reached through authored/producer headers. Those headers
+can change independently of XamlC, so replacing the generated implementation
+preamble with `import std` would require validating their complete include closure
+(every header reached transitively), not only the visible generated `.cpp`.
+`WINRT_IMPORT_MODULE` suppresses WinRT projection includes; it cannot suppress
+unrelated `<vector>`, `<list>`, third-party headers or their macros.
+
+For that reason, ordinary generated implementation sources establish their
+required textual STL declarations before WinRT/XamlC imports. Header sets remain
+specific to the generated source kind: for example a page implementation needs
+`cstdint`, `memory`, `type_traits` and `utility`, while TypeInfo also needs the
+lookup containers, locks and algorithms used by its metadata implementation.
+The declaration interfaces already use `import std`, and do not embed the
+inactive legacy-header preamble. A future all-module implementation option needs
+separate compiler/include-closure acceptance evidence; it is not a formatting change.
+
+## Generated native file layout
+
+Module-mode native outputs use CRLF consistently, matching this repository's
+native-source `.gitattributes` policy, regardless of the host newline convention
+or the newline spelling in the T4 body. The `.ixx` extension is covered by the
+same policy. Normalization happens after the complete source is assembled, so
+the preamble, local-header list and template body cannot retain mixed line endings.
+
+Every generated module-mode native file has one auto-generated banner at the
+top. Declaration interfaces keep the declaration body from the shared header
+templates, without their duplicate banners, `#pragma once`, or inactive
+`#ifndef XAML_IMPL_MODULE` include preambles. Header-mode output is unchanged.
 
 ## BindingInfo and TypeInfo
 
@@ -317,6 +396,23 @@ The generated interfaces include:
 
 `AdditionalBMIDirectories` only makes existing IFC/BMI files discoverable. It does not make declarations visible and is never treated as a substitute for an explicit `import` statement.
 
+### Relative intermediate paths
+
+The generated-source dependency resolver anchors all IFC directories to
+`MSBuildProjectDirectory`, normalizes them to absolute paths and removes duplicate
+directory aliases before creating `/reference "Module=Path.ifc"` mappings. This
+matches the absolute paths produced by the C++ dependency scanner. Without that
+normalization, the default relative application `IntDir` can supply both
+`x64\Debug\...ifc` and `C:\...\x64\Debug\...ifc` for one module, causing MSVC
+`C7684` (ambiguous IFC resolution). Applications do not need to override `IntDir`
+to work around that product bug.
+
+The external product-sample gate builds Debug and Release with both an explicit
+absolute `IntDir` and the actual evaluated default relative `IntDir`. It also
+rebuilds the latter without changing sources, retains text logs/binlogs, and
+rejects `C7684` and `LNK4042`. These are validation requirements; new HEADs are
+not considered verified until those native builds complete.
+
 ## Incremental lifetime
 
 `XamlModules.list` records the active logical module identities. Generated-source and IFC cleanup use the complete saved XAML project state, not only the current harvest workset.
@@ -374,3 +470,4 @@ C++/WinRT 3.x documented a forced-include module preamble as a workaround for ge
 6. import `<Root>.Application_Xaml` only when a consumer needs the whole project XAML declaration set.
 
 The design deliberately does not introduce wrapper `.module.cpp` files or a second XamlC-specific project-reference protocol.
+

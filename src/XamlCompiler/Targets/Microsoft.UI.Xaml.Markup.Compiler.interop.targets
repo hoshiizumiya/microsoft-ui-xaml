@@ -1042,6 +1042,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
     <UsingTask TaskName="GetXamlCppWinRTGeneratedModuleDependencies" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
       <ParameterGroup>
         <GeneratedSources ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+        <ProjectDirectory ParameterType="System.String" Required="true" />
         <CppWinRTIfcDir ParameterType="System.String" Required="true" />
         <XamlIfcDir ParameterType="System.String" Required="true" />
         <StlIfcDir ParameterType="System.String" />
@@ -1057,6 +1058,17 @@ Licensed under the MIT License. See LICENSE in the project root for license info
         <Using Namespace="System.Text.RegularExpressions" />
         <Using Namespace="Microsoft.Build.Framework" />
         <Code Type="Fragment" Language="cs"><![CDATA[
+            // The C++ dependency scanner emits absolute IFC paths. Match that spelling
+            // even when an application uses the default relative IntDir; otherwise CL
+            // receives two different /reference mappings for the same module (C7684).
+            Func<string, string> normalizePath = path => Path.GetFullPath(Path.Combine(ProjectDirectory, path));
+            CppWinRTIfcDir = normalizePath(CppWinRTIfcDir);
+            XamlIfcDir = normalizePath(XamlIfcDir);
+            if (!String.IsNullOrWhiteSpace(StlIfcDir))
+            {
+                StlIfcDir = normalizePath(StlIfcDir);
+            }
+
             var importedModules = new SortedSet<string>(StringComparer.Ordinal);
             var importPattern = new Regex(@"(?:^|;)\s*(?:export\s+)?import\s+([\p{L}_][\p{L}\p{N}\p{M}\p{Pc}\u200C\u200D_.:]*)\s*;", RegexOptions.CultureInvariant);
 
@@ -1088,9 +1100,14 @@ Licensed under the MIT License. See LICENSE in the project root for license info
                 foreach (var directory in (value ?? String.Empty).Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
                 {
                     var trimmed = directory.Trim().Trim('"');
-                    if (trimmed.Length != 0 && !directories.Contains(trimmed, StringComparer.OrdinalIgnoreCase))
+                    if (trimmed.Length == 0)
                     {
-                        directories.Add(trimmed);
+                        continue;
+                    }
+                    var normalized = normalizePath(trimmed);
+                    if (!directories.Contains(normalized, StringComparer.OrdinalIgnoreCase))
+                    {
+                        directories.Add(normalized);
                     }
                 }
             };
@@ -1279,6 +1296,7 @@ Licensed under the MIT License. See LICENSE in the project root for license info
         <Message Text="XamlC module-reference source items: @(_XamlUniqueGeneratedModuleSourcePaths)" Importance="High" />
         <GetXamlCppWinRTGeneratedModuleDependencies
             GeneratedSources="@(_XamlUniqueGeneratedModuleSourcePaths)"
+            ProjectDirectory="$(MSBuildProjectDirectory)"
             CppWinRTIfcDir="$(IntDir)Microsoft\cppwinrt\"
             XamlIfcDir="$(XamlCppWinRTModuleIfcDir)"
             StlIfcDir="$(IntDir)microsoft\STL\"
@@ -1769,4 +1787,5 @@ Licensed under the MIT License. See LICENSE in the project root for license info
     <Import Project="ImportAfter\*"/>
 
 </Project>
+
 

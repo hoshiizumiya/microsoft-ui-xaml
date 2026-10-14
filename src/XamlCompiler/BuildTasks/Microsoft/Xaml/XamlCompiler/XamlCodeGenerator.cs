@@ -139,7 +139,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                     model.NeededLocalXamlHeaderFiles.Select(header => "#include \"" + header + "\""));
                 retList.Add(new FileNameAndContentPair(
                     codeInfo.BaseFileName + ".xaml.g.cpp",
-                    preamble + "\n" + localHeaders + "\n" + code));
+                    CppWinRTProjectionDependency.NormalizeGeneratedSource(preamble + "\n" + localHeaders + "\n" + code)));
                 return retList;
             }
 
@@ -173,7 +173,11 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                 if (_isPass1)
                 {
                     string providerDeclarations = GenerateTypeInfoCode(_language.XamlMetaDataProviderPass1, appXamlInfo) ?? String.Empty;
-                    string declarations = code + Environment.NewLine + providerDeclarations;
+                    string declarations = CppWinRTProjectionDependency.PrepareDeclarationBody(code);
+                    if (!String.IsNullOrWhiteSpace(providerDeclarations))
+                    {
+                        declarations += "\n\n" + CppWinRTProjectionDependency.PrepareDeclarationBody(providerDeclarations);
+                    }
                     retList.Add(new FileNameAndContentPair(
                         "XamlTypeInfo.xaml.g.ixx",
                         CppWinRTProjectionDependency.WriteSourceInterface(
@@ -194,7 +198,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                             projectionNamespaces,
                             new[] { moduleName },
                             textualHeaders: null);
-                        retList.Add(new FileNameAndContentPair("XamlLibMetadataProvider.g.cpp", preamble + "\n" + body));
+                        retList.Add(new FileNameAndContentPair("XamlLibMetadataProvider.g.cpp", CppWinRTProjectionDependency.NormalizeGeneratedSource(preamble + "\n" + body)));
                     }
 
                     string implementation = GenerateTypeInfoCode(_language.TypeInfoPass1ImplCodeGenerator, appXamlInfo);
@@ -206,7 +210,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                             projectionNamespaces,
                             new[] { moduleName },
                             textualHeaders: new[] { "cstdint", "memory", "mutex", "regex", "stdexcept", "string" });
-                        retList.Add(new FileNameAndContentPair("XamlTypeInfo.Impl.g.cpp", preamble + "\n" + implementation));
+                        retList.Add(new FileNameAndContentPair("XamlTypeInfo.Impl.g.cpp", CppWinRTProjectionDependency.NormalizeGeneratedSource(preamble + "\n" + implementation)));
                     }
                     return retList;
                 }
@@ -238,7 +242,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                     new[] { moduleName });
                 retList.Add(new FileNameAndContentPair(
                     "XamlMetaDataProvider.cpp",
-                    metadataProviderPreamble + "\n#include \"XamlMetaDataProvider.g.cpp\"\n"));
+                    CppWinRTProjectionDependency.NormalizeGeneratedSource(metadataProviderPreamble + "\n#include \"XamlMetaDataProvider.g.cpp\"\n")));
 
                 var localTypeInfoHeaders = new List<string>();
                 if (!_projectInfo.GenerateIncrementalTypeInfo && _projectInfo.ClassToHeaderFileMap != null)
@@ -248,7 +252,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                 string localHeaders = String.Join(
                     Environment.NewLine,
                     localTypeInfoHeaders.Distinct(StringComparer.Ordinal).Select(header => "#include \"" + header + "\""));
-                retList.Add(new FileNameAndContentPair("XamlTypeInfo.g.cpp", typeInfoPreamble + "\n" + localHeaders + "\n" + code));
+                retList.Add(new FileNameAndContentPair("XamlTypeInfo.g.cpp", CppWinRTProjectionDependency.NormalizeGeneratedSource(typeInfoPreamble + "\n" + localHeaders + "\n" + code)));
                 return retList;
             }
 
@@ -333,7 +337,7 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
                     textualHeaders: new[] { "cstdint", "memory", "utility" });
                 return new List<FileNameAndContentPair>
                 {
-                    new FileNameAndContentPair("XamlBindingInfo.xaml.g.cpp", preamble + "\n" + code)
+                    new FileNameAndContentPair("XamlBindingInfo.xaml.g.cpp", CppWinRTProjectionDependency.NormalizeGeneratedSource(preamble + "\n" + code))
                 };
             }
 
@@ -359,3 +363,4 @@ namespace Microsoft.UI.Xaml.Markup.Compiler.CodeGen
         }
     }
 }
+
