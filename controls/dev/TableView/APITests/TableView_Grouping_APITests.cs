@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Automation.Provider;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Tabular;
 using Microsoft.UI.Xaml.Data;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Markup;
 using Microsoft.UI.Xaml.Media;
 using MUXControlsTestApp.Utilities;
@@ -314,7 +315,6 @@ namespace Microsoft.UI.Xaml.Tests.MUXControls.ApiTests
         }
 
         [TestMethod]
-        [TestProperty("Ignore", "True")] // Product bug: GroupHeaderTemplate is applied only when a header is prepared, never to realized headers. Re-enable once a property change re-applies it.
         [TestProperty("Description", "Verifies replacing GroupHeaderTemplate on a loaded table rebuilds realized headers.")]
         public void VerifyGroupHeaderTemplateChangeAfterLoadUpdatesLive()
         {
@@ -348,7 +348,6 @@ namespace Microsoft.UI.Xaml.Tests.MUXControls.ApiTests
         }
 
         [TestMethod]
-        [TestProperty("Ignore", "True")] // Product bug: GroupHeaderTemplate is applied only when a header is prepared, never to realized headers. Re-enable once a property change re-applies it.
         [TestProperty("Description", "Verifies clearing GroupHeaderTemplate reverts headers to the default content.")]
         public void VerifyClearingGroupHeaderTemplateRevertsToTheStyleDefault()
         {
@@ -611,6 +610,43 @@ namespace Microsoft.UI.Xaml.Tests.MUXControls.ApiTests
             });
         }
 
+        [TestMethod]
+        [TestProperty("Description", "Verifies a collapse does not pull focus back to its header once focus has left the table.")]
+        public void VerifyGroupFocusRestoreSkippedWhenFocusLeftTable()
+        {
+            TableView tableView = null;
+            Button button = null;
+
+            RunOnUIThread.Execute(() =>
+            {
+                tableView = CreateGroupedTable();
+                button = new Button { Content = "Outside" };
+                var panel = new StackPanel();
+                panel.Children.Add(tableView);
+                panel.Children.Add(button);
+                LoadContent(panel);
+            });
+
+            SettleLayout(tableView);
+
+            RunOnUIThread.Execute(() =>
+            {
+                // The collapse captures the focused header for a restore after the deferred reshape.
+                Verify.IsTrue(GetGroupHeader(tableView, 0).Focus(FocusState.Keyboard), "Precondition: the header takes keyboard focus.");
+                GetExpandCollapseProvider(tableView, 0).Collapse();
+                Verify.IsTrue(button.Focus(FocusState.Programmatic), "Precondition: the button takes focus.");
+            });
+
+            SettleLayout(tableView);
+
+            RunOnUIThread.Execute(() =>
+            {
+                Verify.IsTrue(ReferenceEquals(button, FocusManager.GetFocusedElement(tableView.XamlRoot)),
+                    "Focus that has left the table must not be pulled back to the collapsed header.");
+                Verify.IsFalse(GetGroupInfo(tableView, 0)?.IsExpanded ?? true, "The group must still collapse.");
+            });
+        }
+
         #endregion
 
         #region 9.4 Group edge cases
@@ -717,7 +753,6 @@ namespace Microsoft.UI.Xaml.Tests.MUXControls.ApiTests
         #region 9.5 Group header visual states
 
         [TestMethod]
-        [TestProperty("Ignore", "True")] // Product regression: the template root became a wrapper Grid, so VisualStateGroups are no longer on the root and VisualStateManager.GoToState never changes state. Re-enable once the groups are back on the template root.
         [TestProperty("Description", "Verifies the group header's ExpansionStates follow IsExpanded.")]
         public void VerifyGroupHeaderExpansionVisualStates()
         {
@@ -745,7 +780,6 @@ namespace Microsoft.UI.Xaml.Tests.MUXControls.ApiTests
         }
 
         [TestMethod]
-        [TestProperty("Ignore", "True")] // Product regression: the template root became a wrapper Grid, so VisualStateGroups are no longer on the root and VisualStateManager.GoToState never changes state. Re-enable once the groups are back on the template root.
         [TestProperty("Description", "Verifies the group header's ExpandabilityStates follow IsExpandable.")]
         public void VerifyGroupHeaderExpandabilityVisualStates()
         {

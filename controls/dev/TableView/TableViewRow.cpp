@@ -15,16 +15,22 @@
 #include "SharedHelpers.h"
 #include "TVDiag.h"
 
+#include <algorithm>
+#include <vector>
+
 static constexpr std::wstring_view s_CellsHostPartName{ L"PART_CellsHost"sv };
 static constexpr std::wstring_view s_GridLineBorderPartName{ L"PART_GridLineBorder"sv };
+static constexpr std::wstring_view s_RowExpanderGutterPartName{ L"PART_RowExpanderGutter"sv };
+
+// Used only when there is no owner to ask; mirrors the TableViewRowExpanderSize resource.
+static constexpr double c_defaultRowExpanderSize{ 24.0 };
+
+// Mirrors the TableViewRowIndentSize resource. Used only when there is no owner to ask.
+static constexpr double c_defaultRowIndentSize{ 16.0 };
 
 namespace
 {
     constexpr winrt::Thickness s_verticalThickness{ 0, 0, 1, 0 };
-    // The cell's trailing edge is its LEFT edge under RTL. The cells panel arranges at explicit
-    // physical coordinates, so this subtree is not auto-mirrored and a right-sided thickness would
-    // draw every body grid line one full column away from the header grid line above it.
-    constexpr winrt::Thickness s_verticalThicknessRtl{ 1, 0, 0, 0 };
     constexpr winrt::Thickness s_zeroThickness{ 0, 0, 0, 0 };
 
     // Shared transparent fill for cell wrappers. Cached because rows and cells are rebuilt on every
@@ -84,6 +90,42 @@ namespace
     uint64_t GetDoubleClickIntervalMicroseconds()
     {
         return static_cast<uint64_t>(::GetDoubleClickTime()) * 1000ull;
+    }
+
+    bool IsKeyDown(winrt::VirtualKey key)
+    {
+        return (winrt::InputKeyboardSource::GetKeyStateForCurrentThread(key) &
+            winrt::CoreVirtualKeyStates::Down) == winrt::CoreVirtualKeyStates::Down;
+    }
+
+    // Collects tab stops BELOW a cell wrapper (the wrapper is owned by SetCellsTabStopInternal).
+    // Keeps descending past a found tab stop: a focusable container can hold more.
+    constexpr int32_t c_maxCellContentTabStopDepth = 16;
+
+    void AppendContentTabStops(
+        winrt::DependencyObject const& parent, std::vector<winrt::UIElement>& tabStops, int32_t depthBudget)
+    {
+        if (depthBudget <= 0)
+        {
+            return;
+        }
+
+        const int32_t count = winrt::VisualTreeHelper::GetChildrenCount(parent);
+        for (int32_t i = 0; i < count && i < c_maxCellContentChildrenPerLevel; ++i)
+        {
+            auto const child = winrt::VisualTreeHelper::GetChild(parent, i);
+            if (!child)
+            {
+                continue;
+            }
+
+            if (auto const element = child.try_as<winrt::UIElement>(); element && element.IsTabStop())
+            {
+                tabStops.push_back(element);
+            }
+
+            AppendContentTabStops(child, tabStops, depthBudget - 1);
+        }
     }
 }
 
@@ -148,6 +190,17 @@ TableViewRow::TableViewRow()
                 strongRow->OnRowGotFocus();
             }
         });
+
+    // Don't strand cell content out of the tab order if unloaded before the restore turn runs.
+    m_unloadedRevoker = Unloaded(
+        winrt::auto_revoke,
+        [weakRow](winrt::IInspectable const&, winrt::RoutedEventArgs const&)
+        {
+            if (auto strongRow = weakRow.get())
+            {
+                strongRow->RestoreCellContentTabStopsInternal();
+            }
+        });
 }
 
 void TableViewRow::OnIsEnabledChanged(
@@ -165,6 +218,19 @@ void TableViewRow::OnApplyTemplate()
     auto const host = GetTemplateChild(hstring{ s_CellsHostPartName }).try_as<winrt::Panel>();
     m_cellsHost.set(host);
     m_gridLineBorder.set(GetTemplateChild(hstring{ s_GridLineBorderPartName }).try_as<winrt::Border>());
+    m_rowExpanderGutter.set(GetTemplateChild(hstring{ s_RowExpanderGutterPartName }).try_as<winrt::FrameworkElement>());
+
+    // Revoke unconditionally so a re-template that drops the gutter leaves no stale subscription.
+    m_gutterPointerPressedRevoker.revoke();
+
+    // Subscribe per template apply, not per prepare (pooled container would fan one tap into N
+    // toggles). Handled on PRESSED so the row's release-time selection latch never sees it.
+    if (auto const gutter = m_rowExpanderGutter.get())
+    {
+        m_gutterPointerPressedRevoker = gutter.PointerPressed(
+            winrt::auto_revoke,
+            { this, &TableViewRow::OnExpanderGutterPointerPressed });
+    }
 
     if (host)
     {
@@ -179,6 +245,8 @@ void TableViewRow::OnApplyTemplate()
     }
 
     RebuildCells();
+
+    ApplyHierarchyAffordance();
 
     UpdateVisualState(false /* useTransitions */);
 }
@@ -429,6 +497,201 @@ void TableViewRow::SetCellsTabStopInternal(bool isTabStop)
     }
 }
 
+// Focus inside a cell's content (drilled in via Enter, or an editor) is not grid level: that
+// content owns its own keys, including Tab.
+bool TableViewRow::IsGridLevelFocusInternal()
+{
+    auto const root = XamlRoot();
+    if (!root)
+    {
+        return false;
+    }
+
+    auto const focused = winrt::FocusManager::GetFocusedElement(root).try_as<winrt::DependencyObject>();
+    if (!focused)
+    {
+        return false;
+    }
+
+    winrt::DependencyObject const selfObject = *this;
+    if (focused == selfObject)
+    {
+        return true;
+    }
+
+    return FindOwnCellInternal(focused, true /* requireExact */) != nullptr;
+}
+
+// Takes authored cell content out of the tab order for ONE Tab walk. CFocusManager::GetNextTabStop
+// searches the focused element's children before honouring TabFocusNavigation, so cell content
+// would otherwise become extra tab stops. It can't stay suppressed: IsFocusable requires IsTabStop,
+// so pointer/programmatic focus would break too. Restored on the next dispatcher turn (after XAML's
+// default Tab move), and only if the local value is still the false written here.
+void TableViewRow::SuppressCellContentTabStopsForTabWalkInternal()
+{
+    // Restore a pending suppression first, or our false would be recorded as the original.
+    RestoreCellContentTabStopsInternal();
+
+    std::vector<winrt::UIElement> candidates;
+    if (auto const host = m_cellsHost.get())
+    {
+        auto const children = host.Children();
+        const uint32_t size = children.Size();
+        for (uint32_t i = 0; i < size; ++i)
+        {
+            if (auto const cell = children.GetAt(i))
+            {
+                AppendContentTabStops(cell, candidates, c_maxCellContentTabStopDepth);
+            }
+        }
+    }
+
+    if (candidates.empty())
+    {
+        return;
+    }
+
+    auto const isTabStopProperty = winrt::UIElement::IsTabStopProperty();
+    auto const unsetValue = winrt::DependencyProperty::UnsetValue();
+    auto const suppressedValue = winrt::box_value(false);
+
+    for (auto const& element : candidates)
+    {
+        auto const local = element.ReadLocalValue(isTabStopProperty);
+        auto const binding = local.try_as<winrt::Microsoft::UI::Xaml::Data::BindingExpression>();
+        const bool isRestorable =
+            local == unsetValue ||
+            local.try_as<winrt::IReference<bool>>() ||
+            (binding && binding.ParentBinding());
+        if (!isRestorable)
+        {
+            continue;
+        }
+
+        if (binding)
+        {
+            // Detach first: SetValue over a TwoWay binding would write through to the app's source.
+            element.ClearValue(isTabStopProperty);
+        }
+
+        element.SetValue(isTabStopProperty, suppressedValue);
+        m_suppressedContentTabStops.push_back({ winrt::make_weak(element), local });
+    }
+
+    if (m_suppressedContentTabStops.empty())
+    {
+        return;
+    }
+
+    auto weakRow = get_weak();
+    auto const queue = DispatcherQueue();
+    if (!queue || !queue.TryEnqueue([weakRow]()
+        {
+            if (auto strongRow = weakRow.get())
+            {
+                try
+                {
+                    strongRow->RestoreCellContentTabStopsInternal();
+                }
+                catch (...)
+                {
+                    // Best-effort restore; never fail-fast the dispatcher.
+                }
+            }
+        }))
+    {
+        // No dispatcher: never leave content out of the tab order, even at the cost of this press.
+        RestoreCellContentTabStopsInternal();
+    }
+}
+
+// Idempotent. Elements that have left this row are still restored (the false is our write); the
+// "still our false" check preserves any newer value.
+void TableViewRow::RestoreCellContentTabStopsInternal()
+{
+    if (m_suppressedContentTabStops.empty())
+    {
+        return;
+    }
+
+    auto const suppressed = std::move(m_suppressedContentTabStops);
+    m_suppressedContentTabStops.clear();
+
+    auto const isTabStopProperty = winrt::UIElement::IsTabStopProperty();
+    auto const unsetValue = winrt::DependencyProperty::UnsetValue();
+
+    for (auto const& entry : suppressed)
+    {
+        auto const element = entry.element.get();
+        if (!element)
+        {
+            continue;
+        }
+
+        try
+        {
+            auto const current = element.ReadLocalValue(isTabStopProperty).try_as<winrt::IReference<bool>>();
+            if (!current || current.Value())
+            {
+                continue;
+            }
+
+            auto const& original = entry.originalLocalValue;
+            if (original == unsetValue)
+            {
+                element.ClearValue(isTabStopProperty);
+            }
+            else if (auto const binding = original.try_as<winrt::Microsoft::UI::Xaml::Data::BindingExpression>())
+            {
+                winrt::Microsoft::UI::Xaml::Data::BindingOperations::SetBinding(
+                    element, isTabStopProperty, binding.ParentBinding());
+            }
+            else
+            {
+                element.SetValue(isTabStopProperty, original);
+            }
+        }
+        catch (...)
+        {
+            // One element failing must not strand the rest out of the tab order.
+        }
+    }
+}
+
+// The body is one tab stop; Enter is the route into cell content. The move is left to XAML:
+// FocusManager::TryMoveFocus ignores ItemsRepeater's KeyboardNavigationMode::Once, so Shift+Tab
+// would land in the previous row's content. Multiply expands the subtree (as TreeViewItem);
+// Left/Right belong to TableView::TryHandleRowLevelDrillKey to avoid double handling, and Space
+// stays row selection.
+void TableViewRow::OnKeyDown(winrt::KeyRoutedEventArgs const& args)
+{
+    if (!args.Handled() &&
+        args.Key() == winrt::VirtualKey::Tab &&
+        // Ctrl+Tab is app-level navigation and Alt is the resize chord; neither is a band move.
+        !IsKeyDown(winrt::VirtualKey::Control) &&
+        !IsKeyDown(winrt::VirtualKey::Menu) &&
+        IsGridLevelFocusInternal())
+    {
+        SuppressCellContentTabStopsForTabWalkInternal();
+    }
+
+    // Unmodified only: Ctrl+arrow is focus-without-select; Shift/Alt chords belong to the app.
+    if (!args.Handled() && Level() > 0 && IsRowItselfFocused() &&
+        !IsKeyDown(winrt::VirtualKey::Control) &&
+        !IsKeyDown(winrt::VirtualKey::Shift) &&
+        !IsKeyDown(winrt::VirtualKey::Menu))
+    {
+        auto const owner = GetOwningTableView();
+        if (args.Key() == winrt::VirtualKey::Multiply && IsExpandable() && owner)
+        {
+            winrt::get_self<TableView>(owner)->ExpandRowSubtree(*this);
+            args.Handled(true);
+        }
+    }
+
+    __super::OnKeyDown(args);
+}
+
 // Pop-out must make the row focusable before clearing the focused cell from tab order.
 void TableViewRow::EnableRowFocusInternal()
 {
@@ -482,46 +745,142 @@ void TableViewRow::OnRowGettingFocus(
     }
 
     // When returning from another band inside the table, stale cell-level state can make XAML aim
-    // the body's single tab stop at a cell. Body band entry is still row-level; outside re-entry is
-    // left alone so it can resume the previously focused cell.
-    if (newFocus != selfObject)
+    // the body's single tab stop at a cell. Body band entry is still row-level.
+    winrt::DependencyObject const ownerObject = owner;
+    const bool focusCameFromWithinTable =
+        oldFocus == ownerObject ||
+        SharedHelpers::IsAncestor(oldFocus, ownerObject, false /* checkVisibility */);
+
+    if (focusCameFromWithinTable && ownerImpl->TryRedirectBandEntryToViewport(*this, args))
     {
-        winrt::DependencyObject const ownerObject = owner;
-        const bool focusCameFromWithinTable =
-            oldFocus == ownerObject ||
-            SharedHelpers::IsAncestor(oldFocus, ownerObject, false /* checkVisibility */);
-        if (!focusCameFromWithinTable || !FindOwnCellInternal(newFocus, false /* requireExact */))
+        return;
+    }
+
+    // The bands share one column cursor: a cell-level cursor re-enters on the cell in that column.
+    if (focusCameFromWithinTable && ownerImpl->IsCellCursorActiveInternal())
+    {
+        auto targetRow = ownerImpl->ResolveFocusEntryRow(*this, oldFocus);
+        if (!targetRow)
+        {
+            targetRow = *this;
+        }
+        auto const targetImpl = winrt::get_self<TableViewRow>(targetRow);
+
+        if (const int32_t cellCount = targetImpl->GetVisibleCellCountInternal(); cellCount > 0)
+        {
+            const int32_t column =
+                std::clamp(ownerImpl->CurrentColumnCursorInternal(), 0, cellCount - 1);
+
+            // Row-level cells are not focusable.
+            targetImpl->SetCellLevelInternal(true);
+
+            if (auto const cell = targetImpl->GetVisibleCellInternal(column))
+            {
+                if (cell.try_as<winrt::DependencyObject>() != newFocus &&
+                    !args.TrySetNewFocusedElement(cell))
+                {
+                    // Unless XAML already targets a cell of this row, undo the drill-in so the row
+                    // isn't left with no tab stop.
+                    if (!targetImpl->FindOwnCellInternal(newFocus, false /* requireExact */))
+                    {
+                        targetImpl->SetCellLevelInternal(false);
+                    }
+                }
+                return;
+            }
+
+            targetImpl->SetCellLevelInternal(false);
+        }
+    }
+
+    if (focusCameFromWithinTable)
+    {
+        if (newFocus == selfObject || !FindOwnCellInternal(newFocus, false /* requireExact */))
         {
             return;
         }
 
+        // Commit the cursor change only once the focus manager accepts the redirect.
+        const bool wasCellLevel = IsCellLevelInternal();
         SetCellLevelInternal(false);
+        if (args.TrySetNewFocusedElement(selfObject))
+        {
+            ownerImpl->SetCellCursorActiveInternal(false);
+        }
+        else
+        {
+            SetCellLevelInternal(wasCellLevel);
+        }
+        return;
+    }
+
+    const auto correlationId = args.CorrelationId();
+    if (ownerImpl->HasRedirectedFocusEntry(correlationId))
+    {
+        return;
+    }
+
+    auto entry = ownerImpl->ResolveFocusEntryTarget(*this, oldFocus, direction);
+    if (!entry.Element || !entry.Row)
+    {
+        return;
+    }
+
+    // Redirecting to an ancestor cell of the proposed element starts a loop. A row target still
+    // takes focus from content hosted inside it.
+    winrt::DependencyObject targetObject = entry.Element;
+    if (newFocus == targetObject ||
+        (entry.CellLevel && SharedHelpers::IsAncestor(newFocus, targetObject, false /* checkVisibility */)))
+    {
+        return;
+    }
+
+    // Arm the target's level first (only one level is a tab stop); undo on failure.
+    auto targetRowImpl = winrt::get_self<TableViewRow>(entry.Row);
+    bool targetWasCellLevel = targetRowImpl->IsCellLevelInternal();
+    targetRowImpl->SetCellLevelInternal(entry.CellLevel);
+
+    if (!TableView::IsEntryRedirectTargetFocusable(entry.Element, ownerObject))
+    {
+        targetRowImpl->SetCellLevelInternal(targetWasCellLevel);
+
+        // The remembered target can't take focus; the viewport edge row still avoids a cache row.
+        auto const edgeRow = ownerImpl->FindViewportEdgeRowInternal(direction == winrt::FocusNavigationDirection::Previous);
+        winrt::DependencyObject const edgeObject = edgeRow;
+        if (!edgeRow || edgeObject == newFocus || edgeObject == targetObject)
+        {
+            return;
+        }
+
+        entry.Row = edgeRow;
+        entry.Element = edgeRow;
+        entry.CellLevel = false;
+        targetObject = edgeObject;
+        targetRowImpl = winrt::get_self<TableViewRow>(edgeRow);
+        targetWasCellLevel = targetRowImpl->IsCellLevelInternal();
+        targetRowImpl->SetCellLevelInternal(false);
+        if (!TableView::IsEntryRedirectTargetFocusable(edgeRow, ownerObject))
+        {
+            targetRowImpl->SetCellLevelInternal(targetWasCellLevel);
+            return;
+        }
+    }
+
+    if (!args.TrySetNewFocusedElement(targetObject))
+    {
+        targetRowImpl->SetCellLevelInternal(targetWasCellLevel);
+        return;
+    }
+
+    ownerImpl->NoteFocusEntryRedirect(correlationId);
+    if (entry.CellLevel)
+    {
+        ownerImpl->ArmCellLevelRowInternal(entry.Row);
+    }
+    else
+    {
         ownerImpl->SetCellCursorActiveInternal(false);
-        args.TrySetNewFocusedElement(selfObject);
-        return;
     }
-
-    // Redirect body Tab entry from the first repeater row to the remembered row.
-    auto const target = ownerImpl->ResolveFocusEntryRow(*this, oldFocus);
-    if (!target || target == *this)
-    {
-        return;
-    }
-
-    auto const targetObject = target.try_as<winrt::DependencyObject>();
-    if (!targetObject || targetObject == newFocus)
-    {
-        return;
-    }
-
-    // Body entry is row-level; reset the remembered row before redirecting or it is not focusable.
-    winrt::get_self<TableViewRow>(target)->SetCellLevelInternal(false);
-    ownerImpl->SetCellCursorActiveInternal(false);
-
-    // TrySetNewFocusedElement is refused during some focus operations (a programmatic move already
-    // in flight, for one). Failing is fine - focus simply stays on the row XAML aimed at, which is
-    // still a row-level landing in the body.
-    args.TrySetNewFocusedElement(targetObject);
 }
 
 void TableViewRow::OnRowGotFocus()
@@ -611,6 +970,8 @@ void TableViewRow::SetOwningTableViewInternal(winrt::TableView const& owner)
 
         // Recycled rows return at row level; otherwise a drilled row can reappear unreachable by Tab.
         m_isCellLevel = false;
+
+        RestoreCellContentTabStopsInternal();
 
         UpdateVisualState(false);
     }
@@ -910,6 +1271,354 @@ void TableViewRow::SetIsSelectedInternal(bool isSelected)
     UpdateVisualState(true /* useTransitions */);
 }
 
+void TableViewRow::SetHierarchyStateInternal(int32_t level, bool isExpandable, bool isExpanded)
+{
+    // Snapshot for the automation event (a recycled row moving to another node is a real transition).
+    const winrt::ExpandCollapseState oldState = HierarchyExpandCollapseState();
+
+    // Guarded: setters box before SetValue, and re-preparing onto the same node is the common case.
+    if (Level() != level)
+    {
+        Level(level);
+    }
+
+    if (IsExpandable() != isExpandable)
+    {
+        IsExpandable(isExpandable);
+    }
+
+    if (IsExpanded() != isExpanded)
+    {
+        IsExpanded(isExpanded);
+    }
+
+    // Unconditional: indent also depends on the indent resource and grouping. Writes inside are
+    // equality-guarded, so no layout re-invalidation.
+    ApplyHierarchyAffordance();
+
+    RaiseExpandCollapseStateChanged(oldState, HierarchyExpandCollapseState());
+}
+
+// Computed here, not on the peer, so transitions are measurable without forcing a peer.
+winrt::ExpandCollapseState TableViewRow::HierarchyExpandCollapseState()
+{
+    if (Level() <= 0 || !IsExpandable())
+    {
+        return winrt::ExpandCollapseState::LeafNode;
+    }
+
+    return IsExpanded()
+        ? winrt::ExpandCollapseState::Expanded
+        : winrt::ExpandCollapseState::Collapsed;
+}
+
+void TableViewRow::RaiseExpandCollapseStateChanged(
+    winrt::ExpandCollapseState oldState,
+    winrt::ExpandCollapseState newState)
+{
+    if (oldState == newState)
+    {
+        return;
+    }
+
+    // Runs on every prepare; avoid forcing peers when no client listens.
+    if (!winrt::AutomationPeer::ListenerExists(winrt::AutomationEvents::PropertyChanged))
+    {
+        return;
+    }
+
+    // XAML caches the peer per element, so the fallback yields the same instance a client holds.
+    auto peer = winrt::FrameworkElementAutomationPeer::FromElement(*this);
+    if (!peer)
+    {
+        peer = winrt::FrameworkElementAutomationPeer::CreatePeerForElement(*this);
+    }
+
+    if (auto const rowPeer = peer ? peer.try_as<winrt::TableViewRowAutomationPeer>() : nullptr)
+    {
+        winrt::get_self<TableViewRowAutomationPeer>(rowPeer)->RaiseExpandCollapseAutomationEvent(
+            oldState, newState);
+    }
+}
+
+// Keys bubbling from cell content (editors, ComboBox) must not toggle the row.
+bool TableViewRow::IsRowItselfFocused()
+{
+    auto const root = XamlRoot();
+    if (!root)
+    {
+        return false;
+    }
+
+    auto const focused = winrt::FocusManager::GetFocusedElement(root).try_as<winrt::UIElement>();
+    return focused && focused == *this;
+}
+
+// Places the chevron and reserves room in the lead cell. Separate so template apply and cell
+// rebuild (fresh gutter/wrappers) can re-apply against unchanged state.
+void TableViewRow::ApplyHierarchyAffordance()
+{
+    const int32_t level = Level();
+    const bool isHierarchical = level > 0;
+
+    winrt::VisualStateManager::GoToState(
+        *this, isHierarchical ? L"Hierarchical" : L"NotHierarchical", false /* useTransitions */);
+    winrt::VisualStateManager::GoToState(
+        *this, IsExpandable() ? L"Expandable" : L"NotExpandable", false /* useTransitions */);
+    winrt::VisualStateManager::GoToState(
+        *this, IsExpanded() ? L"Expanded" : L"Collapsed", false /* useTransitions */);
+
+    const double indent = HierarchyIndent();
+
+    if (auto const gutter = m_rowExpanderGutter.get())
+    {
+        // Set directly: a visual state undoing the Collapsed base value would only revert to it.
+        const auto visibility = isHierarchical ? winrt::Visibility::Visible : winrt::Visibility::Collapsed;
+        if (gutter.Visibility() != visibility)
+        {
+            gutter.Visibility(visibility);
+        }
+
+        const winrt::Thickness gutterMargin{ indent, 0, 0, 0 };
+        if (gutter.Margin().Left != gutterMargin.Left)
+        {
+            gutter.Margin(gutterMargin);
+        }
+    }
+
+    // The clip is in gutter space, which the margin just moved.
+    UpdateExpanderGutterClip();
+
+    ApplyHierarchyIndentToCells(indent);
+
+    // A Level change without re-prepare skips RefreshFrozenColumnLayout; sync the pinned lead
+    // cell's Translation here.
+    if (auto const host = m_cellsHost.get())
+    {
+        auto const gutter = m_rowExpanderGutter.get();
+        if (gutter && (isHierarchical || gutter.Translation().x != 0.0f))
+        {
+            SyncExpanderGutterWithLeadCell(host);
+        }
+    }
+}
+
+// Level is 1-based (UIA); a root gets no indent beyond the gutter.
+double TableViewRow::HierarchyIndent()
+{
+    const int32_t level = Level();
+    if (level <= 0)
+    {
+        return 0.0;
+    }
+
+    double indentSize = c_defaultRowIndentSize;
+    double baseIndent = 0.0;
+    if (auto const owner = GetOwningTableView())
+    {
+        auto const ownerImpl = winrt::get_self<TableView>(owner);
+
+        indentSize = ownerImpl->GetRowIndentSize();
+
+        // Under a group header, roots start at the header's text; ungrouped roots stay flush.
+        if (ownerImpl->IsTableViewSourceGrouped())
+        {
+            baseIndent = ownerImpl->GetGroupHeaderContentOffset();
+        }
+    }
+
+    return baseIndent + (level - 1) * indentSize;
+}
+
+// Reserves chevron space via lead cell WRAPPER padding (column content may be any app element).
+// Separate so column-visibility changes can move it without re-running visual states.
+void TableViewRow::ApplyHierarchyIndentToCells()
+{
+    ApplyHierarchyIndentToCells(HierarchyIndent());
+}
+
+void TableViewRow::ApplyHierarchyIndentToCells(double indent)
+{
+    auto const host = m_cellsHost.get();
+    if (!host)
+    {
+        return;
+    }
+
+    const bool isHierarchical = Level() > 0;
+
+    // From the resource, not the element: gutter may not be measured yet.
+    double expanderSize = c_defaultRowExpanderSize;
+    if (isHierarchical)
+    {
+        if (auto const owner = GetOwningTableView())
+        {
+            expanderSize = winrt::get_self<TableView>(owner)->GetRowExpanderSize();
+        }
+    }
+
+    auto const children = host.Children();
+    bool leadAssigned = false;
+    for (uint32_t i = 0; i < children.Size(); ++i)
+    {
+        auto const wrapper = children.GetAt(i).try_as<winrt::Grid>();
+        if (!wrapper || !TableViewCellsPanel::ColumnForCell(wrapper))
+        {
+            continue;
+        }
+
+        // Lead = first VISIBLE cell; reset all others so hiding/showing columns never strands or
+        // duplicates the reservation.
+        const bool isLead =
+            !leadAssigned && wrapper.Visibility() == winrt::Visibility::Visible;
+        leadAssigned = leadAssigned || isLead;
+
+        const double reserved = (isLead && isHierarchical) ? indent + expanderSize : 0.0;
+        auto padding = wrapper.Padding();
+        if (padding.Left != reserved)
+        {
+            padding.Left = reserved;
+            wrapper.Padding(padding);
+        }
+    }
+}
+
+void TableViewRow::OnExpanderGutterPointerPressed(
+    winrt::IInspectable const& /*sender*/,
+    winrt::PointerRoutedEventArgs const& args)
+{
+    if (!IsExpandable())
+    {
+        // Unhandled so a press on a leaf's gutter selects like the cell.
+        return;
+    }
+
+    // Primary only (incl. touch/pen) so context-menu presses reach the row.
+    if (!args.GetCurrentPoint(*this).Properties().IsLeftButtonPressed())
+    {
+        return;
+    }
+
+    // Keep the press from arming the row's release-time selection latch.
+    args.Handled(true);
+
+    if (auto const owner = GetOwningTableView())
+    {
+        // Shared with group headers: resolves identity now, defers the reshape.
+        winrt::get_self<TableView>(owner)->ToggleGroupExpansion(*this);
+    }
+}
+
+bool TableViewRow::IsWithinExpanderGutter(const winrt::IInspectable& source) const
+{
+    auto const gutter = m_rowExpanderGutter.get();
+    if (!gutter)
+    {
+        return false;
+    }
+
+    auto const self = static_cast<winrt::DependencyObject>(*this);
+    for (auto current = source.try_as<winrt::DependencyObject>(); current && current != self;
+        current = winrt::VisualTreeHelper::GetParent(current))
+    {
+        if (current == gutter)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void TableViewRow::OnCellsArrangedInternal(double leadLeft, double leadWidth, double height)
+{
+    if (m_cellsArranged && leadLeft == m_leadCellLeft && leadWidth == m_leadCellWidth && height == m_cellsArrangedHeight)
+    {
+        return;
+    }
+
+    m_cellsArranged = true;
+    m_leadCellLeft = leadLeft;
+    m_leadCellWidth = leadWidth;
+    m_cellsArrangedHeight = height;
+    UpdateExpanderGutterClip();
+}
+
+// Confine the chevron to the lead cell's slot so it never paints over or takes presses from the next
+// column. Gutter and host share origin and Translation, so subtracting the gutter's left margin maps
+// the slot into gutter space (holds under frozen pinning and RTL). Clip also bounds hit-testing.
+void TableViewRow::UpdateExpanderGutterClip()
+{
+    auto const gutter = m_rowExpanderGutter.get();
+    if (!gutter)
+    {
+        return;
+    }
+
+    // Every column hidden: clip away and disable hit-testing until the next arrange.
+    if (Level() > 0 && m_cellsArranged && m_leadCellWidth < 0.0)
+    {
+        auto geometry = gutter.Clip();
+        if (!geometry)
+        {
+            geometry = winrt::RectangleGeometry();
+            gutter.Clip(geometry);
+        }
+        const winrt::Rect empty{ 0.0f, 0.0f, 0.0f, 0.0f };
+        auto const current = geometry.Rect();
+        if (current.Width != 0.0f || current.Height != 0.0f || current.X != 0.0f || current.Y != 0.0f)
+        {
+            geometry.Rect(empty);
+        }
+        if (gutter.IsHitTestVisible())
+        {
+            gutter.IsHitTestVisible(false);
+        }
+        return;
+    }
+
+    // Not arranged yet (or flat): leave the gutter unclipped until the first arrange reports a slot.
+    if (Level() <= 0 || m_leadCellWidth < 0.0 || m_cellsArrangedHeight <= 0.0)
+    {
+        if (gutter.Clip())
+        {
+            gutter.Clip(nullptr);
+        }
+        if (!gutter.IsHitTestVisible())
+        {
+            gutter.IsHitTestVisible(true);
+        }
+        return;
+    }
+
+    const double gutterLeft = gutter.Margin().Left;
+    const double visibleLeft = (std::max)(0.0, m_leadCellLeft - gutterLeft);
+    const double visibleWidth = (std::max)(0.0, m_leadCellLeft + m_leadCellWidth - gutterLeft - visibleLeft);
+
+    auto geometry = gutter.Clip();
+    if (!geometry)
+    {
+        geometry = winrt::RectangleGeometry();
+        gutter.Clip(geometry);
+    }
+    const winrt::Rect rect{
+        static_cast<float>(visibleLeft),
+        0.0f,
+        static_cast<float>(visibleWidth),
+        static_cast<float>(m_cellsArrangedHeight) };
+    auto const current = geometry.Rect();
+    if (current.X != rect.X || current.Y != rect.Y || current.Width != rect.Width || current.Height != rect.Height)
+    {
+        geometry.Rect(rect);
+    }
+
+    const bool hitTestable = visibleWidth > 0.0;
+    if (gutter.IsHitTestVisible() != hitTestable)
+    {
+        gutter.IsHitTestVisible(hitTestable);
+    }
+}
+
 void TableViewRow::RefreshDensity()
 {
     // Re-read density metrics and restamp built-in cell padding.
@@ -938,6 +1647,10 @@ void TableViewRow::RefreshColumnVisibility(const winrt::TableViewColumn& column,
     {
         cell.Visibility(visibility);
     }
+
+    // Lead cell may have changed. Indent only: runs from a column property callback, so no
+    // visual-state transitions.
+    ApplyHierarchyIndentToCells();
 }
 
 double TableViewRow::MeasuredWidthForColumn(const winrt::TableViewColumn& column) const
@@ -985,6 +1698,8 @@ void TableViewRow::ResetCellAutomationNames()
 
 void TableViewRow::RebuildCells(bool updateExistingCellPeerItems)
 {
+    RestoreCellContentTabStopsInternal();
+
     auto host = m_cellsHost.get();
     if (!host)
     {
@@ -1166,6 +1881,7 @@ void TableViewRow::RebuildCells(bool updateExistingCellPeerItems)
 
         RefreshGridLines();
         RefreshRowBackground();
+        ApplyHierarchyAffordance();
         return;
     }
 
@@ -1252,6 +1968,7 @@ void TableViewRow::RebuildCells(bool updateExistingCellPeerItems)
 
     RefreshGridLines();
     RefreshRowBackground();
+    ApplyHierarchyAffordance();
 }
 
 // Recycle-out. Always walks: the restamp fast-path revives tooltips through the binding, so a
@@ -1345,11 +2062,8 @@ void TableViewRow::RefreshGridLines()
 
     const bool wantVertical = WantsVerticalLines(visibility);
     winrt::Brush gridLineBrush{ nullptr };
-    // Read the direction from the owner, the same source RebuildHeaders stamps the header grid line
-    // from, so the two edges cannot disagree.
-    const auto verticalThickness = owner.FlowDirection() == winrt::FlowDirection::RightToLeft
-        ? s_verticalThicknessRtl
-        : s_verticalThickness;
+    // FlowDirection mirrors the whole subtree, so the logical right edge is trailing in RTL too.
+    const auto verticalThickness = s_verticalThickness;
     if (wantVertical)
     {
         gridLineBrush = winrt::get_self<TableView>(owner)->GetGridLineBrush();
@@ -1444,7 +2158,38 @@ void TableViewRow::RefreshFrozenColumnLayout(double horizontalOffset, double lea
     if (auto host = m_cellsHost.get())
     {
         TableViewCellsPanel::ApplyFrozenColumnLayout(host, horizontalOffset, leadingFrozenWidth);
+        SyncExpanderGutterWithLeadCell(host);
     }
+}
+
+// Gutter sits outside the cells host, so mirror the lead visible wrapper's Translation (whatever
+// frozen pinning decided, including none) to keep the chevron over its cell.
+void TableViewRow::SyncExpanderGutterWithLeadCell(winrt::Panel const& host)
+{
+    auto const gutter = m_rowExpanderGutter.get();
+    if (!gutter)
+    {
+        return;
+    }
+
+    float offset = 0.0f;
+    if (Level() > 0)
+    {
+        auto const children = host.Children();
+        for (uint32_t i = 0; i < children.Size(); ++i)
+        {
+            auto const wrapper = children.GetAt(i);
+            if (TableViewCellsPanel::ColumnForCell(wrapper) && wrapper.Visibility() == winrt::Visibility::Visible)
+            {
+                offset = wrapper.Translation().x;
+                break;
+            }
+        }
+    }
+
+    winrt::ElementCompositionPreview::SetIsTranslationEnabled(gutter, true);
+    gutter.Translation({ offset, 0.0f, 0.0f });
+    winrt::Canvas::SetZIndex(gutter, 2);
 }
 
 // ----- Editing -----
@@ -1822,6 +2567,13 @@ void TableViewRow::OnPointerPressedForEditing(
         return;
     }
 
+    // A chevron press is a toggle, not a lead-cell press; otherwise two quick toggles would read as
+    // a double-click and open an editor. Leaf gutters (no toggle) fall through.
+    if (IsExpandable() && IsWithinExpanderGutter(args.OriginalSource()))
+    {
+        return;
+    }
+
     auto const pointerPoint = args.GetCurrentPoint(*this);
     if (!pointerPoint)
     {
@@ -1963,3 +2715,4 @@ winrt::TableViewColumn TableViewRow::ResolvePressedColumn(
 
     return nullptr;
 }
+

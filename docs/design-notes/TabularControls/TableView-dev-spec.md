@@ -2,7 +2,7 @@
 
 `TableView` is the minimal, display-only tabular base control for `Microsoft.UI.Xaml.Controls.Tabular.dll`. It renders an `ItemsSource` as virtualized rows and uses `Columns` to generate one cell per realized row/column intersection.
 
-This is the minimal, display-only base of the control, and it is read-only. It establishes column ownership, header/body layout, row virtualization, cell generation, leading frozen columns, basic row keyboard navigation, automation peers, density/theming hooks, and the lifetime patterns later work builds on. The interactive v1 features land additively on top of it: selection, filtering, single-column sort and single-level grouping are delivered; two-level hierarchy and column resize/reorder are still outstanding.
+This is the minimal, display-only base of the control, and it is read-only. It establishes column ownership, header/body layout, row virtualization, cell generation, leading frozen columns, basic row keyboard navigation, automation peers, density/theming hooks, and the lifetime patterns later work builds on. The interactive v1 features land additively on top of it: selection, filtering, single-column sort, single-level grouping and hierarchical rows are delivered; column resize/reorder is still outstanding.
 
 Feature-level requirements and the v1-vs-deferred breakdown are in [`TableView-functional-spec.md`](./TableView-functional-spec.md).
 
@@ -22,9 +22,9 @@ The API preserves migration-compatible concepts where useful:
 
 Frozen columns are limited to a contiguous leading prefix in v1. `TableViewFrozenEdge.Trailing` is reserved.
 
-Single-level grouping is delivered (see *Grouping model* below): group headers are their own container kind interleaved into the flat row projection, not a second nesting level in the layout. Two-level hierarchical presentation is still deferred, because a real nesting level requires different layout, virtualization, focus and accessibility models than a banded header does. Hierarchy deeper than two levels is out of scope for v1.
+Single-level grouping is delivered (see *Grouping model* below): group headers are their own container kind interleaved into the flat row projection, not a second nesting level in the layout. Hierarchical rows are delivered through `TableViewSource.ParentBy(keySelector, parentKeySelector)` over a flat source, with no depth limit: each visible row carries its level and expansion state, and the row's lead cell is indented with an expander gutter, so the layout stays a flat virtualized list. See [Hierarchical data rows design](Hierarchical-Data-Rows-Parent-Key-Design.md).
 
-`TableViewRow` is intentionally a public `unsealed` `Control` despite carrying no v1 dependency properties: it is the realized row container (mirroring `ListViewItem`/`DataGridRow`) and is referenced by the public `TableViewRowAutomationPeer` and `TableViewCellAutomationPeer` constructors, so it cannot be internalized without collapsing the public accessibility surface. Row-level features layer onto it: selection already does, and hierarchy will. Grouping deliberately does **not** — a group header is a `TableViewGroupHeader`, a separate container kind chosen by `TableViewRowTemplateSelector`, so `TableViewRow` never grows an "am I a header?" adaptive branch.
+`TableViewRow` is intentionally a public `unsealed` `Control` despite carrying no v1 dependency properties: it is the realized row container (mirroring `ListViewItem`/`DataGridRow`) and is referenced by the public `TableViewRowAutomationPeer` and `TableViewCellAutomationPeer` constructors, so it cannot be internalized without collapsing the public accessibility surface. Row-level features layer onto it: selection and hierarchy already do. Grouping deliberately does **not** — a group header is a `TableViewGroupHeader`, a separate container kind chosen by `TableViewRowTemplateSelector`, so `TableViewRow` never grows an "am I a header?" adaptive branch.
 
 
 ## Column model: `TextColumn` vs `TemplateColumn`
@@ -80,7 +80,7 @@ Each `TableViewCellsPanel` measures its cells unconstrained and arranges them at
 
 `Border` `PART_HeaderRow` → `ScrollViewer` `PART_HeaderScroller` → `TableViewCellsPanel` `PART_HeaderHost`.
 
-`PART_HeaderRow` provides the header-surface background and a 1px bottom gridline. `PART_HeaderScroller` is horizontal-only (`HorizontalScrollMode="Auto"`, horizontal scrollbar hidden, vertical disabled). `PART_HeaderHost` is a `TableViewCellsPanel` (inherently horizontal); `RebuildHeaders` fills it with one `Grid` header cell per non-null column (each cell mirrors the column's `Visibility`), in `Columns` order, left-to-right. Header cells use the density row minimum height, so the header band matches body rows. Header content comes from `TableViewColumn.Header`, displayed via `HeaderTemplateSelector` when set, otherwise `HeaderTemplate`, otherwise the default text presenter.
+`PART_HeaderRow` provides the header-surface background and a 1px bottom gridline. `PART_HeaderScroller` is horizontal-only (`HorizontalScrollMode="Auto"`, horizontal scrollbar hidden, vertical disabled). `PART_HeaderHost` is a `TableViewCellsPanel` (inherently horizontal); `RebuildHeaders` fills it with one `Grid` header cell per non-null column (each cell mirrors the column's `Visibility`), in `Columns` order, left-to-right. Header cells use the density row minimum height, so the header band matches body rows. Like rows, header cells carry `ControlCornerRadius`, consumed only by the system focus visual, so header keyboard focus is rounded. Header content comes from `TableViewColumn.Header`, displayed via `HeaderTemplateSelector` when set, otherwise `HeaderTemplate`, otherwise the default text presenter.
 
 Custom templates using a `Border` for `PART_HeaderRow` must supply its gridline `BorderThickness` through a style setter rather than a local value, so `GridLinesVisibility` can restore it with `ClearValue` for `Horizontal` or `All`.
 
@@ -190,6 +190,8 @@ The render pipeline is `TableView.ItemsSource` → `PART_RowsRepeater` → `Tabl
 
 `TableView` owns `PART_RowsRepeater.ItemsSource` (the template does not bind it directly). `Unloaded` clears the repeater source so queued repeater cache-build work cannot run against a detached subtree.
 
+`ThemeSettings` (high-contrast tracking) is released on `Unloaded`, or earlier on the host `AppWindow.Destroying`, because removing its `Changed` handler after the window is destroyed fails fast. Hosts without an `AppWindow`, or whose top-level window belongs to another thread, use the `Unloaded` path.
+
 Cell generation is column-specific:
 
 - `TableViewTextColumn` creates a `TextBlock` and applies `Binding`.
@@ -206,6 +208,7 @@ Keyboard handling is cell-aware and follows the WAI-ARIA treegrid model. `TableV
   - `Down` moves to the first row; `Up` stays in the band.
   - `Enter` and `Space` sort a sortable header (`Space` fires on key-up, so auto-repeat cannot re-sort). `Alt+Left`/`Alt+Right` resize it.
   - Every visible header is reachable, including one with `CanSort=False`.
+  - `Tab` into a scrolled body from the column header band lands on the first fully visible enabled row or group header in the body viewport (a partially visible one if none is fully visible), or the last one for `Shift+Tab`; for a row at cell level, on the cell in the current column. Landing on a group header from the band, scrolled or not, leaves cell level, but the column cursor is kept. If no enabled element is in the viewport, the framework's target is kept. It never targets a cache row, so the body scrolls no further than the focus bring-into-view padding.
 - **Rows.**
   - Unhandled `Up`, `Down`, `PageUp` and `PageDown` keep the starting level: row to row, or cell to cell in the same visible column. `Up` from the first row moves to the header band.
   - From a focused row, `Right` drills into the first cell. `Left` on the first cell returns to the row. `Left` on a row does nothing.
@@ -215,15 +218,15 @@ Keyboard handling is cell-aware and follows the WAI-ARIA treegrid model. `TableV
   - `Ctrl` plus a navigation key moves focus without selecting.
   - `Space` (without `Alt` or `Ctrl`) selects the focused row from row or cell level.
 - **Cell content.** `Enter` on a cell that hosts a focusable control moves focus into that control, and arrow keys then stay inside it. `Escape` returns to the cell. `F2` remains the begin-edit key.
-- **Re-entry.** Tabbing back into the body returns to the same **record** that last had focus, even after a sort or filter has moved it. A record that is no longer realized falls back to the row the framework targets.
-- **Re-shape while focused.** When a sort or filter re-shapes the rows while focus is **inside** the body, focus stays at the same **position**, the same projected row index, and so lands on whichever row now occupies it. This also applies when the focused record was filtered out.
+- **Re-entry.** Focus entering the body from outside the table with direction `Next` or `Previous` (`Tab`/`Shift+Tab`, including a programmatic `TryMoveFocus(Next/Previous)`) returns to the same **record** that last had focus, even after a sort or filter has moved it, at the level it was left at: the same visible column at cell level, or the row at row level. This holds whichever row element the framework aimed at, including a control hosted in another row's template cell. The remembered record is resumed if it is realized and its row is enabled; otherwise entry lands on the first (`Tab`) or last (`Shift+Tab`) enabled row inside the body viewport at row level, so the fallback never targets a cache row or a disabled row. The same fallback applies when the remembered target can't take focus; the redirect is skipped only when no viewport row can. Entry aimed at a group header is not redirected. The entry is redirected at most once per focus operation. Pointer, arrow-key, UIA and `Focus()` moves are never redirected.
+- **Re-shape while focused.** When a sort or filter re-shapes the rows while focus is **inside** the body, focus stays at the same **position**, the same projected row index, and so lands on whichever row now occupies it. This also applies when the focused record was filtered out. The body position is put back only when focus is in the body when the re-shape runs, or when the re-shape itself drops focus. If focus is anywhere else, focus stays there. This includes a column header (however focus got there, by keyboard, pointer, app code, or a UIA `SetFocus`) whose Enter, Space, click, or UIA Invoke caused the sort, and controls outside the TableView.
 - **Gamepad.** Gamepad, D-pad and XY-focus navigation are not supported. Only the keyboard routing above is specified.
 
 The internal `GridCoordinateHelper` performs the row/column ↔ flat-index math, wrap behavior, and overflow guards.
 
 Accessibility exposes a UIA grid/table model:
 
-- `TableViewAutomationPeer`: `IGridProvider`, `ITableProvider`, `ISelectionProvider`, `IItemContainerProvider`
+- `TableViewAutomationPeer`: `IGridProvider`, `ITableProvider`, `ISelectionProvider`, `IItemContainerProvider`. `BoundingRectangle` is clipped to the control's layout box, so realized cache rows outside the body viewport are excluded; the default bounds are used when the clip is unavailable.
 - `TableViewRowAutomationPeer`: `DataItem` control type, `ISelectionItemProvider`, composed name and group-relative `PositionInSet`/`SizeOfSet`; no grid/table provider (exposes its cell peers as children)
 - `TableViewCellAutomationPeer`: `IGridItemProvider`, `ITableItemProvider`, `IValueProvider`, `Custom` control type with localized `cell`
 - `TableViewColumnHeaderAutomationPeer`: column-header name/bounds, `IInvokeProvider` (sort), `PositionInSet`/`SizeOfSet`
@@ -323,9 +326,9 @@ than a nested button, so there is one interactive element and one automation sto
 expanding or collapsing re-publishes the projection, the realized header the gesture started on is
 gone by the time the work runs: expansion is queued **by identity** with a generation stamp
 (`QueueGroupExpansionByIdentity` / `ApplyGroupExpansionByIdentity`), and focus is captured and
-restored by identity too (`CaptureGroupHeaderFocusForRestore` /
-`RestoreGroupHeaderFocusIfPending`), so a keyboard user does not lose focus to the top of the
-table on every collapse.
+restored by identity too (`CaptureContainerFocusForRestore` /
+`RestoreContainerFocusIfPending`), so focus does not drop to the top of the
+table on every collapse. The restore covers group headers and hierarchical data rows. For a header the restored focus state follows the gesture (`Keyboard` for a key, `Pointer` for a click), and a restore after a pointer click on the header does not scroll it into view. A data row is restored only from keyboard or programmatic focus, or when `Multiply` expands its subtree (a keyboard gesture, whatever state the row's focus had), always with `Keyboard` state, and only when the reset recycled its container. The restore is skipped when focus has meanwhile moved outside the table or the host window is hidden. A pointer click on a band focuses the header on **release** inside the band, before the toggle, and only when the band still shows the group that was pressed; if committing an open edit re-targets the header to another group, the click is consumed without toggling. A press dragged off the band does nothing.
 
 **Header presentation.** `TableViewGroupHeader` is a templated `ContentControl`, not a code-built
 visual tree: the chevron gutter (`PART_ExpanderGutter` / `PART_ExpanderIcon`) and the themed band
@@ -409,7 +412,7 @@ they can be obsoleted while the API is still `[MUX_PREVIEW]`.
 
 **`TableViewColumn`** — `DependencyObject`, `[contentproperty("Header")]`. Members: `Header`, `HeaderTemplate`, `HeaderTemplateSelector`, `Width` (`GridLength`), `MinWidth` (`20`), `MaxWidth` (infinity), `ActualWidth` (get-only), `FrozenEdge`, `Visibility`, `IsReadOnly` (default `false`), `GetOwningTableView()`, `GenerateElement(Object)`, overridable `GenerateElementCore(Object)`, `GenerateEditingElement(Object)`, overridable `GenerateEditingElementCore(Object)` and `GetEditingPropertyPathCore()`.
 
-**`TableViewTextColumn`** — `TableViewColumn` that generates text cells. `Binding` is a plain CLR property. Its editing element is a `TextBox` bound with a clone of `Binding` forced to `TwoWay` + `UpdateSourceTrigger=Explicit`.
+**`TableViewTextColumn`** — `TableViewColumn` that generates text cells. `Binding` is a plain CLR property. Its editing element is a `TextBox` bound with a clone of `Binding` forced to `TwoWay` + `UpdateSourceTrigger=Explicit`. The built-in text column's editor `TextBox` takes `AutomationProperties.Name` from the column header text.
 
 **`TableViewTemplateColumn`** — `TableViewColumn` that generates templated cells. DPs `CellTemplate` and `CellEditingTemplate`.
 
@@ -455,6 +458,8 @@ Cell resolution walks up from `OriginalSource` to the cell wrapper (`TableViewCe
 
 Editing bindings use `UpdateSourceTrigger=Explicit`, so the typed value lives in the editor until the control pushes it. That is what lets a cancel restore something and a validation failure hold the edit open. On commit the control calls `UpdateSource()` on the binding expressions discovered from the editing element; validation runs **after** the write, and a blocked commit undoes it.
 
+A forced close (the source changes under the edit, or the control turns read-only) commits a valid pending value while the edited item is still in the source and passes the filter, and reports `Cancel` on a failed write or validation error. If the item was removed, filtered out, or `ItemsSource` was replaced, it reports `Cancel` and writes nothing, as WPF `DataGrid` does; an item that is only under a collapsed group or node has not been removed. A forced close during a pending commit deferral can finish as `Cancel` without a second `CellEditEnding`.
+
 Rollback prefers `ITableViewEditableItem` on the data item. Without it the control snapshots the value at the column's `GetEditingPropertyPathCore()` path, falling back to scraping the editor's bindings — inherently incomplete for an arbitrary editor, so the inability to capture anything is recorded and reported rather than silently ignored.
 
 ## Re-entrancy rules (load-bearing)
@@ -484,11 +489,11 @@ Row recycling, cell rebuild and dependency-property change callbacks can all run
 
 ## Non-goals
 
-`TableView` v1 does not attempt to replace `DataGrid`. The true v1 non-goals are marquee selection, multi-column sort, column virtualization, row headers, hierarchy deeper than two levels, and spreadsheet-like interaction. (Selection, single-column sort, filtering, grouping, and two-level hierarchy are v1 features, not non-goals; selection, sort, filtering and single-level grouping are delivered, and two-level hierarchy lands later. Cell editing is delivered by this PR.)
+`TableView` v1 does not attempt to replace `DataGrid`. The true v1 non-goals are marquee selection, multi-column sort, column virtualization, row headers, and spreadsheet-like interaction. (Selection, single-column sort, filtering, grouping, and hierarchical rows are v1 features, not non-goals, and are delivered. Cell editing is delivered by this PR.)
 
 ## Out of Scope
 
-Delivered later in the v1 stack: two-level hierarchy · column reorder · navigation-state persistence · samples · tests · theme-XBF emission.
+Delivered later in the v1 stack: column reorder · navigation-state persistence · samples · tests · theme-XBF emission.
 
 Already delivered in the v1 stack: row selection · shaping primitives · filtering · single-column sort · single-level grouping.
 

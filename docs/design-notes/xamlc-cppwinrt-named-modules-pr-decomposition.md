@@ -1,96 +1,42 @@
-# XamlC named-module review and validation plan
+# XamlC complete upstream submission and validation
 
-## Validated implementation
+The complete upstream submission source is fork [PR #44](https://github.com/hoshiizumiya/microsoft-ui-xaml/pull/44), branch `feat/xamlccppmodule/final-from-validation`. It derives from the final [PR #40](https://github.com/hoshiizumiya/microsoft-ui-xaml/pull/40) validation source and merges upstream `main` at `25d46416b3f3c7f15dfcfe2f20b6fad4ee638e32`.
 
-The current implementation is on `feat/xamlccppmodule/product-validation`, based on
-`feat/xamlccppmodule/product`. PR [#40](https://github.com/hoshiizumiya/microsoft-ui-xaml/pull/40)
-holds the compiler changes, generated T4 companions, regression inputs, documentation
-and fork validation infrastructure. The historical `phase1` and `phase2` branches are
-preserved as checkpoints.
+The earlier split review PRs are superseded. Compiler input/state changes, named-module generation, native build integration, succinct-collection fixes, all unit/native/package tests, generated expectations, manual validation runners, the developer sample, documentation and initialization fixes travel together.
 
-Each active XAML class owns an independent declaration module. `Application_Xaml.g.ixx`
-is a pure re-export aggregator. BindingInfo and TypeInfo have separate independent
-interfaces. Generated implementations remain ordinary `.cpp` translation units with
-their textual system/STL headers before imports and no `import std`. C++/WinRT owns
-the `winrt.<Namespace>` projection modules and producer scaffolding.
+Only fork Actions orchestration is excluded: `pr-build.yml` and `build-pr.ps1` match upstream, and the two fork module/consumer workflows are absent. The six manual validation helpers remain available.
 
-The original product and review branches predate this final architecture. In particular,
-the old primary-interface/partition design and shared Support module are superseded.
-Do not describe the old review tips as the implementation validated by PR #40.
+## Architecture and baseline reconciliation
 
-## Review order
+Each active XAML class owns an independent declaration module. `Application_Xaml.g.ixx` is a pure re-export aggregator. BindingInfo and TypeInfo have separate interfaces. Generated implementations remain ordinary `.cpp` translation units, with textual system/STL headers before imports and no `import std`. C++/WinRT owns the projection modules and producer scaffolding. T4 templates remain paired with their checked-in generated companions.
 
-| Review PR | Scope | Dependency | Current status |
-| --- | --- | --- | --- |
-| [#37 bootstrap](https://github.com/hoshiizumiya/microsoft-ui-xaml/pull/37) | Initialization requirements | Independent | Existing draft; retain the small bootstrap scope |
-| [#38 incremental](https://github.com/hoshiizumiya/microsoft-ui-xaml/pull/38) | Common compiler input/state ownership | Independent | Existing draft; review before module integration |
-| [#39 modules](https://github.com/hoshiizumiya/microsoft-ui-xaml/pull/39) | Named-module compiler, targets and unit regressions | #38 | Existing draft predates the independent class-module architecture; extraction remains pending |
-| [#36 docs/sample](https://github.com/hoshiizumiya/microsoft-ui-xaml/pull/36) | Architecture and developer sample | Modules | Existing draft must follow the final implementation |
-| [#40 validation](https://github.com/hoshiizumiya/microsoft-ui-xaml/pull/40) | Final implementation and fork validation | Product | Source of the current implementation and test evidence |
+Upstream compiler changes and tests are retained. In particular, the ControlTemplate/x:Load inputs and binding-listener expectations are carried into both checked and free expectation paths. The checked C++ expectations retain this feature's `std::int32_t` and `std::int64_t` spelling.
 
-Keep declaration ownership, semantic dependency closure, native build registration and
-incremental lifetime together when extracting the module patch. The unit regressions
-accompany the owning compiler changes. Generated C# companions remain with their
-authoritative T4 templates. Fork workflows and native validation fixtures are separate
-from the upstream product patch.
+The checked/free master layout is preserved rather than consolidated into `common`. The native and package fixture directories contain 79 files, all unchanged from the original PR #44 checkpoint. Additional upstream tests remain present.
 
-Upstream submission and reconciliation of the old review drafts are still separate work.
-An earlier GitHub App submission attempt returned `Resource not accessible by integration`;
-this document does not claim a successful upstream submission. PR #40's base and the
-historical development branches are retained during validation.
+## Verified pre-merge evidence
 
-## Verified evidence
-
-[PR Build 38422041475](https://github.com/hoshiizumiya/microsoft-ui-xaml/actions/runs/38422041475)
-completed successfully on `1dbe12eef24945e528429bec994103f9b1b3686f` on 2026-10-13.
-T4 produced no successor commit. Every artifact records the same head SHA, and the
-reusable consumer used the same run's `xaml-module-prereqs-x64chk` artifact.
+[PR Build 38584447573](https://github.com/hoshiizumiya/microsoft-ui-xaml/actions/runs/38584447573) completed successfully on `a4d9a8b494f5dc41b1d4de44f5197c6fa58d9f27`. All 13 jobs succeeded. This is PR #44's validated source before merging the newer upstream baseline.
 
 | Gate | Verified result |
 | --- | --- |
+| Formal T4 synchronization | Passed |
 | Product builds | All six VS2022 configurations: x86/x64/arm64, Check and Release |
-| Feature full suite | TRX: 367 total, 363 executed, 363 passed, zero failed; all three direct succinct-syntax regressions executed |
-| Predecessor full suite | TRX: 300 total, 296 executed, 292 passed, exactly four allowed historical failures |
-| Upstream full suite | TRX: 300 total, 296 executed, 292 passed, exactly the same four allowed historical failures |
-| Focused module tests | 21 executed, 21 passed |
-| Native module consumers | x64, module and header modes, Debug and Release |
-| Static libraries | Provider and cross-project consumer in module and header modes |
-| Incremental graph | No-change, one-page change, removal/restoration, rename/restoration, suppression/restoration and header/module switching |
-| Native link inputs | Application and static-library logs contain no LNK4042 duplicate-object warning; the runner rejects it |
-| Package integration | Real NuGet fixture and external product sample, Debug and Release |
+| Feature full suite | TRX: 369 total, 365 executed, 365 passed, zero failed |
+| Focused module tests | TRX: 23 executed, 23 passed |
+| Native consumers | Named modules, header coexistence, static libraries and incremental graph stages passed |
+| Package integration | Real NuGet fixture and external product sample passed |
+| Historical comparison gates | Upstream and predecessor jobs passed their historical failure policy |
 
-The four historical failures are `WMC0155_ListViewCollectionCreatedWithSuccinctSyntax`,
-`WMC0155_CheckSyntacticallyValidInput`, `WMC0155_CheckSyntacticallyInvalidInput` and
-`WMC0155_ListViewDuplicateError`. The historical gate rejects missing or additional
-failures and preserves TRX and failure manifests. The feature gate has no allowlist.
+The feature TRX includes all three direct `SuccinctSyntax_*` methods and `ModuleGeneratedFiles_UseOneLeadingBannerAndConsistentNativeLineEndings` as passed results. The feature suite has no allowed-failure exemption. Historical suites explicitly check the four previously recorded WMC0155 failures; their job success does not mean those historical trees have zero failures.
 
-The TRX execution counts above are test-run evidence, not source-inventory counts.
-NoPageCodeGen and NoTypeInfoCodeGen interface checks validate suppression of generated
-declarations; they do not promise application linking after suppressing required code.
-Six product architectures/configurations do not establish x86/arm64 named-module
-consumer compilation: the native consumer validation in this run targets x64.
-Interactive sample execution also remains a separate acceptance item.
+Native consumer validation targets x64 with the module-capable Visual Studio toolset. The six product configurations do not establish x86/arm64 named-module consumer compilation. The author also reports successful local application testing.
 
-## Follow-up verification
+## Validation after the merge
 
-The verified run includes the multi-line succinct-collection diagnostic repair, direct
-parser boundary regressions, and unique XAML-owned Obj/Lib/Link registration. The three
-new `SuccinctSyntax_*` methods are present as passed results in the feature TRX.
-The native evidence retains readable logs for every application, static-library and
-incremental stage; none contains LNK4042.
+The merge is checked for unresolved conflicts, XML validity, source/project preservation, paired template changes and upstream workflow equality. These checks do not replace Windows builds, formal T4 regeneration or generated-code comparisons on the merged commit.
 
-The full runner builds the regression inputs, runs without a test filter and retains
-discovery, TRX, summaries and binlogs. The focused runner exercises module tests with
-their required prerequisites. Both use the upstream payload staging and runsettings.
-Do not regenerate masters to hide an unexplained difference, or count queued, skipped,
-cancelled or superseded validation steps as successful execution.
+The run above must not be attributed to the merged head. Run the product gate and manual XamlC/native/package validation runners on the exact merged source before recording final acceptance. Compare the reconciled checked/free expectations against actual output; the static merge is not regeneration.
 
-## Outstanding integration work
-
-- Reconcile the old review drafts with the final independent-module architecture before
-  upstream submission, keeping bootstrap/incremental/module/docs responsibilities clear.
-- Keep C++/WinRT-owned provider-wrapper and projection-incremental defects distinct from
-  XamlC fixes; fixture mitigations are not fixes to the third-party package.
-- Treat interactive sample execution and other-architecture native module compilation
-  as unverified until their own evidence is available.
+The companion-header mapping discussion and C++/WinRT provider defects retain their own scope. Fixture workarounds do not constitute fixes to the provider package.
 
