@@ -102,8 +102,11 @@ namespace ViewportProbe
 $sdk = "${env:ProgramFiles(x86)}/Windows Kits/10"
 $sdkVersion = (Get-ChildItem "$sdk/Include" -Directory | Where-Object Name -match '^10\.' | Sort-Object Name -Descending | Select-Object -First 1).Name
 $sdkBin = "$sdk/bin/$sdkVersion/x64"
-& "$sdkBin/midl.exe" /winrt /nomidl /env x64 /I "$sdk/Include/$sdkVersion/um" /I "$sdk/Include/$sdkVersion/shared" /I "$sdk/Include/$sdkVersion/winrt" /metadata_dir "$sdk/UnionMetadata/$sdkVersion" /out $probe "$probe/ViewportProbe.idl" 2>&1 | Tee-Object "$probe/midl.log"
-if ($LASTEXITCODE) { throw 'MIDL rejected the generated protected/public same-signature projection; see midl.log' }
+Push-Location $probe
+& "$sdkBin/midl.exe" /winrt /nomidl /env x64 /I "$sdk/Include/$sdkVersion/um" /I "$sdk/Include/$sdkVersion/shared" /I "$sdk/Include/$sdkVersion/winrt" /metadata_dir "$sdk/UnionMetadata/$sdkVersion" /out . /winmd ViewportProbe.winmd ViewportProbe.idl 2>&1 | Tee-Object "$probe/midl.log"
+$midlExit = $LASTEXITCODE
+Pop-Location
+if ($midlExit) { throw 'MIDL compilation failed; see midl.log' }
 & "$sdkBin/cppwinrt.exe" -input "$probe/ViewportProbe.winmd" -reference sdk -output "$probe/include" 2>&1 | Tee-Object "$probe/cppwinrt.log"
 if ($LASTEXITCODE) { throw 'C++/WinRT projection failed' }
 @'
