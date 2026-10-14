@@ -77,7 +77,7 @@ if ($v1 -cne $oldV1) { throw 'Shipped FrameworkElement IDL changed' }
 # Feed precisely the generated overload declaration into a minimal, independent
 # MIDL runtimeclass. This isolates visibility/signature/projection constraints
 # without requiring the full product's external contract dependencies.
-$probe = Join-Path $out 'probe'
+$probe = [IO.Path]::GetFullPath((Join-Path $out 'probe'))
 New-Item -ItemType Directory -Force $probe | Out-Null
 $publicMethod = [regex]::Match($class, '\[method_name\("InvalidateViewportPublic"\)\] void InvalidateViewport\(\);').Value
 @"
@@ -103,7 +103,7 @@ $sdk = "${env:ProgramFiles(x86)}/Windows Kits/10"
 $sdkVersion = (Get-ChildItem "$sdk/Include" -Directory | Where-Object Name -match '^10\.' | Sort-Object Name -Descending | Select-Object -First 1).Name
 $sdkBin = "$sdk/bin/$sdkVersion/x64"
 Push-Location $probe
-& "$sdkBin/midl.exe" /winrt /nomidl /env x64 /I "$sdk/Include/$sdkVersion/um" /I "$sdk/Include/$sdkVersion/shared" /I "$sdk/Include/$sdkVersion/winrt" /metadata_dir "$sdk/UnionMetadata/$sdkVersion" /out . /winmd ViewportProbe.winmd ViewportProbe.idl 2>&1 | Tee-Object "$probe/midl.log"
+& "$sdkBin/midl.exe" /winrt /nomidl /env x64 /I "$sdk/Include/$sdkVersion/um" /I "$sdk/Include/$sdkVersion/shared" /I "$sdk/Include/$sdkVersion/winrt" /metadata_dir "$sdk/UnionMetadata/$sdkVersion" /out $probe /winmd "$probe\ViewportProbe.winmd" ViewportProbe.idl 2>&1 | Tee-Object "$probe/midl.log"
 $midlExit = $LASTEXITCODE
 Pop-Location
 if ($midlExit) { throw 'MIDL compilation failed; see midl.log' }
