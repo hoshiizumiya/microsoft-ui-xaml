@@ -2545,7 +2545,7 @@ namespace Microsoft.UI.Xaml
         static Microsoft.UI.Xaml.DependencyProperty RequestedThemeProperty{ get; };
         static Microsoft.UI.Xaml.DependencyProperty ActualThemeProperty{ get; };
         static void DeferTree(Microsoft.UI.Xaml.DependencyObject element);
-        protected void InvalidateViewport();
+        [method_name("InvalidateViewport")] protected void InvalidateViewportProtected();
         overridable Windows.Foundation.Size MeasureOverride(Windows.Foundation.Size availableSize);
         overridable Windows.Foundation.Size ArrangeOverride(Windows.Foundation.Size finalSize);
         overridable void OnApplyTemplate();
