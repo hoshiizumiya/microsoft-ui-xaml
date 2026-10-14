@@ -15,12 +15,12 @@ function Compile-Model([string]$folder, [string]$targets, [string]$name, [string
     $dir = Join-Path $root $folder
     [xml]$items = Get-Content (Join-Path $dir $targets)
     $sources = @($items.Project.ItemGroup.CompileFiles | ForEach-Object { Join-Path $dir $_.Include })
-    $args = @('/nologo', '/noconfig', '/platform:x86', "/target:$kind", '/nowarn:0067,0628,0436', "/out:$bin/$name")
+    $args = @('/nologo', '/platform:x86', "/target:$kind", '/nowarn:0067,0628,0436', "/out:$bin/$name")
     $args += @('mscorlib.dll', 'System.dll', 'System.Core.dll', 'Microsoft.CSharp.dll') | ForEach-Object { "/reference:$framework/$_" }
     $args += $references | ForEach-Object { "/reference:$bin/$_" }
     $rsp = Join-Path $bin "$name.rsp"
     ($args + $sources | ForEach-Object { '"' + $_ + '"' }) | Set-Content $rsp
-    & $csc "@$rsp"
+    & $csc /noconfig "@$rsp"
     if ($LASTEXITCODE) { throw "Compiling $name failed: $LASTEXITCODE" }
 }
 
@@ -37,7 +37,7 @@ if ($LASTEXITCODE) { throw 'Phone T4 generation failed' }
 
 # Use the repository's own output manifest, including its class-directory copies.
 [xml]$manifest = Get-Content "$root/RunCodeGen/xamlgen.runcodegen.proj"
-foreach ($entry in $manifest.Project.ItemGroup.FileInfo) {
+foreach ($entry in $manifest.SelectNodes("//*[local-name()='FileInfo' and @Include]")) {
     $source = $entry.Include.Replace('$(XamlGenOutputPath)', "$out/")
     foreach ($file in Get-ChildItem $source -File) {
         $destination = Join-Path "$repo/dxaml" $entry.Destination
@@ -45,7 +45,7 @@ foreach ($entry in $manifest.Project.ItemGroup.FileInfo) {
         Copy-Item -LiteralPath $file.FullName -Destination $destination
     }
 }
-foreach ($entry in $manifest.Project.Target.CreateItem) {
+foreach ($entry in $manifest.SelectNodes("//*[local-name()='CreateItem' and @Include]")) {
     $source = $entry.Include.Replace('$(XamlGenOutputPath)', "$out/")
     $destination = Join-Path "$repo/dxaml" ($entry.AdditionalMetadata -replace '^Destination=', '')
     New-Item -ItemType Directory -Force $destination | Out-Null
