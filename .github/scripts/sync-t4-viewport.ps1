@@ -86,6 +86,7 @@ namespace ViewportProbe
 {
     [contractversion(12)] apicontract ProbeContract {};
     [contract(ViewportProbe.ProbeContract, 1)]
+    [constructor_name("ViewportProbe.IFrameworkElementFactory")]
     unsealed runtimeclass FrameworkElement
     {
         [method_name("CreateInstance")] protected FrameworkElement();
@@ -144,11 +145,13 @@ if ($LASTEXITCODE) { throw 'Baseline C++/WinRT projection failed' }
 $before = Get-Content "$baselineProbe/include/winrt/impl/ViewportProbe.0.h" -Raw
 $after = Get-Content "$probe/include/winrt/impl/ViewportProbe.0.h" -Raw
 foreach ($interface in @('IFrameworkElement', 'IFrameworkElementProtected', 'IFrameworkElementFactory')) {
-    foreach ($definition in @('guid_storage', 'abi')) {
-        $pattern = '(?s)struct ' + $definition + '<ViewportProbe::' + $interface + '>\s*\{.*?\};'
+    foreach ($definition in @('guid_v', 'abi')) {
+        $prefix = if ($definition -eq 'guid_v') { 'guid guid_v' } else { 'struct abi' }
+        $pattern = '(?s)' + $prefix + '<winrt::ViewportProbe::' + $interface + '>\s*\{.*?\};'
         $old = [regex]::Match($before, $pattern).Value
         $new = [regex]::Match($after, $pattern).Value
-        if (-not $old -or $old -cne $new) { throw "Changed $definition for $interface" }
+        if (-not $old -or -not $new) { throw "Missing $definition for $interface in projected headers" }
+        if ($old -cne $new) { throw "Changed $definition for $interface" }
     }
 }
 'T4 generation, shipped IDL comparison, QI checks, MIDL, C++/WinRT, C++/CX, and baseline IID/vtable comparison passed.' | Tee-Object "$out/result.txt"
