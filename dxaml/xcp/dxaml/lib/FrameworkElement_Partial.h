@@ -91,6 +91,7 @@ namespace DirectUI
             _In_ xaml::ISizeChangedEventArgs* pArgs);
 
         _Check_return_ HRESULT InvalidateViewportImpl();
+        _Check_return_ HRESULT InvalidateViewportPublicImpl();
 
         virtual _Check_return_ HRESULT FindNameInPage(
             _In_ HSTRING strElementName,

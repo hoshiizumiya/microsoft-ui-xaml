@@ -9,6 +9,7 @@ using XamlOM;
 
 namespace Microsoft.UI.Xaml
 {
+    [Platform(2, typeof(Microsoft.UI.Xaml.WinUIContract), Microsoft.UI.Xaml.WinUIContract.Experimental)]
     partial class FrameworkElement
     {
         [NativeMethod("CFrameworkElement", "ActualTheme")]
@@ -31,6 +32,16 @@ namespace Microsoft.UI.Xaml
 
         [CodeGen(CodeGenLevel.IdlAndStub)]
         protected void InvalidateViewport()
+        {
+        }
+
+        // Keep the shipped protected ABI above intact. The public projection keeps
+        // the natural name, while method_name gives the new interface a distinct ABI name.
+        [Version(2)]
+        [CodeGen(CodeGenLevel.IdlAndStub)]
+        [DXamlName("InvalidateViewportPublic")]
+        [DXamlOverloadName("InvalidateViewport")]
+        public void InvalidateViewportPublic()
         {
         }
     }

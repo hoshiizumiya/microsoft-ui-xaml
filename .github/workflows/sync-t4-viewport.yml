@@ -1,0 +1,49 @@
+name: Sync T4 - InvalidateViewport experiment
+
+on:
+  push:
+    branches: [experiment/frameworkelement-invalidateviewport-v2]
+    paths-ignore: ['**/*.md']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-t4-viewport-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  generate-and-validate:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: microsoft/setup-msbuild@v2
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Generate and sync T4 output; check metadata and projection
+        shell: pwsh
+        run: .github/scripts/sync-t4-viewport.ps1
+      - name: Upload generated output and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: viewport-t4-validation
+          path: artifacts/viewport/**
+          if-no-files-found: warn
+      - name: Commit generated output
+        shell: pwsh
+        run: |
+          git add dxaml
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) { exit 0 }
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Sync T4 output for versioned InvalidateViewport experiment'
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          git push origin "HEAD:${{ github.ref_name }}"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }

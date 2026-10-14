@@ -1204,6 +1204,11 @@ Cleanup:
     RRETURN(hr);
 }
 
+_Check_return_ HRESULT FrameworkElement::InvalidateViewportPublicImpl()
+{
+    return InvalidateViewportImpl();
+}
+
 _Check_return_ HRESULT FrameworkElement::InvalidateViewportImpl()
 {
     // If we're in the process of shutting down, this UIElement might have
