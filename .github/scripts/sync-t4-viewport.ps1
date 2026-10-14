@@ -118,4 +118,13 @@ void public_call(winrt::ViewportProbe::FrameworkElement const& element)
 '@ | Set-Content "$probe/consumer.cpp"
 & cl.exe /nologo /c /std:c++17 /EHsc "/I$probe/include" "/Fo$probe/consumer.obj" "$probe/consumer.cpp" 2>&1 | Tee-Object "$probe/consumer.log"
 if ($LASTEXITCODE) { throw 'C++/WinRT public instance call failed to compile' }
-'T4 generation, shipped IDL comparison, QI checks, MIDL, and C++/WinRT public call passed.' | Tee-Object "$out/result.txt"
+@'
+#using <ViewportProbe.winmd>
+void public_call_cx(ViewportProbe::FrameworkElement^ element)
+{
+    element->InvalidateViewport();
+}
+'@ | Set-Content "$probe/consumer-cx.cpp"
+& cl.exe /nologo /c /ZW /EHsc "/AI$probe" "/Fo$probe/consumer-cx.obj" "$probe/consumer-cx.cpp" 2>&1 | Tee-Object "$probe/consumer-cx.log"
+if ($LASTEXITCODE) { throw 'C++/CX public instance call failed to compile' }
+'T4 generation, shipped IDL comparison, QI checks, MIDL, C++/WinRT, and C++/CX public calls passed.' | Tee-Object "$out/result.txt"
