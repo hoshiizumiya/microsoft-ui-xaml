@@ -118,6 +118,18 @@ namespace Win8Xaml.CompilerProxies
             property.SetValue(_instance, Array.CreateInstance(property.PropertyType.GetGenericArguments()[0], 0));
         }
 
+        public IList<string> EnabledXamlOptionalChanges
+        {
+            get { return (IList<string>)_xamlProjectInfoType.GetProperty("EnabledXamlOptionalChanges").GetValue(_instance, null); }
+            set { _xamlProjectInfoType.GetProperty("EnabledXamlOptionalChanges").SetValue(_instance, value); }
+        }
+
+        public IList<string> DisabledXamlOptionalChanges
+        {
+            get { return (IList<string>)_xamlProjectInfoType.GetProperty("DisabledXamlOptionalChanges").GetValue(_instance, null); }
+            set { _xamlProjectInfoType.GetProperty("DisabledXamlOptionalChanges").SetValue(_instance, value); }
+        }
+
         public bool ShouldGenerateTypeInfoCode
         {
             get { return (bool)_shouldGenerateTypeInfoCode.GetValue(_instance, null); }

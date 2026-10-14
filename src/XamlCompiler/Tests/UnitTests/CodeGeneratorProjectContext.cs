@@ -99,6 +99,10 @@ namespace UnitTests
                     _projectInfo.IsLibrary = IsLibrary;
                     _projectInfo.BuildXamlModules = BuildXamlModules;
                     _projectInfo.TargetPlatformMinVersion = _tpmv;
+                    // CompileXamlInternal always supplies these lists, even when no optional
+                    // changes are selected. App templates enumerate them during generation.
+                    _projectInfo.EnabledXamlOptionalChanges = new List<string>();
+                    _projectInfo.DisabledXamlOptionalChanges = new List<string>();
                     
                     var testBinDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
                     _projectInfo.GenXbf32Path = _projectInfo.GenXbf64Path = _projectInfo.GenXbfArm64Path = Path.Combine(testBinDirectory, "genxbf.dll");
