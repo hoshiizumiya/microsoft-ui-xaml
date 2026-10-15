@@ -10,101 +10,105 @@ permissions:
 
 jobs:
   sync:
-    name: Sync PR ${{ matrix.pr }} (${{ matrix.branch }})
+    name: Sync generated XamlOM outputs for PRs 12272-12282
     runs-on: windows-2022
-    timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      max-parallel: 3
-      matrix:
-        include:
-          - pr: 12272
-            branch: patch/column-definition-unsealed
-          - pr: 12273
-            branch: patch/picker-flyout-presenter-unsealed
-          - pr: 12274
-            branch: patch/date-picker-flyout-item-unsealed
-          - pr: 12275
-            branch: patch/control-template-unsealed
-          - pr: 12276
-            branch: patch/column-definition-collection-unsealed
-          - pr: 12277
-            branch: patch/hub-section-collection-unsealed
-          - pr: 12278
-            branch: patch/calendar-panel-unsealed
-          - pr: 12279
-            branch: patch/glyphs-unsealed
-          - pr: 12280
-            branch: patch/looping-selector-unsealed
-          - pr: 12281
-            branch: patch/looping-selector-item-unsealed
-          - pr: 12282
-            branch: patch/looping-selector-panel-unsealed
+    timeout-minutes: 240
 
     steps:
-      - name: Checkout PR branch
+      - name: Checkout automation branch with all refs
         uses: actions/checkout@v5
         with:
-          ref: ${{ matrix.branch }}
           fetch-depth: 0
           show-progress: false
 
-      - name: Verify clean checkout
+      - name: Sequentially regenerate and update all PR branches
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $dirty = @(git status --porcelain=v1 -uall)
-          if ($dirty.Count -ne 0) {
-              throw "Checkout is not clean before codegen: $($dirty -join '; ')"
-          }
 
-      - name: Run repository XamlOM codegen
-        shell: cmd
-        run: |
-          call init.cmd x64
-          if errorlevel 1 exit /b %errorlevel%
-          call dxaml\xcp\runcodegen.cmd
-          if errorlevel 1 exit /b %errorlevel%
+          $targets = @(
+              @{ Pr = 12272; Branch = 'patch/column-definition-unsealed' },
+              @{ Pr = 12273; Branch = 'patch/picker-flyout-presenter-unsealed' },
+              @{ Pr = 12274; Branch = 'patch/date-picker-flyout-item-unsealed' },
+              @{ Pr = 12275; Branch = 'patch/control-template-unsealed' },
+              @{ Pr = 12276; Branch = 'patch/column-definition-collection-unsealed' },
+              @{ Pr = 12277; Branch = 'patch/hub-section-collection-unsealed' },
+              @{ Pr = 12278; Branch = 'patch/calendar-panel-unsealed' },
+              @{ Pr = 12279; Branch = 'patch/glyphs-unsealed' },
+              @{ Pr = 12280; Branch = 'patch/looping-selector-unsealed' },
+              @{ Pr = 12281; Branch = 'patch/looping-selector-item-unsealed' },
+              @{ Pr = 12282; Branch = 'patch/looping-selector-panel-unsealed' }
+          )
 
-      - name: Validate generated-only changes
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $tracked = @(git diff --name-only)
-          $untracked = @(git ls-files --others --exclude-standard)
-          $changed = @($tracked + $untracked | Where-Object { $_ } | Sort-Object -Unique)
-
-          if ($changed.Count -eq 0) {
-              throw "runcodegen.cmd produced no checked-in changes for PR #${{ matrix.pr }}. This batch is expected to have stale generated outputs, so treat this as a generation failure instead of silently succeeding."
-          }
-
-          $unexpected = @($changed | Where-Object {
-              $_ -notmatch '^dxaml/xcp/' -or
-              $_ -match '^dxaml/xcp/tools/XCPTypesAutoGen/(?:XamlOM|Modules|OM)/'
-          })
-
-          if ($unexpected.Count -ne 0) {
-              throw "Codegen changed files outside generated XCP outputs: $($unexpected -join ', ')"
-          }
-
-          "Generated changes for PR #${{ matrix.pr }}:" | Add-Content $env:GITHUB_STEP_SUMMARY
-          foreach ($file in $changed) {
-              "- ``$file``" | Add-Content $env:GITHUB_STEP_SUMMARY
-          }
-
-      - name: Commit generated outputs to PR branch
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
 
-          git add -A -- dxaml/xcp
-          git diff --cached --check
-          if ($LASTEXITCODE -ne 0) { throw 'Generated diff failed git diff --check.' }
+          foreach ($target in $targets) {
+              $pr = $target.Pr
+              $branch = $target.Branch
 
-          git commit -m 'Regenerate XamlOM outputs'
-          if ($LASTEXITCODE -ne 0) { throw 'Failed to create generated-output commit.' }
+              Write-Host "::group::PR #$pr - $branch"
 
-          git push origin "HEAD:${{ matrix.branch }}"
-          if ($LASTEXITCODE -ne 0) { throw 'PR branch moved or rejected the generated-output commit.' }
+              # Discard only tracked/non-ignored leftovers from the previous branch.
+              # Keep ignored restore/build outputs so subsequent codegen runs can reuse them.
+              git reset --hard HEAD
+              if ($LASTEXITCODE -ne 0) { throw "git reset failed before PR #$pr" }
+              git clean -fd
+              if ($LASTEXITCODE -ne 0) { throw "git clean failed before PR #$pr" }
+
+              git fetch origin "+refs/heads/$branch`:refs/remotes/origin/$branch"
+              if ($LASTEXITCODE -ne 0) { throw "Failed to fetch $branch" }
+
+              git switch -C $branch "origin/$branch"
+              if ($LASTEXITCODE -ne 0) { throw "Failed to switch to $branch" }
+
+              $dirtyBefore = @(git status --porcelain=v1 -uall)
+              if ($dirtyBefore.Count -ne 0) {
+                  throw "PR #$pr checkout is not clean before codegen: $($dirtyBefore -join '; ')"
+              }
+
+              # init.cmd requires <arch><flavor>, e.g. x64chk. Run init and runcodegen
+              # in the same cmd.exe process so the environment initialized by init.cmd
+              # remains visible to runcodegen.cmd.
+              cmd /d /s /c 'call init.cmd x64chk /nopgo && call dxaml\xcp\runcodegen.cmd'
+              if ($LASTEXITCODE -ne 0) {
+                  throw "runcodegen failed for PR #$pr ($branch), exit code $LASTEXITCODE"
+              }
+
+              $tracked = @(git diff --name-only)
+              $untracked = @(git ls-files --others --exclude-standard)
+              $changed = @($tracked + $untracked | Where-Object { $_ } | Sort-Object -Unique)
+
+              if ($changed.Count -eq 0) {
+                  throw "runcodegen produced no checked-in changes for PR #$pr ($branch)."
+              }
+
+              # The PR source-model inputs and tests must never be rewritten by this bot.
+              # runcodegen's checked-in outputs live under dxaml/xcp; source inputs under
+              # XCPTypesAutoGen/XamlOM, Modules, and OM are explicitly rejected.
+              $unexpected = @($changed | Where-Object {
+                  $_ -notmatch '^dxaml/xcp/' -or
+                  $_ -match '^dxaml/xcp/tools/XCPTypesAutoGen/(?:XamlOM|Modules|OM)/'
+              })
+              if ($unexpected.Count -ne 0) {
+                  throw "PR #$pr codegen changed unexpected files: $($unexpected -join ', ')"
+              }
+
+              Write-Host "Generated changes for PR #$pr:"
+              foreach ($file in $changed) { Write-Host "  $file" }
+
+              git add -A -- dxaml/xcp
+              if ($LASTEXITCODE -ne 0) { throw "git add failed for PR #$pr" }
+
+              git diff --cached --check
+              if ($LASTEXITCODE -ne 0) { throw "Generated diff failed git diff --check for PR #$pr" }
+
+              git commit -m 'Regenerate XamlOM outputs'
+              if ($LASTEXITCODE -ne 0) { throw "Failed to commit generated outputs for PR #$pr" }
+
+              git push origin "HEAD:$branch"
+              if ($LASTEXITCODE -ne 0) { throw "Failed to push generated outputs to $branch" }
+
+              "- PR #$pr (`$branch`): generated outputs committed and pushed." | Add-Content $env:GITHUB_STEP_SUMMARY
+              Write-Host "::endgroup::"
+          }
