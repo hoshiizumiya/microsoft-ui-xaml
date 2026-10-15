@@ -64,9 +64,7 @@ jobs:
           }
 
           foreach ($line in [IO.File]::ReadLines($envFile)) {
-              if ($line.StartsWith('=')) {
-                  continue
-              }
+              if ($line.StartsWith('=')) { continue }
               if ($line -match '^([^=]+)=(.*)$') {
                   [Environment]::SetEnvironmentVariable($matches[1], $matches[2], 'Process')
               }
@@ -102,6 +100,17 @@ jobs:
                   throw "PR #$pr checkout is not clean before codegen: $($dirtyBefore -join '; ')"
               }
 
+              # A previous attempt may already have completed this branch. runcodegen.cmd
+              # can leave ERRORLEVEL=1 on a no-op run even after printing Build succeeded,
+              # so avoid rerunning an already-created generated-output HEAD entirely.
+              $headSubject = (git log -1 --pretty=%s).Trim()
+              if ($headSubject -eq 'Regenerate XamlOM outputs') {
+                  Write-Host "PR #$pr already ends in the generated-output commit; skipping."
+                  ('- PR #{0} (`{1}`): already synchronized; no commit needed.' -f $pr, $branch) | Add-Content $env:GITHUB_STEP_SUMMARY
+                  Write-Host "::endgroup::"
+                  continue
+              }
+
               # The repository was initialized once above. Per branch, only run the
               # canonical checked-in-file generator requested by the repository itself.
               cmd /d /s /c 'call dxaml\xcp\runcodegen.cmd'
@@ -112,14 +121,8 @@ jobs:
               $tracked = @(git diff --name-only)
               $untracked = @(git ls-files --others --exclude-standard)
               $changed = @($tracked + $untracked | Where-Object { $_ } | Sort-Object -Unique)
-
-              # Idempotent because an earlier repair attempt may already have completed
-              # one of the branches (currently #12272).
               if ($changed.Count -eq 0) {
-                  Write-Host "PR #$pr already has synchronized generated outputs."
-                  ('- PR #{0} (`{1}`): already synchronized; no commit needed.' -f $pr, $branch) | Add-Content $env:GITHUB_STEP_SUMMARY
-                  Write-Host "::endgroup::"
-                  continue
+                  throw "PR #$pr had no generated diff even though its HEAD was not a generated-output commit."
               }
 
               # XamlGen writes core checked-in outputs under dxaml/xcp and Phone
