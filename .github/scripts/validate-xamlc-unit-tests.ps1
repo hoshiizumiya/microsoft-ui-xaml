@@ -1,6 +1,7 @@
 param(
     [string]$VisualStudioVersion = '17.0',
     [string]$WindowsSdkVersion = '10.0.26100.0',
+    [ValidateSet('Debug', 'Release')] [string]$Configuration = 'Debug',
     [string]$TestCaseFilter,
     [switch]$SkipRegressionBuild,
     [switch]$HistoricalBaseline
@@ -12,6 +13,11 @@ $resultsDir = Join-Path $repoRoot 'BuildOutput\TestResults\XamlCompiler'
 $binlogDir = Join-Path $repoRoot 'BuildOutput\binlogs'
 if (-not $env:EnvironmentInitialized -or -not $env:BuildOutputRoot -or -not $env:_BuildArch -or -not $env:_BuildType) {
     throw 'Run init.cmd in the current developer environment before unit validation.'
+}
+# Keep the compiler/test flavor consistent; a Release gate must not consume Check output.
+$expectedBuildType = if ($Configuration -eq 'Release') { 'fre' } else { 'chk' }
+if ($env:_BuildType -ne $expectedBuildType) {
+    throw "Configuration '$Configuration' requires an initialized '$expectedBuildType' environment; current BuildType='$($env:_BuildType)'."
 }
 $flavor = "$($env:_BuildArch)$($env:_BuildType)"
 $testDir = Join-Path $env:BuildOutputRoot "$flavor\src\XamlCompiler\Tests\UnitTests\XamlCompilerUnitTests"
@@ -135,7 +141,7 @@ function Invoke-TestBuild([string]$RelativeProject, [string[]]$ExtraProperties =
     $project = Join-Path $repoRoot $RelativeProject
     $name = [IO.Path]::GetFileNameWithoutExtension($project)
     $arguments = @(
-        $project, '/restore', '/t:Build', '/p:Configuration=Debug', '/p:Platform=x64',
+        $project, '/restore', '/t:Build', "/p:Configuration=$Configuration", '/p:Platform=x64',
         "/p:VisualStudioVersion=$VisualStudioVersion",
         "/p:TargetPlatformVersion=$WindowsSdkVersion",
         "/p:WindowsSdkTargetPlatformVersion=$WindowsSdkVersion",
