@@ -49,8 +49,8 @@ jobs:
 
               Write-Host "::group::PR #$pr - $branch"
 
-              # Discard only tracked/non-ignored leftovers from the previous branch.
-              # Keep ignored restore/build outputs so subsequent codegen runs can reuse them.
+              # Remove tracked/non-ignored leftovers from the previous branch while
+              # preserving ignored restore/build outputs for reuse on this runner.
               git reset --hard HEAD
               if ($LASTEXITCODE -ne 0) { throw "git reset failed before PR #$pr" }
               git clean -fd
@@ -67,9 +67,9 @@ jobs:
                   throw "PR #$pr checkout is not clean before codegen: $($dirtyBefore -join '; ')"
               }
 
-              # init.cmd requires <arch><flavor>, e.g. x64chk. Run init and runcodegen
-              # in the same cmd.exe process so the environment initialized by init.cmd
-              # remains visible to runcodegen.cmd.
+              # init.cmd requires <arch><flavor>, e.g. x64chk. init and runcodegen
+              # must share one cmd.exe process because runcodegen consumes the
+              # environment variables established by init.cmd.
               cmd /d /s /c 'call init.cmd x64chk /nopgo && call dxaml\xcp\runcodegen.cmd'
               if ($LASTEXITCODE -ne 0) {
                   throw "runcodegen failed for PR #$pr ($branch), exit code $LASTEXITCODE"
@@ -83,21 +83,21 @@ jobs:
                   throw "runcodegen produced no checked-in changes for PR #$pr ($branch)."
               }
 
-              # The PR source-model inputs and tests must never be rewritten by this bot.
-              # runcodegen's checked-in outputs live under dxaml/xcp; source inputs under
-              # XCPTypesAutoGen/XamlOM, Modules, and OM are explicitly rejected.
+              # XamlGen writes core checked-in outputs under dxaml/xcp and Phone
+              # checked-in outputs under dxaml/phone. Never allow the bot to modify
+              # the XamlOM source inputs themselves.
               $unexpected = @($changed | Where-Object {
-                  $_ -notmatch '^dxaml/xcp/' -or
-                  $_ -match '^dxaml/xcp/tools/XCPTypesAutoGen/(?:XamlOM|Modules|OM)/'
+                  ($_ -notmatch '^dxaml/(?:xcp|phone)/') -or
+                  ($_ -match '^dxaml/xcp/tools/XCPTypesAutoGen/(?:XamlOM|Modules|OM)/')
               })
               if ($unexpected.Count -ne 0) {
                   throw "PR #$pr codegen changed unexpected files: $($unexpected -join ', ')"
               }
 
-              Write-Host "Generated changes for PR #$pr:"
+              Write-Host "Generated changes for PR #${pr}:"
               foreach ($file in $changed) { Write-Host "  $file" }
 
-              git add -A -- dxaml/xcp
+              git add -A -- dxaml/xcp dxaml/phone
               if ($LASTEXITCODE -ne 0) { throw "git add failed for PR #$pr" }
 
               git diff --cached --check
@@ -109,6 +109,6 @@ jobs:
               git push origin "HEAD:$branch"
               if ($LASTEXITCODE -ne 0) { throw "Failed to push generated outputs to $branch" }
 
-              "- PR #$pr (`$branch`): generated outputs committed and pushed." | Add-Content $env:GITHUB_STEP_SUMMARY
+              ('- PR #{0} (`{1}`): generated outputs committed and pushed.' -f $pr, $branch) | Add-Content $env:GITHUB_STEP_SUMMARY
               Write-Host "::endgroup::"
           }
