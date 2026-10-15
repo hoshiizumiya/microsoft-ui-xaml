@@ -1,0 +1,110 @@
+name: One-shot XamlOM generated-file sync
+
+on:
+  push:
+    branches:
+      - automation/xamlom-sync-12272-12282
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    name: Sync PR ${{ matrix.pr }} (${{ matrix.branch }})
+    runs-on: windows-2022
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        include:
+          - pr: 12272
+            branch: patch/column-definition-unsealed
+          - pr: 12273
+            branch: patch/picker-flyout-presenter-unsealed
+          - pr: 12274
+            branch: patch/date-picker-flyout-item-unsealed
+          - pr: 12275
+            branch: patch/control-template-unsealed
+          - pr: 12276
+            branch: patch/column-definition-collection-unsealed
+          - pr: 12277
+            branch: patch/hub-section-collection-unsealed
+          - pr: 12278
+            branch: patch/calendar-panel-unsealed
+          - pr: 12279
+            branch: patch/glyphs-unsealed
+          - pr: 12280
+            branch: patch/looping-selector-unsealed
+          - pr: 12281
+            branch: patch/looping-selector-item-unsealed
+          - pr: 12282
+            branch: patch/looping-selector-panel-unsealed
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ matrix.branch }}
+          fetch-depth: 0
+          show-progress: false
+
+      - name: Verify clean checkout
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dirty = @(git status --porcelain=v1 -uall)
+          if ($dirty.Count -ne 0) {
+              throw "Checkout is not clean before codegen: $($dirty -join '; ')"
+          }
+
+      - name: Run repository XamlOM codegen
+        shell: cmd
+        run: |
+          call init.cmd x64
+          if errorlevel 1 exit /b %errorlevel%
+          call dxaml\xcp\runcodegen.cmd
+          if errorlevel 1 exit /b %errorlevel%
+
+      - name: Validate generated-only changes
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tracked = @(git diff --name-only)
+          $untracked = @(git ls-files --others --exclude-standard)
+          $changed = @($tracked + $untracked | Where-Object { $_ } | Sort-Object -Unique)
+
+          if ($changed.Count -eq 0) {
+              throw "runcodegen.cmd produced no checked-in changes for PR #${{ matrix.pr }}. This batch is expected to have stale generated outputs, so treat this as a generation failure instead of silently succeeding."
+          }
+
+          $unexpected = @($changed | Where-Object {
+              $_ -notmatch '^dxaml/xcp/' -or
+              $_ -match '^dxaml/xcp/tools/XCPTypesAutoGen/(?:XamlOM|Modules|OM)/'
+          })
+
+          if ($unexpected.Count -ne 0) {
+              throw "Codegen changed files outside generated XCP outputs: $($unexpected -join ', ')"
+          }
+
+          "Generated changes for PR #${{ matrix.pr }}:" | Add-Content $env:GITHUB_STEP_SUMMARY
+          foreach ($file in $changed) {
+              "- ``$file``" | Add-Content $env:GITHUB_STEP_SUMMARY
+          }
+
+      - name: Commit generated outputs to PR branch
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          git add -A -- dxaml/xcp
+          git diff --cached --check
+          if ($LASTEXITCODE -ne 0) { throw 'Generated diff failed git diff --check.' }
+
+          git commit -m 'Regenerate XamlOM outputs'
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to create generated-output commit.' }
+
+          git push origin "HEAD:${{ matrix.branch }}"
+          if ($LASTEXITCODE -ne 0) { throw 'PR branch moved or rejected the generated-output commit.' }
