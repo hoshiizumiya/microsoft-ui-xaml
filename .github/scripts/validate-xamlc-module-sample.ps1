@@ -12,10 +12,18 @@ $package = @(Get-ChildItem (Join-Path $repoRoot 'PackageStore') -Filter 'Microso
 if ($package.Count -ne 1) { throw 'Expected one freshly built WinUI package.' }
 $version = $package[0].BaseName.Substring('Microsoft.WindowsAppSDK.WinUI.'.Length)
 $sampleCommit = 'a68afc06378f2d7e459bf81aa61b5aa7b499d5f5'
-git clone https://github.com/hoshiizumiya/WinUICppwinrtModuleSample.git $SampleRoot
+git clone --no-checkout https://github.com/hoshiizumiya/WinUICppwinrtModuleSample.git $SampleRoot
 if ($LASTEXITCODE -ne 0) { throw 'Sample clone failed.' }
+# A pinned revision can outlive a force-push of every branch that referenced it.
+# Fetch that revision explicitly; cloning the current branches need not include it.
+git -C $SampleRoot fetch --no-tags --depth=1 origin $sampleCommit
+if ($LASTEXITCODE -ne 0) { throw "Fetching pinned sample commit $sampleCommit failed." }
 git -C $SampleRoot checkout --detach $sampleCommit
 if ($LASTEXITCODE -ne 0) { throw 'Sample checkout failed.' }
+$checkedOutCommit = (& git -C $SampleRoot rev-parse HEAD).Trim()
+if ($LASTEXITCODE -ne 0 -or $checkedOutCommit -ne $sampleCommit) {
+    throw "Sample checkout must match pinned commit $sampleCommit; found '$checkedOutCommit'."
+}
 # The external project must resolve its own SDK/package defaults, even when cloned below
 # this repository. Stop MSBuild's upward search before it reaches WinUI's build settings.
 foreach ($buildFile in @('Directory.Build.props', 'Directory.Build.targets')) {
