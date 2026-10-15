@@ -43,37 +43,40 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
 
-          # Initialize the WinUI build environment once. init.cmd modifies only its
-          # cmd.exe process, so capture that process environment after initialization
-          # and import it into this PowerShell process. All later runcodegen.cmd calls
-          # inherit the same initialized environment without repeating repository restore.
-          $initOutput = @(cmd /d /s /c 'call init.cmd x64chk /nopgo && echo __WINUI_ENV_BEGIN__ && set' 2>&1)
-          $initExitCode = $LASTEXITCODE
-          $initOutput | Write-Host
-          if ($initExitCode -ne 0) {
-              throw "init.cmd failed with exit code $initExitCode"
+          # init.cmd configures a cmd.exe-local environment. Run it exactly once and
+          # persist the resulting environment to a runner-local file, then import it
+          # into this PowerShell process so every later runcodegen.cmd call inherits it.
+          $envFile = Join-Path $env:RUNNER_TEMP 'winui-initialized-env.txt'
+          $initScript = Join-Path $env:RUNNER_TEMP 'initialize-winui-once.cmd'
+          @"
+          @echo off
+          call init.cmd x64chk /nopgo
+          if errorlevel 1 exit /b 1
+          set > "$envFile"
+          "@ | Set-Content -Path $initScript -Encoding ascii
+
+          cmd /d /s /c "call `"$initScript`""
+          if ($LASTEXITCODE -ne 0) {
+              throw "init.cmd failed with exit code $LASTEXITCODE"
+          }
+          if (-not (Test-Path $envFile)) {
+              throw 'init.cmd completed but did not produce the captured environment file.'
           }
 
-          $readingEnvironment = $false
-          foreach ($lineObject in $initOutput) {
-              $line = [string]$lineObject
-              if ($line -eq '__WINUI_ENV_BEGIN__') {
-                  $readingEnvironment = $true
-                  continue
-              }
-              if (-not $readingEnvironment -or $line.StartsWith('=')) {
+          foreach ($line in [IO.File]::ReadLines($envFile)) {
+              if ($line.StartsWith('=')) {
                   continue
               }
               if ($line -match '^([^=]+)=(.*)$') {
                   [Environment]::SetEnvironmentVariable($matches[1], $matches[2], 'Process')
               }
           }
-          if (-not $readingEnvironment) {
-              throw 'Could not capture the initialized WinUI environment from init.cmd.'
-          }
+          Remove-Item $envFile, $initScript -Force
+
           if (-not $env:RepoRoot -or -not $env:BuildOutputRoot -or -not $env:_BuildArch -or -not $env:_BuildType) {
               throw 'The captured init.cmd environment is missing required WinUI build variables.'
           }
+          Write-Host "Initialized WinUI once: arch=$env:_BuildArch flavor=$env:_BuildType"
 
           foreach ($target in $targets) {
               $pr = $target.Pr
@@ -99,8 +102,8 @@ jobs:
                   throw "PR #$pr checkout is not clean before codegen: $($dirtyBefore -join '; ')"
               }
 
-              # The build environment was initialized once above. Each branch now only
-              # reruns the repository's canonical checked-in-file generator.
+              # The repository was initialized once above. Per branch, only run the
+              # canonical checked-in-file generator requested by the repository itself.
               cmd /d /s /c 'call dxaml\xcp\runcodegen.cmd'
               if ($LASTEXITCODE -ne 0) {
                   throw "runcodegen failed for PR #$pr ($branch), exit code $LASTEXITCODE"
@@ -110,8 +113,8 @@ jobs:
               $untracked = @(git ls-files --others --exclude-standard)
               $changed = @($tracked + $untracked | Where-Object { $_ } | Sort-Object -Unique)
 
-              # Make the workflow idempotent. A previous attempt may already have
-              # synchronized an earlier PR in this batch.
+              # Idempotent because an earlier repair attempt may already have completed
+              # one of the branches (currently #12272).
               if ($changed.Count -eq 0) {
                   Write-Host "PR #$pr already has synchronized generated outputs."
                   ('- PR #{0} (`{1}`): already synchronized; no commit needed.' -f $pr, $branch) | Add-Content $env:GITHUB_STEP_SUMMARY
@@ -120,8 +123,8 @@ jobs:
               }
 
               # XamlGen writes core checked-in outputs under dxaml/xcp and Phone
-              # checked-in outputs under dxaml/phone. Never allow the bot to modify
-              # the XamlOM source inputs themselves.
+              # outputs under dxaml/phone. Never let this one-shot bot rewrite source
+              # model inputs or unrelated repository files.
               $unexpected = @($changed | Where-Object {
                   ($_ -notmatch '^dxaml/(?:xcp|phone)/') -or
                   ($_ -match '^dxaml/xcp/tools/XCPTypesAutoGen/(?:XamlOM|Modules|OM)/')
@@ -136,9 +139,8 @@ jobs:
               git add -A -- dxaml/xcp dxaml/phone
               if ($LASTEXITCODE -ne 0) { throw "git add failed for PR #$pr" }
 
-              # XamlGen has checked-in generated files with intentional trailing spaces.
-              # Match the repository validation pattern used by the existing fork workflow:
-              # still run diff --check, but do not reject blank-at-EOL/EOF generated formatting.
+              # Some canonical Phone generated files intentionally contain trailing
+              # whitespace. Match the fork's existing validation convention.
               git -c core.whitespace=-blank-at-eol,-blank-at-eof diff --cached --check
               if ($LASTEXITCODE -ne 0) { throw "Generated diff failed git diff --check for PR #$pr" }
 
