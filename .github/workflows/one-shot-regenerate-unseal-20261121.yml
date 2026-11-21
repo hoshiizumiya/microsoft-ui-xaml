@@ -1,0 +1,318 @@
+name: One-shot regenerate all open WinUI derivability PRs
+
+on:
+  push:
+    branches:
+      - automation/one-shot-regenerate-unseal-20261121
+
+permissions:
+  contents: write
+
+jobs:
+  xamlom:
+    name: Regenerate XamlOM for 57 open derivability PRs
+    runs-on: windows-2022
+    timeout-minutes: 240
+
+    steps:
+      - name: Checkout automation branch with all refs
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          show-progress: false
+
+      - name: Initialize once, then regenerate each PR branch sequentially
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $targets = @(
+              @{ Pr = 11948; Branch = 'patch/autosuggestbox-unsealed' },
+              @{ Pr = 11990; Branch = 'patch/toggleswitch-unsealed' },
+              @{ Pr = 11992; Branch = 'patch/text-block-unsealed' },
+              @{ Pr = 11993; Branch = 'patch/password-box-unsealed' },
+              @{ Pr = 11994; Branch = 'patch/rich-text-block-overflow-unsealed' },
+              @{ Pr = 11995; Branch = 'patch/scroll-content-presenter-unsealed' },
+              @{ Pr = 11996; Branch = 'patch/scroll-viewer-unsealed' },
+              @{ Pr = 11997; Branch = 'patch/semantic-zoom-unsealed' },
+              @{ Pr = 11998; Branch = 'patch/items-stack-panel-unsealed' },
+              @{ Pr = 11999; Branch = 'patch/rich-text-block-unsealed' },
+              @{ Pr = 12000; Branch = 'patch/items-presenter-unsealed' },
+              @{ Pr = 12001; Branch = 'patch/viewbox-unsealed' },
+              @{ Pr = 12002; Branch = 'patch/wrap-grid-unsealed' },
+              @{ Pr = 12003; Branch = 'patch/virtualizing-stack-panel-unsealed' },
+              @{ Pr = 12004; Branch = 'patch/image-unsealed' },
+              @{ Pr = 12005; Branch = 'patch/variable-sized-wrap-grid-unsealed' },
+              @{ Pr = 12006; Branch = 'patch/border-unsealed' },
+              @{ Pr = 12007; Branch = 'patch/menu-flyout-sub-item-unsealed' },
+              @{ Pr = 12008; Branch = 'patch/symbol-icon-unsealed' },
+              @{ Pr = 12009; Branch = 'patch/date-picker-flyout-unsealed' },
+              @{ Pr = 12010; Branch = 'patch/time-picker-flyout-unsealed' },
+              @{ Pr = 12011; Branch = 'patch/list-picker-flyout-unsealed' },
+              @{ Pr = 12012; Branch = 'patch/picker-flyout-unsealed' },
+              @{ Pr = 12013; Branch = 'patch/date-picker-flyout-presenter-unsealed' },
+              @{ Pr = 12014; Branch = 'patch/time-picker-flyout-presenter-unsealed' },
+              @{ Pr = 12015; Branch = 'patch/list-picker-flyout-presenter-unsealed' },
+              @{ Pr = 12024; Branch = 'patch/semantic-zoom-location-unsealed' },
+              @{ Pr = 12025; Branch = 'patch/ui-element-collection-unsealed' },
+              @{ Pr = 12028; Branch = 'patch/item-collection-unsealed' },
+              @{ Pr = 12029; Branch = 'patch/item-container-generator-unsealed' },
+              @{ Pr = 12030; Branch = 'patch/items-panel-template-unsealed' },
+              @{ Pr = 12032; Branch = 'patch/line-unsealed' },
+              @{ Pr = 12033; Branch = 'patch/selector-unsealed' },
+              @{ Pr = 12034; Branch = 'patch/scroll-viewer-view-unsealed' },
+              @{ Pr = 12035; Branch = 'patch/scroll-bar-unsealed' },
+              @{ Pr = 12036; Branch = 'patch/row-definition-unsealed' },
+              @{ Pr = 12037; Branch = 'patch/row-definition-collection-unsealed' },
+              @{ Pr = 12038; Branch = 'patch/repeat-button-unsealed' },
+              @{ Pr = 12039; Branch = 'patch/rectangle-unsealed' },
+              @{ Pr = 12040; Branch = 'patch/popup-unsealed' },
+              @{ Pr = 12041; Branch = 'patch/polyline-unsealed' },
+              @{ Pr = 12042; Branch = 'patch/polygon-unsealed' },
+              @{ Pr = 12043; Branch = 'patch/pivot-panel-unsealed' },
+              @{ Pr = 12044; Branch = 'patch/pivot-header-panel-unsealed' },
+              @{ Pr = 12045; Branch = 'patch/tick-bar-unsealed' },
+              @{ Pr = 12046; Branch = 'patch/thumb-unsealed' },
+              @{ Pr = 12272; Branch = 'patch/column-definition-unsealed' },
+              @{ Pr = 12273; Branch = 'patch/picker-flyout-presenter-unsealed' },
+              @{ Pr = 12274; Branch = 'patch/date-picker-flyout-item-unsealed' },
+              @{ Pr = 12275; Branch = 'patch/control-template-unsealed' },
+              @{ Pr = 12276; Branch = 'patch/column-definition-collection-unsealed' },
+              @{ Pr = 12277; Branch = 'patch/hub-section-collection-unsealed' },
+              @{ Pr = 12278; Branch = 'patch/calendar-panel-unsealed' },
+              @{ Pr = 12279; Branch = 'patch/glyphs-unsealed' },
+              @{ Pr = 12280; Branch = 'patch/looping-selector-unsealed' },
+              @{ Pr = 12281; Branch = 'patch/looping-selector-item-unsealed' },
+              @{ Pr = 12282; Branch = 'patch/looping-selector-panel-unsealed' }
+          )
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          # init.cmd configures a cmd.exe-local environment. Run it exactly once and
+          # persist the resulting environment to a runner-local file, then import it
+          # into this PowerShell process so every later runcodegen.cmd call inherits it.
+          $envFile = Join-Path $env:RUNNER_TEMP 'winui-initialized-env.txt'
+          $initScript = Join-Path $env:RUNNER_TEMP 'initialize-winui-once.cmd'
+          @"
+          @echo off
+          call init.cmd x64chk /nopgo
+          if errorlevel 1 exit /b 1
+          set > "$envFile"
+          "@ | Set-Content -Path $initScript -Encoding ascii
+
+          cmd /d /s /c "call `"$initScript`""
+          if ($LASTEXITCODE -ne 0) {
+              throw "init.cmd failed with exit code $LASTEXITCODE"
+          }
+          if (-not (Test-Path $envFile)) {
+              throw 'init.cmd completed but did not produce the captured environment file.'
+          }
+
+          foreach ($line in [IO.File]::ReadLines($envFile)) {
+              if ($line.StartsWith('=')) { continue }
+              if ($line -match '^([^=]+)=(.*)$') {
+                  [Environment]::SetEnvironmentVariable($matches[1], $matches[2], 'Process')
+              }
+          }
+          Remove-Item $envFile, $initScript -Force
+
+          if (-not $env:RepoRoot -or -not $env:BuildOutputRoot -or -not $env:_BuildArch -or -not $env:_BuildType) {
+              throw 'The captured init.cmd environment is missing required WinUI build variables.'
+          }
+          Write-Host "Initialized WinUI once: arch=$env:_BuildArch flavor=$env:_BuildType"
+
+          $failures = [System.Collections.Generic.List[string]]::new()
+
+          foreach ($target in $targets) {
+              $pr = $target.Pr
+              $branch = $target.Branch
+
+              Write-Host "::group::PR #$pr - $branch"
+              try {
+
+              # Remove tracked/non-ignored leftovers from the previous branch while
+              # preserving ignored restore/build outputs for reuse on this runner.
+              git reset --hard HEAD
+              if ($LASTEXITCODE -ne 0) { throw "git reset failed before PR #$pr" }
+              git clean -fd
+              if ($LASTEXITCODE -ne 0) { throw "git clean failed before PR #$pr" }
+
+              git fetch origin "+refs/heads/$branch`:refs/remotes/origin/$branch"
+              if ($LASTEXITCODE -ne 0) { throw "Failed to fetch $branch" }
+
+              git switch -C $branch "origin/$branch"
+              if ($LASTEXITCODE -ne 0) { throw "Failed to switch to $branch" }
+
+              $dirtyBefore = @(git status --porcelain=v1 -uall)
+              if ($dirtyBefore.Count -ne 0) {
+                  throw "PR #$pr checkout is not clean before codegen: $($dirtyBefore -join '; ')"
+              }
+
+              # runcodegen.cmd is the repository's canonical checked-in-file generator,
+              # but its final ERRORLEVEL is not reliable: successful runs can return 1
+              # after updatecheckedinfiles.cmd. Capture its log and trust the explicit
+              # success/failure banner emitted by runcodegen.cmd instead.
+              $codegenLog = Join-Path $env:RUNNER_TEMP "runcodegen-$pr.log"
+              cmd /d /s /c "call dxaml\xcp\runcodegen.cmd > `"$codegenLog`" 2>&1"
+              $codegenExitCode = $LASTEXITCODE
+              $codegenOutput = @(Get-Content -Path $codegenLog)
+              $codegenOutput | Write-Host
+              Remove-Item $codegenLog -Force
+
+              $reportedSuccess = [bool]($codegenOutput | Select-String -SimpleMatch 'Code-gen succeeded')
+              $reportedFailure = [bool]($codegenOutput | Select-String -SimpleMatch 'Code-gen FAILED')
+              $buildFailed = [bool]($codegenOutput | Select-String -SimpleMatch 'Build FAILED.')
+              if ($reportedFailure -or $buildFailed -or -not $reportedSuccess) {
+                  throw "runcodegen failed for PR #$pr ($branch); exit code $codegenExitCode, success banner=$reportedSuccess, failure banner=$reportedFailure"
+              }
+              if ($codegenExitCode -ne 0) {
+                  Write-Host "runcodegen returned $codegenExitCode after reporting success; continuing with generated-diff validation."
+              }
+
+              $tracked = @(git diff --name-only)
+              $untracked = @(git ls-files --others --exclude-standard)
+              $changed = @($tracked + $untracked | Where-Object { $_ } | Sort-Object -Unique)
+              if ($changed.Count -eq 0) {
+                  Write-Host "PR #$pr already synchronized; no commit needed."
+                  ('- PR #{0}: already synchronized; no commit.' -f $pr) | Add-Content $env:GITHUB_STEP_SUMMARY
+                  Write-Host "::endgroup::"
+                  continue
+              }
+
+              # XamlGen writes core checked-in outputs under dxaml/xcp and Phone
+              # outputs under dxaml/phone. Never let this one-shot bot rewrite source
+              # model inputs or unrelated repository files.
+              $unexpected = @($changed | Where-Object {
+                  ($_ -notmatch '^dxaml/(?:xcp|phone)/') -or
+                  ($_ -match '^dxaml/xcp/tools/XCPTypesAutoGen/(?:XamlOM|Modules|OM)/')
+              })
+              if ($unexpected.Count -ne 0) {
+                  throw "PR #$pr codegen changed unexpected files: $($unexpected -join ', ')"
+              }
+
+              Write-Host "Generated changes for PR #${pr}:"
+              foreach ($file in $changed) { Write-Host "  $file" }
+
+              git add -A -- dxaml/xcp dxaml/phone
+              if ($LASTEXITCODE -ne 0) { throw "git add failed for PR #$pr" }
+
+              # Some canonical Phone generated files intentionally contain trailing
+              # whitespace. Match the fork's existing validation convention.
+              git -c core.whitespace=-blank-at-eol,-blank-at-eof diff --cached --check
+              if ($LASTEXITCODE -ne 0) { throw "Generated diff failed git diff --check for PR #$pr" }
+
+              git commit -m 'Regenerate XamlOM outputs'
+              if ($LASTEXITCODE -ne 0) { throw "Failed to commit generated outputs for PR #$pr" }
+
+              git push origin "HEAD:$branch"
+              if ($LASTEXITCODE -ne 0) { throw "Failed to push generated outputs to $branch" }
+
+              ('- PR #{0} (`{1}`): generated outputs committed and pushed.' -f $pr, $branch) | Add-Content $env:GITHUB_STEP_SUMMARY
+              Write-Host "::endgroup::"
+              } catch {
+                  $msg = "PR #$pr ($branch): $($_.Exception.Message)"
+                  $failures.Add($msg)
+                  Write-Host "::error::$msg"
+                  ('- PR #{0}: failed; no force push. {1}' -f $pr, $_.Exception.Message) | Add-Content $env:GITHUB_STEP_SUMMARY
+                  Write-Host "::endgroup::"
+              }
+          }
+          if ($failures.Count -gt 0) {
+              throw "$($failures.Count) of $($targets.Count) branches failed: $($failures -join ' | ')"
+          }
+
+  controls:
+    name: Regenerate Controls metadata for PR #${{ matrix.pr }}
+    runs-on: windows-2022
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - pr: 12023
+            branch: 'patch/xaml-controls-resources-unsealed'
+            factory: 'XamlControlsResources'
+          - pr: 12026
+            branch: 'patch/item-collection-transition-progress-unsealed'
+            factory: ''
+          - pr: 12027
+            branch: 'patch/item-collection-transition-unsealed'
+            factory: ''
+          - pr: 12031
+            branch: 'patch/items-repeater-scroll-host-unsealed'
+            factory: 'ItemsRepeaterScrollHost'
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ matrix.branch }}
+          fetch-depth: 0
+          show-progress: false
+
+      - name: Build WinUI product and MUXControls metadata
+        shell: cmd
+        run: |
+          call init.cmd x64chk /nopgo
+          if errorlevel 1 exit /b 1
+          call Build.cmd product /nomock /restore /q
+          if errorlevel 1 exit /b 1
+
+      - name: Verify metadata generator output and commit to PR branch
+        shell: pwsh
+        env:
+          PR_NUMBER: ${{ matrix.pr }}
+          PR_BRANCH: ${{ matrix.branch }}
+          FACTORY_TYPE: ${{ matrix.factory }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $file = 'controls/dev/dll/XamlMetadataProviderGenerated.h'
+          if (-not (Test-Path $file)) {
+              throw "Expected generated file missing: $file"
+          }
+
+          $generated = Get-Content $file -Raw
+          if ($env:FACTORY_TYPE -ne '') {
+              $factoryName = 'ActivateInstanceWithFactory<winrt::I' + $env:FACTORY_TYPE + 'Factory>'
+              if (-not $generated.Contains($factoryName)) {
+                  throw "Missing generated factory activator $factoryName in PR #$env:PR_NUMBER"
+              }
+          }
+
+          $changed = @(git diff --name-only)
+          $untracked = @(git ls-files --others --exclude-standard)
+          $unexpected = @($changed + $untracked | Where-Object { $_ -and $_ -ne $file })
+          if ($unexpected.Count -gt 0) {
+              throw "Build changed files outside the expected generated header; refusing to commit: $($unexpected -join ', ')"
+          }
+          if ($changed.Count -eq 0) {
+              Write-Host 'Metadata already synchronized; no commit required.'
+              ('- PR #{0}: metadata already synchronized; no new commit.' -f $env:PR_NUMBER) | Add-Content $env:GITHUB_STEP_SUMMARY
+              exit 0
+          }
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- $file
+          if ($LASTEXITCODE -ne 0) { throw 'git add failed' }
+          git diff --cached --check
+          if ($LASTEXITCODE -ne 0) { throw 'Generated diff failed whitespace validation' }
+          git commit -m 'Regenerate Controls XAML metadata provider'
+          if ($LASTEXITCODE -ne 0) { throw 'git commit failed' }
+          git push origin "HEAD:$env:PR_BRANCH"
+          if ($LASTEXITCODE -ne 0) { throw 'git push failed' }
+          ('- PR #{0}: regenerated XAML metadata committed and pushed to {1}.' -f $env:PR_NUMBER, $env:PR_BRANCH) | Add-Content $env:GITHUB_STEP_SUMMARY
+
+  cleanup:
+    name: Remove temporary automation branch when jobs succeed
+    needs: [xamlom, controls]
+    if: ${{ needs.xamlom.result == 'success' && needs.controls.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout automation branch
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Delete one-shot branch
+        run: git push origin --delete automation/one-shot-regenerate-unseal-20261121
